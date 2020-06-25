@@ -8,7 +8,10 @@
 
 int main(void) {
 	const char *text = (
-		"1.2 123 "
+		"function hello(a, b, c) {\n"
+		"	return \"world\";\n"
+		"}\n"
+		"println(hello());\n"
 	);
 	struct token tok;
 	lex_state state = NULL;
@@ -19,8 +22,8 @@ int main(void) {
 		substr[len] = 0;
 		for (int i = tok.start; i < tok.end; i += 1)
 			substr[i - tok.start] = text[i];
-		printf("TOKEN %s: '%s' at %d:%d\n", token_type_name(tok.type),
-				substr, current_line, current_column);
+		printf("%s: '%s' at %ld:%ld\n", token_type_name(tok.type),
+				substr, tok.line, tok.column);
 		free(substr);
 	}
 

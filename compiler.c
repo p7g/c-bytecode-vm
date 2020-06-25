@@ -10,6 +10,7 @@
 #include <string.h>
 
 #define LENGTH(ARR) (sizeof(ARR) / sizeof(ARR[0]))
+#define VALID_ESCAPES "nrt\"'"
 
 /* Parser position state */
 static const char *current_file;
@@ -94,6 +95,9 @@ struct token {
 	/* The range of source text where the token was found.
 	 * start is inclusive, end is exclusive. */
 	size_t start, end;
+	/* The line and column where the token started, mostly for displaying to
+	 * the user */
+	size_t line, column;
 };
 
 /* Opaque lexer state */
@@ -149,6 +153,8 @@ int next_token(lex_state *state, const char *input, struct token *dest)
 
 	while (PEEK()) {
 		start_of_token = *state;
+		dest->line = current_line;
+		dest->column = current_column;
 
 		switch (NEXT()) {
 		/* Skip whitespace, but count newlines */
@@ -224,7 +230,38 @@ int next_token(lex_state *state, const char *input, struct token *dest)
 					TOKEN(KEYWORDS[i].type);
 			}
 			TOKEN(TOK_IDENT);
+
+#define READ_ESCAPE_SEQUENCE(C) ({ \
+		if (c == '\\') { \
+			if (strchr(VALID_ESCAPES, PEEK())) \
+				(void) NEXT(); \
+			else \
+				error("Unrecognized escape sequence"); \
+		} \
+	})
+
+		case '\'':
+			c = NEXT();
+			READ_ESCAPE_SEQUENCE(c);
+			if ((c = NEXT()) != '\'')
+				error("Expected '\\'', got '%c'", c);
+			TOKEN(TOK_CHAR);
+
+		case '"':
+			while ((c = NEXT()) != '"') {
+				READ_ESCAPE_SEQUENCE(c);
+				if (c == '\n') {
+					current_line += 1;
+					current_column = 1;
+				}
+			}
+			TOKEN(TOK_STRING);
+
+		default:
+			error("Invalid token '%c'", c);
 		}
+
+#undef READ_ESCAPE_SEQUENCE
 	}
 
 	/* end of input */
