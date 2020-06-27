@@ -34,7 +34,7 @@ typedef struct cb_value {
 		double as_double;
 		int as_bool;
 		char32_t as_char;
-		cb_string *as_string;
+		cb_str *as_string;
 		cb_array *as_array;
 		cb_function *as_function;
 	} v_val;

@@ -1,4 +1,4 @@
-CFLAGS = -O3 -g -std=gnu99 -Wall -pedantic
+CFLAGS=-O3 -g -std=gnu11 -Wall
 
 cbcvm: *.c *.h
 	$(CC) $(CFLAGS) -o cbcvm *.c
