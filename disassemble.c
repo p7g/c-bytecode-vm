@@ -2,30 +2,30 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "agent.h"
+#include "compiler.h"
 #include "disassemble.h"
 #include "opcode.h"
+#include "string.h"
 
-int cb_disassemble(uint8_t *bytecode, size_t len)
+int cb_disassemble(cb_bytecode *bytecode)
 {
-	size_t i;
+	size_t i, len;
 	uint8_t op;
 
 	i = 0;
+	len = cb_bytecode_len(bytecode);
 
-#define NEXT() (bytecode[i++])
+#define NEXT() (cb_bytecode_get(bytecode, i++))
 #define NEXT_USIZE() ({ \
-		size_t result = NEXT(); \
-		result += ((size_t) NEXT()) << 8; \
-		result += ((size_t) NEXT()) << 16; \
-		result += ((size_t) NEXT()) << 24; \
-		result += ((size_t) NEXT()) << 32; \
-		result += ((size_t) NEXT()) << 40; \
-		result += ((size_t) NEXT()) << 48; \
-		result += ((size_t) NEXT()) << 56; \
+		size_t result = 0; \
+		for (int _i = 0; _i < sizeof(size_t); _i += 1) \
+			result += NEXT() << (_i * 8); \
 		result; \
 	})
 
 	while (i < len) {
+		printf("%4zu: ", i);
 		switch ((op = NEXT())) {
 		/* no args */
 		case OP_HALT:
@@ -58,6 +58,7 @@ int cb_disassemble(uint8_t *bytecode, size_t len)
 		case OP_NEG:
 		case OP_END_MODULE:
 		case OP_DUP:
+		case OP_RETURN:
 			printf("%s\n", cb_opcode_name(op));
 			break;
 
@@ -69,12 +70,8 @@ int cb_disassemble(uint8_t *bytecode, size_t len)
 		case OP_JUMP:
 		case OP_JUMP_IF_TRUE:
 		case OP_JUMP_IF_FALSE:
-		case OP_RETURN:
 		case OP_LOAD_LOCAL:
 		case OP_STORE_LOCAL:
-		case OP_LOAD_GLOBAL:
-		case OP_DECLARE_GLOBAL:
-		case OP_STORE_GLOBAL:
 		case OP_BIND_LOCAL:
 		case OP_BIND_UPVALUE:
 		case OP_LOAD_UPVALUE:
@@ -85,8 +82,23 @@ int cb_disassemble(uint8_t *bytecode, size_t len)
 			printf("%s(%zu)\n", cb_opcode_name(op), NEXT_USIZE());
 			break;
 
-		case OP_CALL:
+		case OP_LOAD_GLOBAL:
+		case OP_DECLARE_GLOBAL:
+		case OP_STORE_GLOBAL:
+			printf("%s(\"%s\")\n", cb_opcode_name(op),
+					cb_strptr(cb_agent_get_string(
+							NEXT_USIZE())));
+			break;
+
 		case OP_NEW_FUNCTION:
+			printf("%s(\"%s\", %zu, %zu)\n", cb_opcode_name(op),
+					cb_strptr(cb_agent_get_string(
+							NEXT_USIZE())),
+					NEXT_USIZE(),
+					NEXT_USIZE());
+			break;
+
+		case OP_CALL:
 		case OP_LOAD_FROM_MODULE:
 		case OP_NEW_ARRAY_WITH_VALUES:
 		default:

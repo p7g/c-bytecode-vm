@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-int cb_disassemble(uint8_t *bytecode, size_t len);
+#include "compiler.h"
+
+int cb_disassemble(cb_bytecode *bytecode);
 
 #endif

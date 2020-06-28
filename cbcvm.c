@@ -12,8 +12,7 @@
 #include "value.h"
 
 int main(int argc, char **argv) {
-	size_t bytecode_len;
-	uint8_t *bytecode;
+	cb_bytecode *bytecode;
 
 	if (argc < 2) {
 		fprintf(stderr, "Expected filename arg\n");
@@ -22,9 +21,9 @@ int main(int argc, char **argv) {
 
 	cb_agent_init();
 
-	int result = cb_compile_file(argv[1], &bytecode, &bytecode_len);
+	int result = cb_compile_file(argv[1], &bytecode);
 	if (!result) {
-		result = cb_disassemble(bytecode, bytecode_len);
+		result = cb_disassemble(bytecode);
 	}
 
 	free(bytecode);

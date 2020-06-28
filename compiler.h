@@ -4,7 +4,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-int cb_compile(const char *input, uint8_t **bc_out, size_t *bc_len_out);
-int cb_compile_file(const char *name, uint8_t **bc_out, size_t *bc_len_out);
+typedef struct bytecode cb_bytecode;
+
+int cb_compile(const char *input, cb_bytecode **bc_out);
+int cb_compile_file(const char *name, cb_bytecode **bc_out);
+
+uint8_t cb_bytecode_get(cb_bytecode *bc, size_t idx);
+size_t cb_bytecode_len(cb_bytecode *bc);
 
 #endif

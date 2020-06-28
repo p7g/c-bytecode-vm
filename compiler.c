@@ -148,7 +148,9 @@ static int next_token(lex_state *state, const char *input, struct token *dest)
 	const char *start_of_token;
 	int is_double, c, len, i;
 
-	assert(state != NULL && input != NULL && dest != NULL);
+	assert(state != NULL);
+	assert(input != NULL);
+	assert(dest != NULL);
 	if (state->ptr == NULL) {
 		state->current_line = state->current_column = 1;
 		state->ptr = input;
@@ -419,9 +421,165 @@ static inline size_t tok_len(struct token *tok)
 	return tok->end - tok->start;
 }
 
+struct pending_address {
+	struct pending_address *next;
+	size_t label, address;
+};
+
+struct bytecode {
+	uint8_t *code;
+	size_t size, len;
+
+	ssize_t *label_addresses;
+	size_t label_addr_size, label_addr_len;
+
+	struct pending_address *pending_addresses;
+};
+
+static struct bytecode *bytecode_new()
+{
+	struct bytecode *bc;
+
+	bc = malloc(sizeof(struct bytecode));
+
+	bc->code = NULL;
+	bc->size = bc->len = 0;
+	bc->label_addresses = NULL;
+	bc->label_addr_size = bc->label_addr_len = 0;
+	bc->pending_addresses = NULL;
+
+	return bc;
+}
+
+inline uint8_t cb_bytecode_get(struct bytecode *bc, size_t idx)
+{
+	return bc->code[idx];
+}
+
+inline size_t cb_bytecode_len(struct bytecode *bc)
+{
+	return bc->len;
+}
+
+static size_t bytecode_label(struct bytecode *bc)
+{
+	if (bc->label_addr_size <= bc->label_addr_len) {
+		bc->label_addr_size = bc->label_addr_size == 0
+			? 4
+			: bc->label_addr_size << 1;
+		bc->label_addresses = realloc(bc->label_addresses,
+				bc->label_addr_size);
+	}
+
+	bc->label_addresses[bc->label_addr_len++] = -1;
+	return bc->label_addr_len - 1;
+}
+
+static void bytecode_mark_label(struct bytecode *bc, size_t label)
+{
+	struct pending_address *current, **prev;
+	size_t i;
+
+	assert(label < bc->label_addr_len);
+	bc->label_addresses[label] = bc->len;
+
+	prev = &bc->pending_addresses;
+	current = bc->pending_addresses;
+	while (current) {
+		if (current->label == label) {
+			for (i = 0; i < sizeof(size_t); i += 1) {
+				bc->code[current->address + i] =
+					(bc->len >> (i * 8)) & 0xFF;
+			}
+			*prev = current->next;
+			free(current);
+		}
+		prev = &current->next;
+		current = current->next;
+	}
+}
+
+static void bytecode_push(struct bytecode *bc, uint8_t byte)
+{
+	assert(bc != NULL);
+
+	if (bc->size <= bc->len) {
+		bc->size = bc->size == 0
+			? INITIAL_BYTECODE_SIZE
+			: bc->size << 1;
+		bc->code = realloc(bc->code, bc->size);
+	}
+
+	bc->code[bc->len++] = byte;
+}
+
+static void bytecode_push_size_t(struct bytecode *bc, size_t value)
+{
+	int i;
+	uint8_t byte;
+
+	for (i = 0; i < sizeof(size_t); i += 1) {
+		byte = value & 0xFF;
+		bytecode_push(bc, byte);
+		value >>= 8;
+	}
+}
+
+static void bytecode_address_of(struct bytecode *bc, size_t label)
+{
+	size_t value;
+	struct pending_address *addr;
+
+	assert(label < bc->label_addr_len);
+
+	if (bc->label_addresses[label] == -1) {
+		value = 0;
+
+		addr = malloc(sizeof(struct pending_address));
+		addr->label = label;
+		addr->address = bc->len;
+		addr->next = bc->pending_addresses;
+		bc->pending_addresses = addr;
+	} else {
+		value = bc->label_addresses[label];
+	}
+
+	bytecode_push_size_t(bc, value);
+}
+
+static int bytecode_finalize(struct bytecode *bc)
+{
+	if (bc->pending_addresses != NULL) {
+		fprintf(stderr, "Missing label\n");
+		return 1;
+	}
+
+	if (bc->label_addresses)
+		free(bc->label_addresses);
+	bc->code = realloc(bc->code, bc->size);
+
+	return 0;
+}
+
+struct free_variable {
+	struct free_variable *next;
+	size_t name;
+};
+
+struct function_state {
+	size_t start_label;
+	size_t end_label;
+	struct free_variable *free_variables;
+};
+
+struct loop_state {
+	size_t start_label;
+	size_t end_label;
+	size_t increment_label;
+};
+
 struct cstate {
-	uint8_t *bytecode;
-	size_t bytecode_size, next_byte;
+	struct bytecode *bytecode;
 
 	const char *input;
 	const char *filename;
@@ -435,7 +593,24 @@ struct cstate {
 
 	struct scope *scope;
 	int is_global;
+
+	struct function_state *function_state;
 };
+
+static struct cstate cstate_default()
+{
+	return (struct cstate) {
+		.bytecode = bytecode_new(),
+		.input = NULL,
+		.filename = "<script>",
+		.did_peek = 0,
+		.lex_state = lex_state_new("<script>"),
+		.in_module = 0,
+		.is_global = 1,
+		.scope = NULL,
+		.function_state = NULL,
+	};
+}
 
 static struct binding *resolve_binding(struct cstate *s, size_t name)
 {
@@ -462,35 +637,6 @@ static inline size_t intern_ident(struct cstate *state, struct token *tok)
 {
 	assert(tok->type == TOK_IDENT);
 	return cb_agent_intern_string(tok_start(state, tok), tok_len(tok));
-}
-
-void append_byte(struct cstate *state, uint8_t byte)
-{
-	if (!state->bytecode) {
-		state->bytecode = malloc(INITIAL_BYTECODE_SIZE);
-		state->bytecode_size = INITIAL_BYTECODE_SIZE;
-		state->next_byte = 0;
-	}
-
-	if (state->bytecode_size <= state->next_byte) {
-		state->bytecode_size <<= 2;
-		state->bytecode = realloc(state->bytecode,
-				state->bytecode_size);
-	}
-
-	state->bytecode[state->next_byte++] = byte;
-}
-
-void append_size_t(struct cstate *state, size_t value)
-{
-	int i;
-	uint8_t byte;
-
-	for (i = 0; i < sizeof(size_t); i += 1) {
-		byte = value & 0xFF;
-		append_byte(state, byte);
-		value >>= 8;
-	}
 }
 
 static struct token *peek(struct cstate *state, int *ok)
@@ -561,25 +707,14 @@ static struct token next(struct cstate *state, int *ok)
 				state->filename, ##__VA_ARGS__); \
 		} \
 	})
+#define APPEND(B) (bytecode_push(state->bytecode, (B)))
+#define APPEND_SIZE_T(S) (bytecode_push_size_t(state->bytecode, (S)))
+#define LABEL() (bytecode_label(state->bytecode))
+#define MARK(L) (bytecode_mark_label(state->bytecode, (L)))
+#define ADDR_OF(L) (bytecode_address_of(state->bytecode, (L)))
 
 /* Propagate errors */
 #define X(V) ({ if (V) return 1; })
-
-static struct cstate cstate_default()
-{
-	return (struct cstate) {
-		.bytecode = NULL,
-		.bytecode_size = 0,
-		.next_byte = 0,
-		.input = NULL,
-		.filename = "<script>",
-		.did_peek = 0,
-		.lex_state = lex_state_new("<script>"),
-		.in_module = 0,
-		.is_global = 1,
-		.scope = NULL,
-	};
-}
 
 static int compile_module_header(struct cstate *state)
 {
@@ -594,8 +729,8 @@ static int compile_module_header(struct cstate *state)
 	state->modspec.name = cb_agent_intern_string(state->input + name.start,
 			tok_len(&name));
 	state->modspec.id = cb_agent_reserve_id();
-	append_byte(state, OP_INIT_MODULE);
-	append_size_t(state, state->modspec.id);
+	APPEND(OP_INIT_MODULE);
+	APPEND_SIZE_T(state->modspec.id);
 
 	return 0;
 }
@@ -615,7 +750,7 @@ static int compile_expression_statement(struct cstate *);
 
 static int compile_expression(struct cstate *);
 
-static int compile(struct cstate *state)
+static int compile(struct cstate *state, int final)
 {
 	struct token *tok;
 
@@ -628,9 +763,12 @@ static int compile(struct cstate *state)
 	EXPECT(TOK_EOF);
 
 	if (state->in_module) {
-		append_byte(state, OP_END_MODULE);
+		APPEND(OP_END_MODULE);
 		state->in_module = 0;
 	}
+
+	if (final)
+		bytecode_finalize(state->bytecode);
 
 	return 0;
 }
@@ -688,22 +826,22 @@ static int compile_let_statement(struct cstate *state, int leave)
 		EXPECT(TOK_EQUAL);
 		X(compile_expression(state));
 	} else {
-		append_byte(state, OP_CONST_NULL);
+		APPEND(OP_CONST_NULL);
 	}
 	EXPECT(TOK_SEMICOLON);
 
 	if (state->is_global) {
-		append_byte(state, OP_DECLARE_GLOBAL);
-		append_size_t(state, name_id);
-		append_byte(state, OP_STORE_GLOBAL);
-		append_size_t(state, name_id);
+		APPEND(OP_DECLARE_GLOBAL);
+		APPEND_SIZE_T(name_id);
+		APPEND(OP_STORE_GLOBAL);
+		APPEND_SIZE_T(name_id);
 		if (!leave)
-			append_byte(state, OP_POP);
+			APPEND(OP_POP);
 	} else {
 		assert(state->scope != NULL);
 		binding_id = scope_add_binding(state->scope, name_id, 0);
-		append_byte(state, OP_STORE_LOCAL);
-		append_size_t(state, binding_id);
+		APPEND(OP_STORE_LOCAL);
+		APPEND_SIZE_T(binding_id);
 	}
 
 	return 0;
@@ -711,16 +849,15 @@ static int compile_let_statement(struct cstate *state, int leave)
 
 static int compile_function(struct cstate *state, size_t *name_out)
 {
-	int has_name, first_param;
+	int first_param, old_is_global;
 	struct token name, param;
 	size_t name_id;
 	size_t num_params;
-	struct scope inner_scope;
-	struct cstate inner_state;
+	struct scope inner_scope, *old_scope;
+	size_t start_label, end_label;
 
 	EXPECT(TOK_FUNCTION);
 	if (MATCH_P(TOK_IDENT)) {
-		has_name = 1;
 		name = EXPECT(TOK_IDENT);
 		*name_out = name_id = intern_ident(state, &name);
 	} else {
@@ -729,6 +866,8 @@ static int compile_function(struct cstate *state, size_t *name_out)
 
 	inner_scope = scope_new();
 	inner_scope.parent = state->scope;
+
+	num_params = 0;
 
 	EXPECT(TOK_LEFT_PAREN);
 	while (!MATCH_P(TOK_RIGHT_PAREN)) {
@@ -747,15 +886,40 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
 
-	inner_state = cstate_default();
-	inner_state.scope = &inner_scope;
+	start_label = LABEL();
+	end_label = LABEL();
+	APPEND(OP_NEW_FUNCTION);
+	APPEND_SIZE_T(name_id);
+	APPEND_SIZE_T(num_params);
+	ADDR_OF(start_label);
+	APPEND(OP_JUMP);
+	ADDR_OF(end_label);
+
+	old_is_global = state->is_global;
+	state->is_global = 0;
+	old_scope = state->scope;
+	state->scope = &inner_scope;
+
+	MARK(start_label);
+	APPEND(OP_ALLOCATE_LOCALS);
+	APPEND_SIZE_T(0);
 
 	while (!MATCH_P(TOK_RIGHT_BRACE))
-		X(compile_statement(&inner_state));
+		X(compile_statement(state));
+
+	/* potentially an extra return, but better safe than sorry */
+	APPEND(OP_CONST_NULL);
+	APPEND(OP_RETURN);
+
+	MARK(end_label);
+
+	/* FIXME: update allocate_locals */
 
 	EXPECT(TOK_RIGHT_BRACE);
 
 	scope_free(inner_scope);
+	state->scope = old_scope;
+	state->is_global = old_is_global;
 
 	return 0;
 }
@@ -766,12 +930,12 @@ static int compile_function_statement(struct cstate *state, int leave)
 
 	X(compile_function(state, &name));
 
-	append_byte(state, OP_DECLARE_GLOBAL);
-	append_size_t(state, name);
-	append_byte(state, OP_STORE_GLOBAL);
-	append_size_t(state, name);
+	APPEND(OP_DECLARE_GLOBAL);
+	APPEND_SIZE_T(name);
+	APPEND(OP_STORE_GLOBAL);
+	APPEND_SIZE_T(name);
 	if (!leave)
-		append_byte(state, OP_POP);
+		APPEND(OP_POP);
 
 	return 0;
 }
@@ -798,7 +962,9 @@ static int compile_int_expression(struct cstate *state)
 	tok = NEXT();
 	assert(tok.type == TOK_INT);
 
-	/* FIXME: find way to parse int from non-null-terminated string */
+	/* FIXME: find way to parse int from non-null-terminated string
+	 * This allocation should not be necessary
+	 */
 	len = tok_len(&tok);
 	buf = malloc(len + 1);
 	memcpy(buf, tok_start(state, &tok), len);
@@ -807,8 +973,8 @@ static int compile_int_expression(struct cstate *state)
 	scanned = sscanf(buf, "%zd%c", &num, &c);
 	free(buf);
 	if (scanned == 1) {
-		append_byte(state, OP_CONST_INT);
-		append_size_t(state, (size_t) num);
+		APPEND(OP_CONST_INT);
+		APPEND_SIZE_T((size_t) num);
 	} else {
 		ERROR_AT(&tok, "Invalid integer literal");
 		return 1;
@@ -832,17 +998,16 @@ static int compile_expression(struct cstate *state)
 	return 0;
 }
 
-int cb_compile(const char *input, uint8_t **bc_out, size_t *bc_len_out)
+int cb_compile(const char *input, struct bytecode **bc_out)
 {
 	int result;
 	struct cstate state = cstate_default();
 	state.input = input;
 
-	result = compile(&state);
+	result = compile(&state, 1);
 
 	/* FIXME: clean up */
 	*bc_out = state.bytecode;
-	*bc_len_out = state.next_byte;
 
 	return result;
 }
@@ -890,39 +1055,43 @@ epilogue:
 	return result;
 }
 
-static int compile_file(struct cstate *state, const char *name)
+static int compile_file(struct cstate *state, const char *name, int final)
 {
 	int result;
-	struct cstate new_state;
 	char *input;
+	const char *old_input;
+	const char *old_filename;
+	lex_state old_lex_state;
 
 	assert(state != NULL);
-	new_state = *state; /* make a copy */
-	new_state.filename = name;
+
+	old_input = state->input;
+	old_filename = state->filename;
+	old_lex_state = state->lex_state;
 
 	if (read_file(name, &input))
 		return 1;
-	new_state.input = input;
-	new_state.lex_state = lex_state_new(name);
+	state->input = input;
+	state->lex_state = lex_state_new(name);
+	state->filename = name;
 
-	result = compile(&new_state);
+	result = compile(state, final);
 
-	state->bytecode = new_state.bytecode;
-	state->bytecode_size = new_state.bytecode_size;
-	state->next_byte = new_state.next_byte;
+	state->input = old_input;
+	state->filename = old_filename;
+	state->lex_state = old_lex_state;
 
 	free(input);
 	return result;
 }
 
-int cb_compile_file(const char *name, uint8_t **bc_out, size_t *bc_len_out)
+int cb_compile_file(const char *name, struct bytecode **bc_out)
 {
 	int result;
 	struct cstate state = cstate_default();
 
-	result = compile_file(&state, name);
+	result = compile_file(&state, name, 1);
 	*bc_out = state.bytecode;
-	*bc_len_out = state.next_byte;
 
 	return result;
 }
