@@ -1,5 +1,6 @@
-while a {
+for let a = 0; a; a {
     let c = 0;
+    continue;
 }
 
 let b = 1;

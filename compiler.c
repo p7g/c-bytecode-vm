@@ -603,8 +603,8 @@ void fstate_add_freevar(struct function_state *fstate, size_t free_var)
 }
 
 struct loop_state {
-	size_t start_label;
-	size_t end_label;
+	size_t continue_label;
+	size_t break_label;
 };
 
 struct cstate {
@@ -849,13 +849,13 @@ static int compile_statement(struct cstate *state)
 	case TOK_WHILE:
 		X(compile_while_statement(state));
 		break;
-	/*case TOK_BREAK:
+	case TOK_BREAK:
 		X(compile_break_statement(state));
 		break;
 	case TOK_CONTINUE:
 		X(compile_continue_statement(state));
 		break;
-	case TOK_RETURN:
+	/*case TOK_RETURN:
 		X(compile_return_statement(state));
 		break;
 	case TOK_EXPORT:
@@ -1106,8 +1106,8 @@ static int compile_for_statement(struct cstate *state)
 	increment_label = LABEL();
 	body_label = LABEL();
 
-	lstate.start_label = increment_label;
-	lstate.end_label = end_label;
+	lstate.continue_label = increment_label;
+	lstate.break_label = end_label;
 
 	EXPECT(TOK_FOR);
 	
@@ -1170,8 +1170,8 @@ static int compile_while_statement(struct cstate *state)
 	start_label = LABEL();
 	end_label = LABEL();
 
-	lstate.end_label = end_label;
-	lstate.start_label = start_label;
+	lstate.break_label = end_label;
+	lstate.continue_label = start_label;
 
 	EXPECT(TOK_WHILE);
 
@@ -1197,8 +1197,40 @@ static int compile_while_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_break_statement(struct cstate *);
-static int compile_continue_statement(struct cstate *);
+static int compile_break_statement(struct cstate *state)
+{
+	struct token tok;
+
+	tok = EXPECT(TOK_BREAK);
+	if (!state->loop_state) {
+		ERROR_AT(&tok, "Break outside of loop");
+		return 1;
+	}
+	EXPECT(TOK_SEMICOLON);
+
+	APPEND(OP_JUMP);
+	ADDR_OF(state->loop_state->break_label);
+
+	return 0;
+}
+
+static int compile_continue_statement(struct cstate *state)
+{
+	struct token tok;
+
+	tok = EXPECT(TOK_CONTINUE);
+	if (!state->loop_state) {
+		ERROR_AT(&tok, "Continue outside of loop");
+		return 1;
+	}
+	EXPECT(TOK_SEMICOLON);
+
+	APPEND(OP_JUMP);
+	ADDR_OF(state->loop_state->continue_label);
+
+	return 0;
+}
+
 static int compile_return_statement(struct cstate *);
 static int compile_export_statement(struct cstate *);
 static int compile_import_statement(struct cstate *);
