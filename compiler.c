@@ -846,10 +846,10 @@ static int compile_statement(struct cstate *state)
 	case TOK_FOR:
 		X(compile_for_statement(state));
 		break;
-	/*case TOK_WHILE:
+	case TOK_WHILE:
 		X(compile_while_statement(state));
 		break;
-	case TOK_BREAK:
+	/*case TOK_BREAK:
 		X(compile_break_statement(state));
 		break;
 	case TOK_CONTINUE:
@@ -1106,10 +1106,8 @@ static int compile_for_statement(struct cstate *state)
 	increment_label = LABEL();
 	body_label = LABEL();
 
-	lstate = (struct loop_state) {
-		.start_label = increment_label,
-		.end_label = end_label,
-	};
+	lstate.start_label = increment_label;
+	lstate.end_label = end_label;
 
 	EXPECT(TOK_FOR);
 	
@@ -1164,7 +1162,41 @@ static int compile_for_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_while_statement(struct cstate *);
+static int compile_while_statement(struct cstate *state)
+{
+	size_t start_label, end_label;
+	struct loop_state lstate, *old_lstate;
+
+	start_label = LABEL();
+	end_label = LABEL();
+
+	lstate.end_label = end_label;
+	lstate.start_label = start_label;
+
+	EXPECT(TOK_WHILE);
+
+	MARK(start_label);
+	X(compile_expression(state));
+	APPEND(OP_JUMP_IF_FALSE);
+	ADDR_OF(end_label);
+
+	old_lstate = state->loop_state;
+	state->loop_state = &lstate;
+
+	EXPECT(TOK_LEFT_BRACE);
+	while (!MATCH_P(TOK_RIGHT_BRACE))
+		X(compile_statement(state));
+	EXPECT(TOK_RIGHT_BRACE);
+
+	APPEND(OP_JUMP);
+	ADDR_OF(start_label);
+	MARK(end_label);
+
+	state->loop_state = old_lstate;
+
+	return 0;
+}
+
 static int compile_break_statement(struct cstate *);
 static int compile_continue_statement(struct cstate *);
 static int compile_return_statement(struct cstate *);
