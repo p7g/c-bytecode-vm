@@ -737,7 +737,7 @@ static struct token next(struct cstate *state, int *ok)
 	})
 #define MATCH_P(TYPE) ({ \
 		struct token *tok = PEEK(); \
-		tok && tok->type == (TYPE); \
+		tok && tok->type != TOK_EOF && tok->type == (TYPE); \
 	})
 #define EXPECT(TYPE) ({ \
 		struct token *_tok = PEEK(); \
@@ -839,10 +839,10 @@ static int compile_statement(struct cstate *state)
 	case TOK_FUNCTION:
 		X(compile_function_statement(state, 0));
 		break;
-	/*case TOK_IF:
+	case TOK_IF:
 		X(compile_if_statement(state));
 		break;
-	case TOK_FOR:
+	/*case TOK_FOR:
 		X(compile_for_statement(state));
 		break;
 	case TOK_WHILE:
@@ -1047,7 +1047,51 @@ static int compile_function_statement(struct cstate *state, int leave)
 	return 0;
 }
 
-static int compile_if_statement(struct cstate *);
+static int compile_if_statement(struct cstate *state)
+{
+	size_t else_label, end_label;
+
+	EXPECT(TOK_IF);
+
+	else_label = LABEL();
+	end_label = LABEL();
+
+	/* predicate */
+	X(compile_expression(state));
+
+	APPEND(OP_JUMP_IF_FALSE);
+	ADDR_OF(else_label);
+
+	EXPECT(TOK_LEFT_BRACE);
+
+	while (!MATCH_P(TOK_RIGHT_BRACE))
+		X(compile_statement(state));
+
+	EXPECT(TOK_RIGHT_BRACE);
+
+	APPEND(OP_JUMP);
+	ADDR_OF(end_label);
+	MARK(else_label);
+
+	if (MATCH_P(TOK_ELSE)) {
+		EXPECT(TOK_ELSE);
+
+		/* allow "else if" vs "else { if ... }" */
+		if (MATCH_P(TOK_IF)) {
+			X(compile_if_statement(state));
+		} else {
+			EXPECT(TOK_LEFT_BRACE);
+			while (!MATCH_P(TOK_RIGHT_BRACE))
+				X(compile_statement(state));
+			EXPECT(TOK_RIGHT_BRACE);
+		}
+	}
+
+	MARK(end_label);
+
+	return 0;
+}
+
 static int compile_for_statement(struct cstate *);
 static int compile_while_statement(struct cstate *);
 static int compile_break_statement(struct cstate *);
@@ -1095,8 +1139,7 @@ static int compile_identifier_expression(struct cstate *state)
 	struct binding binding;
 	size_t name;
 
-	tok = NEXT();
-	assert(tok.type == TOK_IDENT);
+	tok = EXPECT(TOK_IDENT);
 	name = intern_ident(state, &tok);
 
 	if (resolve_binding(state, name, &binding)) {
