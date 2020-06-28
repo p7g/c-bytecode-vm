@@ -25,9 +25,9 @@ cb_str cb_str_from_cstr(const char *str, size_t len)
 	return (cb_str) { len, buf };
 }
 
-int cb_str_eq_cstr(cb_str s, const char *cstr)
+int cb_str_eq_cstr(cb_str s, const char *cstr, size_t len)
 {
-	if (strlen(cstr) != cb_strlen(s))
+	if (len != cb_strlen(s))
 		return 0;
 	return !strncmp(cb_strptr(s), cstr, cb_strlen(s));
 }

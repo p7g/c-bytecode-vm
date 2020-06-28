@@ -65,7 +65,7 @@ size_t cb_agent_intern_string(const char *str, size_t len)
 	}
 
 	for (id = 0; id < agent.next_string_id; id += 1) {
-		if (cb_str_eq_cstr(agent.string_table[id], str))
+		if (cb_str_eq_cstr(agent.string_table[id], str, len))
 			return id;
 	}
 

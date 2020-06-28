@@ -390,10 +390,11 @@ static struct binding *scope_get_binding(struct scope *s, size_t name)
 		if (!(L)) \
 			break; \
 		binding = (L); \
-		do { \
+		while (binding) { \
 			if (binding->name == name) \
 				return binding; \
-		} while ((binding = binding->next)); \
+			binding = binding->next; \
+		} \
 	} while (0)
 
 	SEARCH(s->locals);
@@ -646,6 +647,7 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 	struct binding *binding;
 	struct function_state *fstate;
 	int i, found;
+	size_t idx;
 
 	if (!s->scope)
 		return 0;
@@ -673,6 +675,7 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 			out->name = name;
 			out->index = s->scope->num_upvalues
 				+ s->function_state->free_var_len;
+			fstate_add_freevar(fstate, name);
 		}
 		return 1;
 	}
