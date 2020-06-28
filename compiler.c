@@ -605,7 +605,6 @@ void fstate_add_freevar(struct function_state *fstate, size_t free_var)
 struct loop_state {
 	size_t start_label;
 	size_t end_label;
-	size_t increment_label;
 };
 
 struct cstate {
@@ -625,6 +624,7 @@ struct cstate {
 	int is_global;
 
 	struct function_state *function_state;
+	struct loop_state *loop_state;
 };
 
 static struct cstate cstate_default()
@@ -639,6 +639,7 @@ static struct cstate cstate_default()
 		.is_global = 1,
 		.scope = NULL,
 		.function_state = NULL,
+		.loop_state = NULL,
 	};
 }
 
@@ -842,10 +843,10 @@ static int compile_statement(struct cstate *state)
 	case TOK_IF:
 		X(compile_if_statement(state));
 		break;
-	/*case TOK_FOR:
+	case TOK_FOR:
 		X(compile_for_statement(state));
 		break;
-	case TOK_WHILE:
+	/*case TOK_WHILE:
 		X(compile_while_statement(state));
 		break;
 	case TOK_BREAK:
@@ -1092,7 +1093,77 @@ static int compile_if_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_for_statement(struct cstate *);
+static int compile_for_statement(struct cstate *state)
+{
+	/* need more labels and jumps than rust-bytecode-vm since we do this in
+	 * one pass while reading the input (can't put the increment at the end
+	 * of the body) */
+	size_t start_label, end_label, increment_label, body_label;
+	struct loop_state lstate, *old_lstate;
+
+	start_label = LABEL();
+	end_label = LABEL();
+	increment_label = LABEL();
+	body_label = LABEL();
+
+	lstate = (struct loop_state) {
+		.start_label = increment_label,
+		.end_label = end_label,
+	};
+
+	EXPECT(TOK_FOR);
+	
+	/* if there is an initializer */
+	if (!MATCH_P(TOK_SEMICOLON)) {
+		X(compile_statement(state));
+	} else {
+		/* a semicolon will be matched by compile_statement, so we only
+		 * do this if there isn't an initializer */
+		EXPECT(TOK_SEMICOLON);
+	}
+
+	MARK(start_label);
+
+	/* if there is a predicate */
+	if (!MATCH_P(TOK_SEMICOLON)) {
+		X(compile_expression(state));
+		APPEND(OP_JUMP_IF_FALSE);
+		ADDR_OF(end_label);
+	}
+	EXPECT(TOK_SEMICOLON);
+
+	APPEND(OP_JUMP);
+	ADDR_OF(body_label);
+
+	MARK(increment_label);
+
+	/* if there is an increment */
+	if (!MATCH_P(TOK_LEFT_BRACE)) {
+		X(compile_expression(state));
+		APPEND(OP_POP);
+	}
+	EXPECT(TOK_LEFT_BRACE);
+
+	APPEND(OP_JUMP);
+	ADDR_OF(start_label);
+	MARK(body_label);
+
+	old_lstate = state->loop_state;
+	state->loop_state = &lstate;
+
+	while (!MATCH_P(TOK_RIGHT_BRACE))
+		X(compile_statement(state));
+
+	EXPECT(TOK_RIGHT_BRACE);
+	APPEND(OP_JUMP);
+	ADDR_OF(increment_label);
+	MARK(end_label);
+
+	state->loop_state = old_lstate;
+
+	return 0;
+}
+
 static int compile_while_statement(struct cstate *);
 static int compile_break_statement(struct cstate *);
 static int compile_continue_statement(struct cstate *);
