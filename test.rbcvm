@@ -1,6 +1,3 @@
-for let a = 0; a; a {
-    let c = 0;
-    continue;
+function test() {
+    return;
 }
-
-let b = 1;

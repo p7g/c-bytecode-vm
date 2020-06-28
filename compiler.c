@@ -855,10 +855,10 @@ static int compile_statement(struct cstate *state)
 	case TOK_CONTINUE:
 		X(compile_continue_statement(state));
 		break;
-	/*case TOK_RETURN:
+	case TOK_RETURN:
 		X(compile_return_statement(state));
 		break;
-	case TOK_EXPORT:
+	/*case TOK_EXPORT:
 		X(compile_export_statement(state));
 		break;
 	case TOK_IMPORT:
@@ -1231,7 +1231,27 @@ static int compile_continue_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_return_statement(struct cstate *);
+static int compile_return_statement(struct cstate *state)
+{
+	struct token tok;
+
+	tok = EXPECT(TOK_RETURN);
+	if (!state->function_state) {
+		ERROR_AT(&tok, "Return outside of function");
+		return 1;
+	}
+
+	if (!MATCH_P(TOK_SEMICOLON))
+		X(compile_expression(state));
+	else
+		APPEND(OP_CONST_NULL);
+	EXPECT(TOK_SEMICOLON);
+
+	APPEND(OP_RETURN);
+
+	return 0;
+}
+
 static int compile_export_statement(struct cstate *);
 static int compile_import_statement(struct cstate *);
 static int compile_expression_statement(struct cstate *);
