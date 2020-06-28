@@ -465,10 +465,11 @@ inline size_t cb_bytecode_len(struct bytecode *bc)
 
 inline void cb_bytecode_free(struct bytecode *bc)
 {
-	assert(bc->label_addresses == NULL);
 	assert(bc->pending_addresses == NULL);
 	if (bc->code)
 		free(bc->code);
+	if (bc->label_addresses)
+		free(bc->label_addresses);
 	free(bc);
 }
 
@@ -617,8 +618,7 @@ struct cstate {
 	struct token peeked;
 	lex_state lex_state;
 
-	int in_module;
-	cb_module_spec modspec;
+	cb_modspec *modspec;
 
 	struct scope *scope;
 	int is_global;
@@ -635,12 +635,22 @@ static struct cstate cstate_default()
 		.filename = "<script>",
 		.did_peek = 0,
 		.lex_state = lex_state_new("<script>"),
-		.in_module = 0,
+		.modspec = NULL,
 		.is_global = 1,
 		.scope = NULL,
 		.function_state = NULL,
 		.loop_state = NULL,
 	};
+}
+
+/* NOTE: does not free bytecode or input */
+void cstate_free(struct cstate state)
+{
+	/* Nothing to be freed currently, just make sure it's cleaned up */
+	assert(state.function_state == NULL);
+	assert(state.loop_state == NULL);
+	assert(state.scope == NULL);
+	assert(state.modspec == NULL);
 }
 
 static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
@@ -783,19 +793,20 @@ static int compile_module_header(struct cstate *state)
 
 	EXPECT(TOK_MODULE);
 	name = EXPECT(TOK_IDENT);
-	state->in_module = 1;
-	state->modspec.name = cb_agent_intern_string(state->input + name.start,
-			tok_len(&name));
-	state->modspec.id = cb_agent_reserve_id();
+	EXPECT(TOK_SEMICOLON);
+
+	state->modspec = cb_modspec_new(intern_ident(state, &name));
+
 	APPEND(OP_INIT_MODULE);
-	APPEND_SIZE_T(state->modspec.id);
+	APPEND_SIZE_T(cb_modspec_id(state->modspec));
 
 	return 0;
 }
 
 static int compile_statement(struct cstate *);
-static int compile_let_statement(struct cstate *, int leave);
-static int compile_function_statement(struct cstate *, int leave);
+static int compile_let_statement(struct cstate *, size_t *name_out, int leave);
+static int compile_function_statement(struct cstate *, size_t *name_out,
+		int leave);
 static int compile_if_statement(struct cstate *);
 static int compile_for_statement(struct cstate *);
 static int compile_while_statement(struct cstate *);
@@ -820,9 +831,10 @@ static int compile(struct cstate *state, int final)
 
 	EXPECT(TOK_EOF);
 
-	if (state->in_module) {
+	if (state->modspec) {
 		APPEND(OP_END_MODULE);
-		state->in_module = 0;
+		cb_agent_add_module(state->modspec);
+		state->modspec = NULL;
 	}
 
 	if (final)
@@ -835,10 +847,10 @@ static int compile_statement(struct cstate *state)
 {
 	switch (PEEK()->type) {
 	case TOK_LET:
-		X(compile_let_statement(state, 0));
+		X(compile_let_statement(state, NULL, 0));
 		break;
 	case TOK_FUNCTION:
-		X(compile_function_statement(state, 0));
+		X(compile_function_statement(state, NULL, 0));
 		break;
 	case TOK_IF:
 		X(compile_if_statement(state));
@@ -858,10 +870,10 @@ static int compile_statement(struct cstate *state)
 	case TOK_RETURN:
 		X(compile_return_statement(state));
 		break;
-	/*case TOK_EXPORT:
+	case TOK_EXPORT:
 		X(compile_export_statement(state));
 		break;
-	case TOK_IMPORT:
+	/*case TOK_IMPORT:
 		X(compile_import_statement(state));
 		break;
 	default:
@@ -872,7 +884,8 @@ static int compile_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_let_statement(struct cstate *state, int leave)
+static int compile_let_statement(struct cstate *state, size_t *name_out,
+		int leave)
 {
 	struct token name;
 	size_t name_id, binding_id;
@@ -880,6 +893,8 @@ static int compile_let_statement(struct cstate *state, int leave)
 	EXPECT(TOK_LET);
 	name = EXPECT(TOK_IDENT);
 	name_id = intern_ident(state, &name);
+	if (name_out)
+		*name_out = name_id;
 	if (MATCH_P(TOK_EQUAL)) {
 		EXPECT(TOK_EQUAL);
 		X(compile_expression(state));
@@ -1025,11 +1040,14 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	return 0;
 }
 
-static int compile_function_statement(struct cstate *state, int leave)
+static int compile_function_statement(struct cstate *state, size_t *name_out,
+		int leave)
 {
 	size_t name, binding_id;
 
 	X(compile_function(state, &name));
+	if (name_out)
+		*name_out = name;
 
 	if (state->is_global) {
 		APPEND(OP_DECLARE_GLOBAL);
@@ -1252,7 +1270,37 @@ static int compile_return_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_export_statement(struct cstate *);
+static int compile_export_statement(struct cstate *state)
+{
+	struct token tok;
+	size_t name;
+
+	tok = EXPECT(TOK_EXPORT);
+	if (!state->modspec) {
+		ERROR_AT(&tok, "Cannot export from script (add a module header)");
+		return 1;
+	}
+
+	if (!state->is_global) {
+		ERROR_AT(&tok, "Can only export from global scope");
+		return 1;
+	}
+
+	if (MATCH_P(TOK_LET)) {
+		X(compile_let_statement(state, &name, 1));
+	} else if (MATCH_P(TOK_FUNCTION)) {
+		X(compile_function_statement(state, &name, 1));
+	} else {
+		ERROR_AT(PEEK(), "Can only export function and let declarations");
+		return 1;
+	}
+
+	APPEND(OP_EXPORT);
+	APPEND_SIZE_T(cb_modspec_add_export(state->modspec, name));
+
+	return 0;
+}
+
 static int compile_import_statement(struct cstate *);
 static int compile_expression_statement(struct cstate *);
 
@@ -1340,7 +1388,7 @@ int cb_compile(const char *input, struct bytecode **bc_out)
 
 	result = compile(&state, 1);
 
-	/* FIXME: clean up */
+	cstate_free(state);
 	*bc_out = state.bytecode;
 
 	return result;
@@ -1425,6 +1473,8 @@ int cb_compile_file(const char *name, struct bytecode **bc_out)
 	struct cstate state = cstate_default();
 
 	result = compile_file(&state, name, 1);
+
+	cstate_free(state);
 	*bc_out = state.bytecode;
 
 	return result;

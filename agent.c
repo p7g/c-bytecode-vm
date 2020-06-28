@@ -12,7 +12,7 @@ struct cb_agent {
 	int inited;
 
 	cb_str *string_table;
-	cb_module_spec *modules;
+	cb_modspec **modules;
 	size_t string_table_size,
 	       modules_size;
 
@@ -47,8 +47,11 @@ void cb_agent_deinit(void)
 
 	if (agent.string_table)
 		free(agent.string_table);
-	if (agent.modules)
+	if (agent.modules) {
+		for (i = 0; i < agent.next_module_id; i += 1)
+			cb_modspec_free(agent.modules[i]);
 		free(agent.modules);
+	}
 
 	agent.string_table = NULL;
 	agent.modules = NULL;
@@ -91,7 +94,20 @@ inline cb_str cb_agent_get_string(size_t id)
 	return agent.string_table[id];
 }
 
-inline size_t cb_agent_reserve_id()
+inline size_t cb_agent_reserve_module_id()
 {
 	return agent.next_module_id++;
+}
+
+void cb_agent_add_module(cb_modspec *spec)
+{
+	if (agent.next_module_id >= agent.modules_size) {
+		agent.modules_size = agent.modules_size == 0
+			? 4
+			: agent.modules_size << 1;
+		agent.modules = realloc(agent.modules,
+				agent.modules_size * sizeof(cb_modspec *));
+	}
+
+	agent.modules[agent.next_module_id++] = spec;
 }

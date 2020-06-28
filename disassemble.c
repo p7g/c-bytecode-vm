@@ -39,7 +39,6 @@ int cb_disassemble(cb_bytecode *bytecode)
 		case OP_MOD:
 		case OP_EXP:
 		case OP_POP:
-		case OP_EXPORT:
 		case OP_ARRAY_GET:
 		case OP_ARRAY_SET:
 		case OP_EQUAL:
@@ -79,6 +78,7 @@ int cb_disassemble(cb_bytecode *bytecode)
 		case OP_NEW_ARRAY:
 		case OP_INIT_MODULE:
 		case OP_ALLOCATE_LOCALS:
+		case OP_EXPORT:
 			printf("%s(%zu)\n", cb_opcode_name(op), NEXT_USIZE());
 			break;
 
