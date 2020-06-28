@@ -1,7 +1,6 @@
 #ifndef cb_value_h
 #define cb_value_h
 
-#include <uchar.h>
 #include <stdint.h>
 
 #include "function.h"
@@ -33,7 +32,7 @@ typedef struct cb_value {
 		intptr_t as_int;
 		double as_double;
 		int as_bool;
-		char32_t as_char;
+		uint32_t as_char;
 		cb_str *as_string;
 		cb_array *as_array;
 		cb_function *as_function;
