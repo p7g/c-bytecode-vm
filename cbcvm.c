@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
 		result = cb_disassemble(bytecode);
 	}
 
-	free(bytecode);
+	cb_bytecode_free(bytecode);
 
 	cb_agent_deinit();
 	return result;

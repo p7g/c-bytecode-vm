@@ -11,5 +11,6 @@ int cb_compile_file(const char *name, cb_bytecode **bc_out);
 
 uint8_t cb_bytecode_get(cb_bytecode *bc, size_t idx);
 size_t cb_bytecode_len(cb_bytecode *bc);
+void cb_bytecode_free(cb_bytecode *bc);
 
 #endif

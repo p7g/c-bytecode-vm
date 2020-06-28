@@ -27,7 +27,7 @@ cb_str cb_str_from_cstr(const char *str, size_t len)
 
 int cb_str_eq_cstr(cb_str s, const char *cstr)
 {
-	if (strlen(cstr) < cb_strlen(s))
+	if (strlen(cstr) != cb_strlen(s))
 		return 0;
 	return !strncmp(cb_strptr(s), cstr, cb_strlen(s));
 }

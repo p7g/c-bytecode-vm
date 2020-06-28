@@ -316,6 +316,7 @@ struct binding {
 	struct binding *next;
 	size_t name;
 	size_t index;
+	int is_upvalue;
 };
 
 struct scope {
@@ -339,16 +340,16 @@ static struct scope scope_new()
 
 static void scope_free(struct scope s)
 {
-	struct binding *current, *next;
+	struct binding *current, *tmp;
 
 #define FREE_LIST(L) \
 	do { \
 		if (L) { \
 			current = (L); \
 			while (current) { \
-				next = current->next; \
-				free(current); \
-				current = next; \
+				tmp = current; \
+				current = current->next; \
+				free(tmp); \
 			} \
 		} \
 	} while (0)
@@ -362,21 +363,21 @@ static void scope_free(struct scope s)
 static size_t scope_add_binding(struct scope *s, size_t name, int upvalue)
 {
 	size_t id;
-	struct binding **list;
-	struct binding *new_binding = malloc(sizeof(struct binding));
+	struct binding *new_binding;
+
+	new_binding = malloc(sizeof(struct binding));
+	new_binding->name = name;
+	new_binding->is_upvalue = upvalue;
 
 	if (upvalue) {
-		id = s->num_upvalues++;
-		list = &s->upvalues;
+		id = new_binding->index = s->num_upvalues++;
+		new_binding->next = s->upvalues;
+		s->upvalues = new_binding;
 	} else {
-		id = s->num_locals++;
-		list = &s->locals;
+		id = new_binding->index = s->num_locals++;
+		new_binding->next = s->locals;
+		s->locals = new_binding;
 	}
-
-	new_binding->name = name;
-	new_binding->index = id;
-	new_binding->next = *list;
-	*list = new_binding;
 
 	return id;
 }
@@ -461,6 +462,15 @@ inline size_t cb_bytecode_len(struct bytecode *bc)
 	return bc->len;
 }
 
+inline void cb_bytecode_free(struct bytecode *bc)
+{
+	assert(bc->label_addresses == NULL);
+	assert(bc->pending_addresses == NULL);
+	if (bc->code)
+		free(bc->code);
+	free(bc);
+}
+
 static size_t bytecode_label(struct bytecode *bc)
 {
 	if (bc->label_addr_size <= bc->label_addr_len) {
@@ -468,16 +478,25 @@ static size_t bytecode_label(struct bytecode *bc)
 			? 4
 			: bc->label_addr_size << 1;
 		bc->label_addresses = realloc(bc->label_addresses,
-				bc->label_addr_size);
+				bc->label_addr_size * sizeof(size_t));
 	}
 
 	bc->label_addresses[bc->label_addr_len++] = -1;
 	return bc->label_addr_len - 1;
 }
 
+static void bytecode_update_size_t(struct bytecode *bc, size_t idx,
+		size_t value)
+{
+	size_t i;
+
+	for (i = 0; i < sizeof(size_t); i += 1)
+		bc->code[idx + i] = (value >> (i * 8)) & 0xFF;
+}
+
 static void bytecode_mark_label(struct bytecode *bc, size_t label)
 {
-	struct pending_address *current, **prev;
+	struct pending_address *current, *tmp, **prev;
 	size_t i;
 
 	assert(label < bc->label_addr_len);
@@ -486,16 +505,16 @@ static void bytecode_mark_label(struct bytecode *bc, size_t label)
 	prev = &bc->pending_addresses;
 	current = bc->pending_addresses;
 	while (current) {
-		if (current->label == label) {
-			for (i = 0; i < sizeof(size_t); i += 1) {
-				bc->code[current->address + i] =
-					(bc->len >> (i * 8)) & 0xFF;
-			}
-			*prev = current->next;
-			free(current);
-		}
-		prev = &current->next;
+		tmp = current;
 		current = current->next;
+		if (tmp->label == label) {
+			bytecode_update_size_t(bc, tmp->address, bc->len);
+
+			*prev = current;
+			free(tmp);
+		} else {
+			prev = &tmp->next;
+		}
 	}
 }
 
@@ -554,23 +573,33 @@ static int bytecode_finalize(struct bytecode *bc)
 		return 1;
 	}
 
-	if (bc->label_addresses)
+	if (bc->label_addresses) {
 		free(bc->label_addresses);
+		bc->label_addresses = NULL;
+	}
 	bc->code = realloc(bc->code, bc->size);
 
 	return 0;
 }
 
-struct free_variable {
-	struct free_variable *next;
-	size_t name;
-};
-
 struct function_state {
 	size_t start_label;
 	size_t end_label;
-	struct free_variable *free_variables;
+	size_t *free_variables;
+	size_t free_var_len, free_var_size;
 };
+
+void fstate_add_freevar(struct function_state *fstate, size_t free_var)
+{
+	if (fstate->free_var_len >= fstate->free_var_size) {
+		fstate->free_var_size = fstate->free_var_size == 0
+			? 4
+			: fstate->free_var_size << 1;
+		fstate->free_variables = realloc(fstate->free_variables,
+				fstate->free_var_size * sizeof(size_t));
+	}
+	fstate->free_variables[fstate->free_var_len++] = free_var;
+}
 
 struct loop_state {
 	size_t start_label;
@@ -612,20 +641,43 @@ static struct cstate cstate_default()
 	};
 }
 
-static struct binding *resolve_binding(struct cstate *s, size_t name)
+static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 {
 	struct binding *binding;
+	struct function_state *fstate;
+	int i, found;
 
 	if (!s->scope)
-		return NULL;
+		return 0;
 	binding = scope_get_binding(s->scope, name);
-	if (binding)
-		return binding;
+	if (binding) {
+		*out = *binding;
+		return 1;
+	}
 	if (scope_parent_has_binding(s->scope, name)) {
-		/* TODO */
+		fstate = s->function_state;
+		assert(fstate != NULL);
+		found = 0;
+		for (i = 0; i < fstate->free_var_len; i += 1) {
+			if (fstate->free_variables[i] == name) {
+				found = 1;
+				break;
+			}
+		}
+		if (found) {
+			out->is_upvalue = 1;
+			out->name = name;
+			out->index = i;
+		} else {
+			out->is_upvalue = 1;
+			out->name = name;
+			out->index = s->scope->num_upvalues
+				+ s->function_state->free_var_len;
+		}
+		return 1;
 	}
 
-	return NULL;
+	return 0;
 }
 
 static inline const char *tok_start(struct cstate *state, struct token *tok)
@@ -712,6 +764,8 @@ static struct token next(struct cstate *state, int *ok)
 #define LABEL() (bytecode_label(state->bytecode))
 #define MARK(L) (bytecode_mark_label(state->bytecode, (L)))
 #define ADDR_OF(L) (bytecode_address_of(state->bytecode, (L)))
+#define UPDATE(IDX, VAL) (bytecode_update_size_t(state->bytecode, (IDX), \
+			(VAL)))
 
 /* Propagate errors */
 #define X(V) ({ if (V) return 1; })
@@ -852,8 +906,12 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	int first_param, old_is_global;
 	struct token name, param;
 	size_t name_id;
-	size_t num_params;
+	size_t num_params, local_count_pos;
 	struct scope inner_scope, *old_scope;
+	struct function_state fstate, *old_fstate;
+	size_t free_var;
+	struct binding *binding;
+	int i, j;
 	size_t start_label, end_label;
 
 	EXPECT(TOK_FUNCTION);
@@ -868,6 +926,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	inner_scope.parent = state->scope;
 
 	num_params = 0;
+	first_param = 1;
 
 	EXPECT(TOK_LEFT_PAREN);
 	while (!MATCH_P(TOK_RIGHT_PAREN)) {
@@ -902,7 +961,18 @@ static int compile_function(struct cstate *state, size_t *name_out)
 
 	MARK(start_label);
 	APPEND(OP_ALLOCATE_LOCALS);
+	local_count_pos = cb_bytecode_len(state->bytecode);
 	APPEND_SIZE_T(0);
+
+	fstate = (struct function_state) {
+		.start_label = start_label,
+		.end_label = end_label,
+		.free_variables = NULL,
+		.free_var_len = 0,
+		.free_var_size = 0,
+	};
+	old_fstate = state->function_state;
+	state->function_state = &fstate;
 
 	while (!MATCH_P(TOK_RIGHT_BRACE))
 		X(compile_statement(state));
@@ -913,29 +983,63 @@ static int compile_function(struct cstate *state, size_t *name_out)
 
 	MARK(end_label);
 
-	/* FIXME: update allocate_locals */
+	/* Make room on the stack for the local variables. Arguments will
+	 * already be on the stack, so we don't need to allocate more room for
+	 * them. */
+	UPDATE(local_count_pos, inner_scope.num_locals - num_params);
 
 	EXPECT(TOK_RIGHT_BRACE);
+
+	if (fstate.free_var_len > 0)
+		assert(old_scope != NULL);
+	j = 0;
+	for (i = 0; i < fstate.free_var_len; i += 1) {
+		free_var = fstate.free_variables[i];
+		binding = scope_get_binding(old_scope, free_var);
+		if (binding != NULL) {
+			if (binding->is_upvalue)
+				APPEND(OP_BIND_UPVALUE);
+			else
+				APPEND(OP_BIND_LOCAL);
+			APPEND_SIZE_T(binding->index);
+		} else {
+			if (scope_parent_has_binding(old_scope,
+						binding->name)) {
+				assert(old_fstate != NULL);
+				fstate_add_freevar(old_fstate, free_var);
+				APPEND(OP_BIND_UPVALUE);
+				APPEND_SIZE_T(old_scope->num_upvalues + j++);
+			}
+		}
+	}
 
 	scope_free(inner_scope);
 	state->scope = old_scope;
 	state->is_global = old_is_global;
+	state->function_state = old_fstate;
 
 	return 0;
 }
 
 static int compile_function_statement(struct cstate *state, int leave)
 {
-	size_t name;
+	size_t name, binding_id;
 
 	X(compile_function(state, &name));
 
-	APPEND(OP_DECLARE_GLOBAL);
-	APPEND_SIZE_T(name);
-	APPEND(OP_STORE_GLOBAL);
-	APPEND_SIZE_T(name);
-	if (!leave)
-		APPEND(OP_POP);
+	if (state->is_global) {
+		APPEND(OP_DECLARE_GLOBAL);
+		APPEND_SIZE_T(name);
+		APPEND(OP_STORE_GLOBAL);
+		APPEND_SIZE_T(name);
+		if (!leave)
+			APPEND(OP_POP);
+	} else {
+		assert(state->scope != NULL);
+		binding_id = scope_add_binding(state->scope, name, 0);
+		APPEND(OP_STORE_LOCAL);
+		APPEND_SIZE_T(binding_id);
+	}
 
 	return 0;
 }
@@ -963,8 +1067,7 @@ static int compile_int_expression(struct cstate *state)
 	assert(tok.type == TOK_INT);
 
 	/* FIXME: find way to parse int from non-null-terminated string
-	 * This allocation should not be necessary
-	 */
+	 * This allocation should not be necessary */
 	len = tok_len(&tok);
 	buf = malloc(len + 1);
 	memcpy(buf, tok_start(state, &tok), len);
@@ -983,11 +1086,41 @@ static int compile_int_expression(struct cstate *state)
 	return 0;
 }
 
+static int compile_identifier_expression(struct cstate *state)
+{
+	struct token tok;
+	struct binding binding;
+	size_t name;
+
+	tok = NEXT();
+	assert(tok.type == TOK_IDENT);
+	name = intern_ident(state, &tok);
+
+	if (resolve_binding(state, name, &binding)) {
+		if (binding.is_upvalue) {
+			assert(state->function_state != NULL);
+			APPEND(OP_LOAD_UPVALUE);
+		} else {
+			APPEND(OP_LOAD_LOCAL);
+		}
+		APPEND_SIZE_T(binding.index);
+	} else {
+		APPEND(OP_LOAD_GLOBAL);
+		APPEND_SIZE_T(name);
+	}
+
+	return 0;
+}
+
 static int compile_expression(struct cstate *state)
 {
 	switch (PEEK()->type) {
 	case TOK_INT:
 		X(compile_int_expression(state));
+		break;
+
+	case TOK_IDENT:
+		X(compile_identifier_expression(state));
 		break;
 
 	default:

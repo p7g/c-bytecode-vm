@@ -75,7 +75,7 @@ size_t cb_agent_intern_string(const char *str, size_t len)
 		/* need to resize */
 		agent.string_table_size <<= 1;
 		agent.string_table = realloc(agent.string_table,
-				agent.string_table_size);
+				agent.string_table_size * sizeof(cb_str));
 	}
 
 	agent.string_table[id] = cb_str_from_cstr(str, len);

@@ -90,13 +90,16 @@ int cb_disassemble(cb_bytecode *bytecode)
 							NEXT_USIZE())));
 			break;
 
-		case OP_NEW_FUNCTION:
+		case OP_NEW_FUNCTION: {
+			size_t arg1, arg2, arg3;
+			arg1 = NEXT_USIZE();
+			arg2 = NEXT_USIZE();
+			arg3 = NEXT_USIZE();
 			printf("%s(\"%s\", %zu, %zu)\n", cb_opcode_name(op),
-					cb_strptr(cb_agent_get_string(
-							NEXT_USIZE())),
-					NEXT_USIZE(),
-					NEXT_USIZE());
+					cb_strptr(cb_agent_get_string(arg1)),
+					arg2, arg3);
 			break;
+		}
 
 		case OP_CALL:
 		case OP_LOAD_FROM_MODULE:

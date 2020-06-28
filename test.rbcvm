@@ -1,3 +1,6 @@
-function test() {
+function test(a, b) {
     let a = 1;
+    function test2() {
+        let b = a;
+    }
 }
