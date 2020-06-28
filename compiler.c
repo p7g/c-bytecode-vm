@@ -627,10 +627,10 @@ struct cstate {
 	struct loop_state *loop_state;
 };
 
-static struct cstate cstate_default()
+static struct cstate cstate_default(int with_bytecode)
 {
 	return (struct cstate) {
-		.bytecode = bytecode_new(),
+		.bytecode = with_bytecode ? bytecode_new() : NULL,
 		.input = NULL,
 		.filename = "<script>",
 		.did_peek = 0,
@@ -646,11 +646,11 @@ static struct cstate cstate_default()
 /* NOTE: does not free bytecode or input */
 void cstate_free(struct cstate state)
 {
-	/* Nothing to be freed currently, just make sure it's cleaned up */
 	assert(state.function_state == NULL);
 	assert(state.loop_state == NULL);
 	assert(state.scope == NULL);
-	assert(state.modspec == NULL);
+	if (state.modspec)
+		cb_modspec_free(state.modspec);
 }
 
 static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
@@ -873,10 +873,10 @@ static int compile_statement(struct cstate *state)
 	case TOK_EXPORT:
 		X(compile_export_statement(state));
 		break;
-	/*case TOK_IMPORT:
+	case TOK_IMPORT:
 		X(compile_import_statement(state));
 		break;
-	default:
+	/*default:
 		X(compile_expression_statement(state));
 		break;
 	*/}
@@ -1301,7 +1301,41 @@ static int compile_export_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_import_statement(struct cstate *);
+static int compile_file(struct cstate *state, const char *name, int final);
+
+static int compile_import_statement(struct cstate *state)
+{
+	struct token tok, string;
+	size_t filename_len;
+	char *filename;
+
+	tok = EXPECT(TOK_IMPORT);
+	if (!state->is_global) {
+		ERROR_AT(&tok, "Import must be at top level");
+		return 1;
+	}
+
+	string = EXPECT(TOK_STRING);
+	EXPECT(TOK_SEMICOLON);
+
+	filename_len = tok_len(&string) - 2;
+	filename = malloc(filename_len + 1);
+	filename[filename_len] = 0;
+	memcpy(filename, tok_start(state, &string) + 1, tok_len(&string) - 2);
+
+	if (state->modspec)
+		APPEND(OP_EXIT_MODULE);
+	X(compile_file(state, filename, 0));
+	if (state->modspec) {
+		APPEND(OP_ENTER_MODULE);
+		APPEND_SIZE_T(cb_modspec_id(state->modspec));
+	}
+
+	free(filename);
+
+	return 0;
+}
+
 static int compile_expression_statement(struct cstate *);
 
 static int compile_int_expression(struct cstate *state)
@@ -1383,7 +1417,7 @@ static int compile_expression(struct cstate *state)
 int cb_compile(const char *input, struct bytecode **bc_out)
 {
 	int result;
-	struct cstate state = cstate_default();
+	struct cstate state = cstate_default(1);
 	state.input = input;
 
 	result = compile(&state, 1);
@@ -1415,7 +1449,7 @@ static int read_file(const char *name, char **out)
 
 	f = fopen(name, "rb");
 	/* FIXME: Return error code so caller can report */
-	HANDLE_ERROR(!f, fprintf(stderr, "File not found: '%s'", name));
+	HANDLE_ERROR(!f, fprintf(stderr, "File not found: '%s'\n", name));
 	HANDLE_ERROR(fseek(f, 0, SEEK_END), perror("fseek"));
 	filesize = ftell(f);
 	HANDLE_ERROR(fseek(f, 0, SEEK_SET), perror("fseek"));
@@ -1441,36 +1475,30 @@ static int compile_file(struct cstate *state, const char *name, int final)
 {
 	int result;
 	char *input;
-	const char *old_input;
-	const char *old_filename;
-	lex_state old_lex_state;
+	struct cstate new_state;
 
 	assert(state != NULL);
 
-	old_input = state->input;
-	old_filename = state->filename;
-	old_lex_state = state->lex_state;
-
 	if (read_file(name, &input))
 		return 1;
-	state->input = input;
-	state->lex_state = lex_state_new(name);
-	state->filename = name;
 
-	result = compile(state, final);
+	new_state = cstate_default(0);
+	new_state.bytecode = state->bytecode;
+	new_state.input = input;
+	new_state.lex_state = lex_state_new(name);
+	new_state.filename = name;
 
-	state->input = old_input;
-	state->filename = old_filename;
-	state->lex_state = old_lex_state;
+	result = compile(&new_state, final);
 
 	free(input);
+	cstate_free(new_state);
 	return result;
 }
 
 int cb_compile_file(const char *name, struct bytecode **bc_out)
 {
 	int result;
-	struct cstate state = cstate_default();
+	struct cstate state = cstate_default(1);
 
 	result = compile_file(&state, name, 1);
 

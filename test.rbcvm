@@ -1,5 +1,7 @@
 module Test;
 
+import "other.rbcvm";
+
 export function test() {
     return;
 }

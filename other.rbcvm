@@ -1,0 +1,3 @@
+module Other;
+
+export let a = 1;

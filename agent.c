@@ -94,12 +94,7 @@ inline cb_str cb_agent_get_string(size_t id)
 	return agent.string_table[id];
 }
 
-inline size_t cb_agent_reserve_module_id()
-{
-	return agent.next_module_id++;
-}
-
-void cb_agent_add_module(cb_modspec *spec)
+static void maybe_grow_modules()
 {
 	if (agent.next_module_id >= agent.modules_size) {
 		agent.modules_size = agent.modules_size == 0
@@ -108,6 +103,19 @@ void cb_agent_add_module(cb_modspec *spec)
 		agent.modules = realloc(agent.modules,
 				agent.modules_size * sizeof(cb_modspec *));
 	}
+}
 
-	agent.modules[agent.next_module_id++] = spec;
+inline void cb_agent_add_module(cb_modspec *spec)
+{
+	agent.modules[cb_modspec_id(spec)] = spec;
+}
+
+inline size_t cb_agent_reserve_module_id()
+{
+	size_t id;
+
+	maybe_grow_modules();
+	id = agent.next_module_id++;
+	agent.modules[id] = NULL;
+	return id;
 }

@@ -58,6 +58,7 @@ int cb_disassemble(cb_bytecode *bytecode)
 		case OP_END_MODULE:
 		case OP_DUP:
 		case OP_RETURN:
+		case OP_EXIT_MODULE:
 			printf("%s\n", cb_opcode_name(op));
 			break;
 
@@ -79,6 +80,7 @@ int cb_disassemble(cb_bytecode *bytecode)
 		case OP_INIT_MODULE:
 		case OP_ALLOCATE_LOCALS:
 		case OP_EXPORT:
+		case OP_ENTER_MODULE:
 			printf("%s(%zu)\n", cb_opcode_name(op), NEXT_USIZE());
 			break;
 
