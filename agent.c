@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "agent.h"
+#include "module.h"
 #include "string.h"
 
 #define INITIAL_STRING_TABLE_SIZE 4
@@ -130,6 +131,8 @@ cb_modspec *cb_agent_get_module_by_name(size_t name)
 	int i;
 
 	for (i = 0; i < agent.next_module_id; i += 1) {
+		if (!agent.modules[i])
+			continue;
 		if (cb_modspec_name(agent.modules[i]) == name)
 			return agent.modules[i];
 	}

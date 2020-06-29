@@ -1,1 +1,1 @@
-(acb())[3] = a = 4;
+true && print("hello") || print("goodbye");

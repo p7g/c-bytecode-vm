@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
 
 	int result = cb_compile_file(argv[1], &bytecode);
 	if (!result) {
-		result = cb_disassemble(bytecode);
+		// result = cb_disassemble(bytecode);
 	}
 
 	cb_bytecode_free(bytecode);

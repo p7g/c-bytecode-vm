@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <libgen.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -499,7 +500,6 @@ static void bytecode_update_size_t(struct bytecode *bc, size_t idx,
 static void bytecode_mark_label(struct bytecode *bc, size_t label)
 {
 	struct pending_address *current, *tmp, **prev;
-	size_t i;
 
 	assert(label < bc->label_addr_len);
 	bc->label_addresses[label] = bc->len;
@@ -658,7 +658,6 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 	struct binding *binding;
 	struct function_state *fstate;
 	int i, found;
-	size_t idx;
 
 	if (!s->scope)
 		return 0;
@@ -756,22 +755,25 @@ static struct token next(struct cstate *state, int *ok)
 		if (!_tok || _tok->type != typ) { \
 			enum token_type actual = _tok ? _tok->type \
 							: TOK_EOF; \
-			ERROR_AT(_tok, "Expected '%s', got '%s'", \
+			ERROR_AT_P(_tok, "Expected '%s', got '%s'", \
 					token_type_name(typ), \
 					token_type_name(actual)); \
 			return 1; \
 		} \
 		NEXT(); \
 	})
-#define ERROR_AT(TOK, MSG, ...) ({ \
+#define ERROR_AT_P(TOK, MSG, ...) ({ \
 		if (TOK) { \
-			fprintf(stderr, "Error in %s at %zu:%zu: " MSG "\n", \
-				state->filename, (TOK)->line, (TOK)->column, \
-				##__VA_ARGS__); \
+			ERROR_AT(*(TOK), MSG, ##__VA_ARGS__); \
 		} else { \
 			fprintf(stderr, "Error in %s at EOF: " MSG "\n", \
 				state->filename, ##__VA_ARGS__); \
 		} \
+	})
+#define ERROR_AT(TOK, MSG, ...) ({ \
+		fprintf(stderr, "Error in %s at %zu:%zu: " MSG "\n", \
+			state->filename, (TOK).line, (TOK).column, \
+			##__VA_ARGS__); \
 	})
 #define APPEND(B) (bytecode_push(state->bytecode, (B)))
 #define APPEND_SIZE_T(S) (bytecode_push_size_t(state->bytecode, (S)))
@@ -1022,8 +1024,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 				APPEND(OP_BIND_LOCAL);
 			APPEND_SIZE_T(binding->index);
 		} else {
-			if (scope_parent_has_binding(old_scope,
-						binding->name)) {
+			if (scope_parent_has_binding(old_scope, free_var)) {
 				assert(old_fstate != NULL);
 				fstate_add_freevar(old_fstate, free_var);
 				APPEND(OP_BIND_UPVALUE);
@@ -1221,7 +1222,7 @@ static int compile_break_statement(struct cstate *state)
 
 	tok = EXPECT(TOK_BREAK);
 	if (!state->loop_state) {
-		ERROR_AT(&tok, "Break outside of loop");
+		ERROR_AT(tok, "Break outside of loop");
 		return 1;
 	}
 	EXPECT(TOK_SEMICOLON);
@@ -1238,7 +1239,7 @@ static int compile_continue_statement(struct cstate *state)
 
 	tok = EXPECT(TOK_CONTINUE);
 	if (!state->loop_state) {
-		ERROR_AT(&tok, "Continue outside of loop");
+		ERROR_AT(tok, "Continue outside of loop");
 		return 1;
 	}
 	EXPECT(TOK_SEMICOLON);
@@ -1255,7 +1256,7 @@ static int compile_return_statement(struct cstate *state)
 
 	tok = EXPECT(TOK_RETURN);
 	if (!state->function_state) {
-		ERROR_AT(&tok, "Return outside of function");
+		ERROR_AT(tok, "Return outside of function");
 		return 1;
 	}
 
@@ -1277,12 +1278,12 @@ static int compile_export_statement(struct cstate *state)
 
 	tok = EXPECT(TOK_EXPORT);
 	if (!state->modspec) {
-		ERROR_AT(&tok, "Cannot export from script (add a module header)");
+		ERROR_AT(tok, "Cannot export from script (add a module header)");
 		return 1;
 	}
 
 	if (!state->is_global) {
-		ERROR_AT(&tok, "Can only export from global scope");
+		ERROR_AT(tok, "Can only export from global scope");
 		return 1;
 	}
 
@@ -1291,7 +1292,7 @@ static int compile_export_statement(struct cstate *state)
 	} else if (MATCH_P(TOK_FUNCTION)) {
 		X(compile_function_statement(state, &name, 1));
 	} else {
-		ERROR_AT(PEEK(), "Can only export function and let declarations");
+		ERROR_AT_P(PEEK(), "Can only export function and let declarations");
 		return 1;
 	}
 
@@ -1306,22 +1307,37 @@ static int compile_file(struct cstate *state, const char *name, int final);
 static int compile_import_statement(struct cstate *state)
 {
 	struct token tok, string;
-	size_t filename_len;
 	char *filename;
 
 	tok = EXPECT(TOK_IMPORT);
 	if (!state->is_global) {
-		ERROR_AT(&tok, "Import must be at top level");
+		ERROR_AT(tok, "Import must be at top level");
 		return 1;
 	}
 
 	string = EXPECT(TOK_STRING);
 	EXPECT(TOK_SEMICOLON);
 
-	filename_len = tok_len(&string) - 2;
-	filename = malloc(filename_len + 1);
-	filename[filename_len] = 0;
-	memcpy(filename, tok_start(state, &string) + 1, tok_len(&string) - 2);
+
+	if (strlen(state->filename) == sizeof("<script>") && !strncmp(
+				"<script>", state->filename,
+				sizeof("<script>"))) {
+		filename = malloc(tok_len(&string) - 1);
+		filename[tok_len(&string) - 1] = 0;
+		memcpy(filename, tok_start(state, &string) + 1,
+				tok_len(&string) - 2);
+	} else {
+		char *real_path = realpath(state->filename, NULL);
+		const char *dir_name = dirname(real_path);
+		size_t len = strlen(dir_name) + tok_len(&string) - 1;
+		filename = malloc(len + 1);
+		filename[len] = 0;
+		memcpy(filename, dir_name, strlen(dir_name));
+		filename[strlen(dir_name)] = '/';
+		memcpy(filename + strlen(dir_name) + 1,
+				tok_start(state, &string) + 1,
+				tok_len(&string) - 2);
+	}
 
 	if (state->modspec)
 		APPEND(OP_EXIT_MODULE);
@@ -1448,7 +1464,7 @@ static int compile_int_expression(struct cstate *state)
 		APPEND(OP_CONST_INT);
 		APPEND_SIZE_T((size_t) num);
 	} else {
-		ERROR_AT(&tok, "Invalid integer literal");
+		ERROR_AT(tok, "Invalid integer literal");
 		return 1;
 	}
 
@@ -1472,7 +1488,7 @@ static int compile_identifier_expression(struct cstate *state)
 		APPEND(OP_LOAD_FROM_MODULE);
 		module = cb_agent_get_module_by_name(name);
 		if (!module) {
-			ERROR_AT(&tok, "No such module %s\n",
+			ERROR_AT(tok, "No such module %s\n",
 					cb_strptr(cb_agent_get_string(
 							intern_ident(state,
 								&tok))));
@@ -1482,7 +1498,7 @@ static int compile_identifier_expression(struct cstate *state)
 		APPEND_SIZE_T(cb_modspec_get_export_id(module,
 					intern_ident(state, &export), &ok));
 		if (!ok) {
-			ERROR_AT(&export, "Module %s has no export %s",
+			ERROR_AT(export, "Module %s has no export %s",
 					cb_strptr(cb_agent_get_string(
 							cb_modspec_name(
 								module))),
@@ -1596,6 +1612,7 @@ static int compile_array_expression(struct cstate *state)
 	size_t num_elements;
 	int first_elem;
 
+	num_elements = 0;
 	first_elem = 1;
 
 	EXPECT(TOK_LEFT_BRACKET);
@@ -1624,9 +1641,9 @@ static int compile_unary_expression(struct cstate *state)
 {
 	struct token tok;
 
+	tok = NEXT();
 	X(compile_expression_inner(state, rbp(tok.type)));
 
-	tok = NEXT();
 	switch (tok.type) {
 	case TOK_MINUS:
 		APPEND(OP_NEG);
@@ -1638,7 +1655,7 @@ static int compile_unary_expression(struct cstate *state)
 		APPEND(OP_BITWISE_NOT);
 		break;
 	default:
-		ERROR_AT(&tok, "Invalid unary operator");
+		ERROR_AT(tok, "Invalid unary operator");
 		return 1;
 	}
 
@@ -1691,7 +1708,7 @@ static int nud(struct cstate *state)
 		break;
 
 	default:
-		ERROR_AT(PEEK(), "Expected expression");
+		ERROR_AT_P(PEEK(), "Expected expression");
 		return 1;
 	}
 
@@ -1750,7 +1767,7 @@ static int compile_left_assoc_binary(struct cstate *state)
 		break;
 
 	default:
-		ERROR_AT(&tok, "Unexpected token");
+		ERROR_AT(tok, "Unexpected token");
 		return 1;
 	}
 
@@ -1816,6 +1833,32 @@ static int compile_index_expression(struct cstate *state)
 	return 0;
 }
 
+static int compile_short_circuit_binary(struct cstate *state)
+{
+	struct token tok;
+	size_t end_label;
+
+	tok = NEXT();
+	end_label = LABEL();
+
+	switch (tok.type) {
+	case TOK_AND_AND:
+		APPEND(OP_JUMP_IF_FALSE);
+		break;
+	case TOK_PIPE_PIPE:
+		APPEND(OP_JUMP_IF_TRUE);
+		break;
+	default:
+		abort(); /* unreachable */
+	}
+
+	ADDR_OF(end_label);
+	X(compile_expression_inner(state, lbp(tok.type)));
+	MARK(end_label);
+
+	return 0;
+}
+
 static int led(struct cstate *state)
 {
 	switch (PEEK()->type) {
@@ -1836,6 +1879,11 @@ static int led(struct cstate *state)
 		X(compile_left_assoc_binary(state));
 		break;
 
+	case TOK_AND_AND:
+	case TOK_PIPE_PIPE:
+		X(compile_short_circuit_binary(state));
+		break;
+
 	case TOK_EQUAL:
 	case TOK_STAR_STAR:
 		X(compile_right_assoc_binary(state));
@@ -1850,7 +1898,7 @@ static int led(struct cstate *state)
 		break;
 
 	default:
-		ERROR_AT(PEEK(), "Unexpected token");
+		ERROR_AT_P(PEEK(), "Unexpected token");
 		return 1;
 	}
 

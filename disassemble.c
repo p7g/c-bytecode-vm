@@ -100,7 +100,9 @@ int cb_disassemble(cb_bytecode *bytecode)
 			arg2 = NEXT_USIZE();
 			arg3 = NEXT_USIZE();
 			printf("%s(\"%s\", %zu, %zu)\n", cb_opcode_name(op),
-					cb_strptr(cb_agent_get_string(arg1)),
+					(arg1 == (size_t) -1 - 1)
+					? NULL
+					: cb_strptr(cb_agent_get_string(arg1)),
 					arg2, arg3);
 			break;
 		}
