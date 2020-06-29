@@ -48,8 +48,12 @@ void cb_agent_deinit(void)
 	if (agent.string_table)
 		free(agent.string_table);
 	if (agent.modules) {
-		for (i = 0; i < agent.next_module_id; i += 1)
-			cb_modspec_free(agent.modules[i]);
+		for (i = 0; i < agent.next_module_id; i += 1) {
+			/* Some entries in the modules array are only reserved,
+			 * they don't have a modspec in them yet */
+			if (agent.modules[i])
+				cb_modspec_free(agent.modules[i]);
+		}
 		free(agent.modules);
 	}
 
@@ -107,6 +111,7 @@ static void maybe_grow_modules()
 
 inline void cb_agent_add_module(cb_modspec *spec)
 {
+	assert(spec != NULL);
 	agent.modules[cb_modspec_id(spec)] = spec;
 }
 
@@ -118,4 +123,16 @@ inline size_t cb_agent_reserve_module_id()
 	id = agent.next_module_id++;
 	agent.modules[id] = NULL;
 	return id;
+}
+
+cb_modspec *cb_agent_get_module_by_name(size_t name)
+{
+	int i;
+
+	for (i = 0; i < agent.next_module_id; i += 1) {
+		if (cb_modspec_name(agent.modules[i]) == name)
+			return agent.modules[i];
+	}
+
+	return NULL;
 }

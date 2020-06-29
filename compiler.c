@@ -876,10 +876,10 @@ static int compile_statement(struct cstate *state)
 	case TOK_IMPORT:
 		X(compile_import_statement(state));
 		break;
-	/*default:
+	default:
 		X(compile_expression_statement(state));
 		break;
-	*/}
+	}
 
 	return 0;
 }
@@ -1336,7 +1336,92 @@ static int compile_import_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_expression_statement(struct cstate *);
+static int compile_expression_statement(struct cstate *state)
+{
+	X(compile_expression(state));
+	EXPECT(TOK_SEMICOLON);
+	APPEND(OP_POP);
+
+	return 0;
+}
+
+static int lbp(enum token_type op)
+{
+	switch (op) {
+	case TOK_IDENT:
+	case TOK_INT:
+	case TOK_DOUBLE:
+	case TOK_STRING:
+	case TOK_CHAR:
+	case TOK_NULL:
+	case TOK_TRUE:
+	case TOK_FALSE:
+	case TOK_SEMICOLON:
+	case TOK_RIGHT_PAREN:
+	case TOK_RIGHT_BRACKET:
+	case TOK_LEFT_BRACE:
+	case TOK_COMMA:
+		return 0;
+
+	case TOK_EQUAL: return 1;
+	case TOK_PIPE_PIPE: return 2;
+	case TOK_AND_AND: return 3;
+	case TOK_PIPE: return 4;
+	case TOK_CARET: return 5;
+	case TOK_AND: return 6;
+
+	case TOK_BANG_EQUAL:
+	case TOK_EQUAL_EQUAL:
+		return 7;
+
+	case TOK_LESS_THAN:
+	case TOK_LESS_THAN_EQUAL:
+	case TOK_GREATER_THAN:
+	case TOK_GREATER_THAN_EQUAL:
+		return 8;
+
+	/* TODO: Shift operators
+	case TOK_LESS_LESS:
+	case TOK_GREATER_GREATER:
+		return 9; */
+
+	case TOK_PLUS:
+	case TOK_MINUS:
+		return 10;
+
+	case TOK_STAR: return 11;
+	case TOK_SLASH: return 12;
+	case TOK_PERCENT: return 13;
+	case TOK_STAR_STAR: return 14;
+
+	case TOK_LEFT_PAREN:
+	case TOK_LEFT_BRACKET:
+		return 16;
+
+	case TOK_DOT:
+		return 17;
+
+	default:
+		return -1;
+	}
+}
+
+static int rbp(enum token_type op)
+{
+	switch (op) {
+	case TOK_LEFT_PAREN:
+	case TOK_LEFT_BRACKET:
+		return 0;
+
+	case TOK_BANG:
+	case TOK_MINUS:
+	case TOK_TILDE:
+		return 11;
+
+	default:
+		return -1;
+	}
+}
 
 static int compile_int_expression(struct cstate *state)
 {
@@ -1372,12 +1457,60 @@ static int compile_int_expression(struct cstate *state)
 
 static int compile_identifier_expression(struct cstate *state)
 {
-	struct token tok;
+	struct token tok, export;
 	struct binding binding;
 	size_t name;
+	int ok;
+	cb_modspec *module;
 
 	tok = EXPECT(TOK_IDENT);
 	name = intern_ident(state, &tok);
+
+	if (MATCH_P(TOK_DOT)) {
+		NEXT();
+		export = EXPECT(TOK_IDENT);
+		APPEND(OP_LOAD_FROM_MODULE);
+		module = cb_agent_get_module_by_name(name);
+		if (!module) {
+			ERROR_AT(&tok, "No such module %s\n",
+					cb_strptr(cb_agent_get_string(
+							intern_ident(state,
+								&tok))));
+			return 1;
+		}
+		APPEND_SIZE_T(cb_modspec_id(module));
+		APPEND_SIZE_T(cb_modspec_get_export_id(module,
+					intern_ident(state, &export), &ok));
+		if (!ok) {
+			ERROR_AT(&export, "Module %s has no export %s",
+					cb_strptr(cb_agent_get_string(
+							cb_modspec_name(
+								module))),
+					cb_strptr(cb_agent_get_string(
+							intern_ident(state,
+								&export))));
+			return 1;
+		}
+		return 0;
+	}
+
+	if (MATCH_P(TOK_EQUAL)) {
+		NEXT();
+		X(compile_expression(state));
+		if (!resolve_binding(state, name, &binding)) {
+			APPEND(OP_STORE_GLOBAL);
+			APPEND_SIZE_T(name);
+			return 0;
+		}
+		if (binding.is_upvalue) {
+			assert(state->function_state != NULL);
+			APPEND(OP_STORE_UPVALUE);
+		} else {
+			APPEND(OP_STORE_LOCAL);
+		}
+		APPEND_SIZE_T(binding.index);
+		return 0;
+	}
 
 	if (resolve_binding(state, name, &binding)) {
 		if (binding.is_upvalue) {
@@ -1395,15 +1528,166 @@ static int compile_identifier_expression(struct cstate *state)
 	return 0;
 }
 
-static int compile_expression(struct cstate *state)
+static int compile_double_expression(struct cstate *state)
+{
+	struct token tok;
+	double doub;
+	char *buf;
+	size_t len;
+
+	tok = EXPECT(TOK_DOUBLE);
+
+	/* FIXME: find way to parse double from non-null-terminated string
+	 * This allocation should not be necessary */
+	len = tok_len(&tok);
+	buf = malloc(len + 1);
+	memcpy(buf, tok_start(state, &tok), len);
+	buf[len] = 0;
+
+	doub = strtod(buf, NULL);
+
+	APPEND(OP_CONST_DOUBLE);
+	APPEND_SIZE_T((size_t) doub);
+
+	return 0;
+}
+
+static int compile_string_expression(struct cstate *state)
+{
+	struct token tok;
+	size_t id;
+
+	tok = EXPECT(TOK_STRING);
+	id = cb_agent_intern_string(tok_start(state, &tok) + 1,
+			tok_len(&tok) - 2);
+
+	APPEND(OP_CONST_STRING);
+	APPEND_SIZE_T(id);
+
+	return 0;
+}
+
+static int compile_char_expression(struct cstate *state)
+{
+	struct token tok;
+	size_t c;
+
+	tok = EXPECT(TOK_CHAR);
+	/* FIXME: support unicode */
+	c = *tok_start(state, &tok);
+
+	APPEND(OP_CONST_CHAR);
+	APPEND_SIZE_T(c);
+
+	return 0;
+}
+
+static int compile_parenthesized_expression(struct cstate *state)
+{
+	EXPECT(TOK_LEFT_PAREN);
+	X(compile_expression(state));
+	EXPECT(TOK_RIGHT_PAREN);
+
+	return 0;
+}
+
+static int compile_array_expression(struct cstate *state)
+{
+	size_t num_elements;
+	int first_elem;
+
+	first_elem = 1;
+
+	EXPECT(TOK_LEFT_BRACKET);
+	while (!MATCH_P(TOK_RIGHT_BRACKET)) {
+		if (first_elem) {
+			first_elem = 0;
+		} else {
+			EXPECT(TOK_COMMA);
+			if (MATCH_P(TOK_RIGHT_BRACKET))
+				break;
+		}
+		num_elements += 1;
+		X(compile_expression(state));
+	}
+	EXPECT(TOK_RIGHT_BRACKET);
+
+	APPEND(OP_NEW_ARRAY_WITH_VALUES);
+	APPEND_SIZE_T(num_elements);
+
+	return 0;
+}
+
+static int compile_expression_inner(struct cstate *, int rbp);
+
+static int compile_unary_expression(struct cstate *state)
+{
+	struct token tok;
+
+	X(compile_expression_inner(state, rbp(tok.type)));
+
+	tok = NEXT();
+	switch (tok.type) {
+	case TOK_MINUS:
+		APPEND(OP_NEG);
+		break;
+	case TOK_BANG:
+		APPEND(OP_NOT);
+		break;
+	case TOK_TILDE:
+		APPEND(OP_BITWISE_NOT);
+		break;
+	default:
+		ERROR_AT(&tok, "Invalid unary operator");
+		return 1;
+	}
+
+	return 0;
+}
+
+static int nud(struct cstate *state)
 {
 	switch (PEEK()->type) {
+	case TOK_IDENT:
+		X(compile_identifier_expression(state));
+		break;
 	case TOK_INT:
 		X(compile_int_expression(state));
 		break;
-
-	case TOK_IDENT:
-		X(compile_identifier_expression(state));
+	case TOK_DOUBLE:
+		X(compile_double_expression(state));
+		break;
+	case TOK_STRING:
+		X(compile_string_expression(state));
+		break;
+	case TOK_CHAR:
+		X(compile_char_expression(state));
+		break;
+	case TOK_NULL:
+		EXPECT(TOK_NULL);
+		APPEND(OP_CONST_NULL);
+		break;
+	case TOK_TRUE:
+		EXPECT(TOK_TRUE);
+		APPEND(OP_CONST_TRUE);
+		break;
+	case TOK_FALSE:
+		EXPECT(TOK_FALSE);
+		APPEND(OP_CONST_FALSE);
+		break;
+	case TOK_LEFT_PAREN:
+		X(compile_parenthesized_expression(state));
+		break;
+	case TOK_LEFT_BRACKET:
+		X(compile_array_expression(state));
+		break;
+	case TOK_MINUS:
+	case TOK_BANG:
+	case TOK_TILDE:
+		X(compile_unary_expression(state));
+		break;
+	case TOK_FUNCTION:
+		X(compile_function(state, NULL));
 		break;
 
 	default:
@@ -1412,6 +1696,180 @@ static int compile_expression(struct cstate *state)
 	}
 
 	return 0;
+}
+
+static int compile_left_assoc_binary(struct cstate *state)
+{
+	struct token tok;
+
+	tok = NEXT();
+	X(compile_expression_inner(state, lbp(tok.type)));
+
+	switch (tok.type) {
+	case TOK_PLUS:
+		APPEND(OP_ADD);
+		break;
+	case TOK_MINUS:
+		APPEND(OP_SUB);
+		break;
+	case TOK_STAR:
+		APPEND(OP_MUL);
+		break;
+	case TOK_SLASH:
+		APPEND(OP_DIV);
+		break;
+	case TOK_PERCENT:
+		APPEND(OP_MOD);
+		break;
+	case TOK_LESS_THAN:
+		APPEND(OP_LESS_THAN);
+		break;
+	case TOK_LESS_THAN_EQUAL:
+		APPEND(OP_LESS_THAN_EQUAL);
+		break;
+	case TOK_GREATER_THAN:
+		APPEND(OP_GREATER_THAN);
+		break;
+	case TOK_GREATER_THAN_EQUAL:
+		APPEND(OP_GREATER_THAN_EQUAL);
+		break;
+	case TOK_EQUAL_EQUAL:
+		APPEND(OP_EQUAL);
+		break;
+	case TOK_BANG_EQUAL:
+		APPEND(OP_NOT_EQUAL);
+		break;
+	case TOK_PIPE:
+		APPEND(OP_BITWISE_OR);
+		break;
+	case TOK_CARET:
+		APPEND(OP_BITWISE_XOR);
+		break;
+	case TOK_AND:
+		APPEND(OP_BITWISE_AND);
+		break;
+
+	default:
+		ERROR_AT(&tok, "Unexpected token");
+		return 1;
+	}
+
+	return 0;
+}
+
+static int compile_right_assoc_binary(struct cstate *state)
+{
+	struct token tok;
+
+	tok = NEXT();
+	X(compile_expression_inner(state, lbp(tok.type) - 1));
+
+	if (tok.type == TOK_STAR_STAR)
+		APPEND(OP_EXP);
+
+	return 0;
+}
+
+static int compile_call_expression(struct cstate *state)
+{
+	size_t num_args;
+	int first_arg;
+
+	EXPECT(TOK_LEFT_PAREN);
+	num_args = 0;
+
+	first_arg = 1;
+	while (!MATCH_P(TOK_RIGHT_PAREN)) {
+		if (first_arg) {
+			first_arg = 0;
+		} else {
+			EXPECT(TOK_COMMA);
+			if (MATCH_P(TOK_RIGHT_PAREN))
+				break;
+		}
+
+		num_args += 1;
+		X(compile_expression(state));
+	}
+	EXPECT(TOK_RIGHT_PAREN);
+
+	APPEND(OP_CALL);
+	APPEND_SIZE_T(num_args);
+
+	return 0;
+}
+
+static int compile_index_expression(struct cstate *state)
+{
+	EXPECT(TOK_LEFT_BRACKET);
+	X(compile_expression(state));
+	EXPECT(TOK_RIGHT_BRACKET);
+
+	if (MATCH_P(TOK_EQUAL)) {
+		EXPECT(TOK_EQUAL);
+		X(compile_expression(state));
+		APPEND(OP_ARRAY_SET);
+	} else {
+		APPEND(OP_ARRAY_GET);
+	}
+
+	return 0;
+}
+
+static int led(struct cstate *state)
+{
+	switch (PEEK()->type) {
+	case TOK_PLUS:
+	case TOK_MINUS:
+	case TOK_STAR:
+	case TOK_SLASH:
+	case TOK_PERCENT:
+	case TOK_LESS_THAN:
+	case TOK_LESS_THAN_EQUAL:
+	case TOK_GREATER_THAN:
+	case TOK_GREATER_THAN_EQUAL:
+	case TOK_EQUAL_EQUAL:
+	case TOK_BANG_EQUAL:
+	case TOK_PIPE:
+	case TOK_CARET:
+	case TOK_AND:
+		X(compile_left_assoc_binary(state));
+		break;
+
+	case TOK_EQUAL:
+	case TOK_STAR_STAR:
+		X(compile_right_assoc_binary(state));
+		break;
+
+	case TOK_LEFT_PAREN:
+		X(compile_call_expression(state));
+		break;
+
+	case TOK_LEFT_BRACKET:
+		X(compile_index_expression(state));
+		break;
+
+	default:
+		ERROR_AT(PEEK(), "Unexpected token");
+		return 1;
+	}
+
+	return 0;
+}
+
+static int compile_expression_inner(struct cstate *state, int rbp)
+{
+	X(nud(state));
+
+	while (PEEK() && PEEK()->type != TOK_EOF && rbp < lbp(PEEK()->type))
+		X(led(state));
+
+	return 0;
+}
+
+static int compile_expression(struct cstate *state)
+{
+	return compile_expression_inner(state, 0);
 }
 
 int cb_compile(const char *input, struct bytecode **bc_out)

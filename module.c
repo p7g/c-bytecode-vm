@@ -62,3 +62,22 @@ inline size_t cb_modspec_get_export_name(struct modspec *spec, size_t id)
 	assert(id < spec->exports_len);
 	return spec->exports[id];
 }
+
+size_t cb_modspec_get_export_id(struct modspec *spec, size_t name, int *ok)
+{
+	int i;
+
+	for (i = 0; i < spec->exports_len; i += 1) {
+		if (spec->exports[i] == name) {
+			*ok = 1;
+			return i;
+		}
+	}
+
+	return (*ok = 0);
+}
+
+inline size_t cb_modspec_name(struct modspec *spec)
+{
+	return spec->name;
+}

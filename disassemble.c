@@ -81,6 +81,8 @@ int cb_disassemble(cb_bytecode *bytecode)
 		case OP_ALLOCATE_LOCALS:
 		case OP_EXPORT:
 		case OP_ENTER_MODULE:
+		case OP_NEW_ARRAY_WITH_VALUES:
+		case OP_CALL:
 			printf("%s(%zu)\n", cb_opcode_name(op), NEXT_USIZE());
 			break;
 
@@ -103,9 +105,15 @@ int cb_disassemble(cb_bytecode *bytecode)
 			break;
 		}
 
-		case OP_CALL:
-		case OP_LOAD_FROM_MODULE:
-		case OP_NEW_ARRAY_WITH_VALUES:
+		case OP_LOAD_FROM_MODULE: {
+			size_t arg1, arg2;
+			arg1 = NEXT_USIZE();
+			arg2 = NEXT_USIZE();
+			printf("%s(%zu, %zu)\n", cb_opcode_name(op), arg1,
+					arg2);
+			break;
+		}
+
 		default:
 			fprintf(stderr, "Unknown bytecode instruction\n");
 			return 1;
