@@ -7,6 +7,7 @@
 #include "agent.h"
 #include "compiler.h"
 #include "disassemble.h"
+#include "eval.h"
 #include "gc.h"
 #include "string.h"
 #include "value.h"
@@ -22,9 +23,12 @@ int main(int argc, char **argv) {
 	cb_agent_init();
 
 	int result = cb_compile_file(argv[1], &bytecode);
-	if (!result) {
-		// result = cb_disassemble(bytecode);
-	}
+#ifdef DEBUG_DISASM
+	if (!result)
+		result = cb_disassemble(bytecode);
+#endif
+	if (!result)
+		result = cb_eval(bytecode);
 
 	cb_bytecode_free(bytecode);
 

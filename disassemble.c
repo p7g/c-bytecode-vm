@@ -52,8 +52,6 @@ int cb_disassemble(cb_bytecode *bytecode)
 		case OP_BITWISE_XOR:
 		case OP_BITWISE_NOT:
 		case OP_NOT:
-		case OP_LEFT_SHIFT:
-		case OP_RIGHT_SHIFT:
 		case OP_NEG:
 		case OP_END_MODULE:
 		case OP_DUP:

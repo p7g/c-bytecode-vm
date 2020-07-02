@@ -3,48 +3,81 @@
 
 #include <stdint.h>
 
-#include "function.h"
 #include "gc.h"
 #include "string.h"
 
+#define CB_VALUE_TYPE_LIST(X) \
+	X(CB_VALUE_INT) \
+	X(CB_VALUE_DOUBLE) \
+	X(CB_VALUE_BOOL) \
+	X(CB_VALUE_NULL) \
+	X(CB_VALUE_CHAR) \
+	X(CB_VALUE_INTERNED_STRING) \
+	X(CB_VALUE_STRING) \
+	X(CB_VALUE_ARRAY) \
+	X(CB_VALUE_FUNCTION)
+
 enum cb_value_type {
-	CB_VALUE_INT,
-	CB_VALUE_DOUBLE,
-	CB_VALUE_BOOL,
-	CB_VALUE_NULL,
-	CB_VALUE_CHAR,
-	CB_VALUE_STRING,
-	CB_VALUE_ARRAY,
-	CB_VALUE_FUNCTION,
+#define COMMA(V) V,
+	CB_VALUE_TYPE_LIST(COMMA)
+#undef COMMA
 };
 
 struct cb_value;
 
-typedef struct cb_array {
-	size_t a_len;
-	struct cb_value *a_values;
-} cb_array;
+struct cb_array {
+	size_t len;
+	struct cb_value *values;
+};
 
-typedef struct cb_value {
+enum cb_function_type {
+	CB_FUNCTION_NATIVE,
+	CB_FUNCTION_USER,
+};
+
+/* FIXME: argv should be const since it points to the stack */
+typedef int (cb_native_function)(size_t argc, struct cb_value **argv,
+		struct cb_value **retval);
+
+struct cb_user_function {
+	size_t name,
+	       address,
+	       arity;
+};
+
+struct cb_function {
+	enum cb_function_type type;
+	union {
+		cb_native_function *as_native;
+		struct cb_user_function as_user;
+	} value;
+};
+
+struct cb_value {
 	cb_gc_header gc_header;
-	enum cb_value_type v_type;
+	enum cb_value_type type;
 	union {
 		intptr_t as_int;
 		double as_double;
 		int as_bool;
 		uint32_t as_char;
+		size_t as_interned_string;
 		cb_str *as_string;
-		cb_array *as_array;
-		cb_function *as_function;
-	} v_val;
-} cb_value;
+		struct cb_array *as_array;
+		struct cb_function *as_function;
+	} val;
+};
 
-int cb_value_eq(cb_value *a, cb_value *b);
-int cb_value_cmp(cb_value *a, cb_value *b);
-int cb_value_to_string(cb_value *val);
+int cb_value_eq(struct cb_value *a, struct cb_value *b);
+int cb_value_cmp(struct cb_value *a, struct cb_value *b);
+char *cb_value_to_string(struct cb_value *val);
+int cb_value_is_truthy(struct cb_value *val);
 
-void cb_value_init(cb_value *val);
-void cb_value_deinit(cb_value *val);
-void cb_value_mark(cb_value *val);
+struct cb_value *cb_value_new(void);
+void cb_value_mark(struct cb_value *val);
+void cb_value_incref(struct cb_value *val);
+void cb_value_decref(struct cb_value *val);
+
+const char *cb_value_type_name(enum cb_value_type type);
 
 #endif

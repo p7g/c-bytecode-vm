@@ -110,13 +110,13 @@ static void maybe_grow_modules()
 	}
 }
 
-inline void cb_agent_add_module(cb_modspec *spec)
+inline void cb_agent_add_modspec(cb_modspec *spec)
 {
 	assert(spec != NULL);
 	agent.modules[cb_modspec_id(spec)] = spec;
 }
 
-inline size_t cb_agent_reserve_module_id()
+inline size_t cb_agent_reserve_modspec_id()
 {
 	size_t id;
 
@@ -126,7 +126,13 @@ inline size_t cb_agent_reserve_module_id()
 	return id;
 }
 
-cb_modspec *cb_agent_get_module_by_name(size_t name)
+inline const cb_modspec *cb_agent_get_modspec(size_t id)
+{
+	assert(id < agent.next_module_id);
+	return agent.modules[id];
+}
+
+cb_modspec *cb_agent_get_modspec_by_name(size_t name)
 {
 	int i;
 
@@ -138,4 +144,9 @@ cb_modspec *cb_agent_get_module_by_name(size_t name)
 	}
 
 	return NULL;
+}
+
+inline size_t cb_agent_modspec_count(void)
+{
+	return agent.next_module_id;
 }

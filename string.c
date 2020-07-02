@@ -6,12 +6,12 @@
 
 inline size_t cb_strlen(cb_str s)
 {
-	return s.s_len;
+	return s.len;
 }
 
 inline const char *cb_strptr(cb_str s)
 {
-	return s.s_chars;
+	return s.chars;
 }
 
 cb_str cb_str_from_cstr(const char *str, size_t len)
@@ -34,5 +34,5 @@ int cb_str_eq_cstr(cb_str s, const char *cstr, size_t len)
 
 void cb_str_free(cb_str s)
 {
-	free(s.s_chars);
+	free(s.chars);
 }

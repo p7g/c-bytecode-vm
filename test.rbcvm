@@ -1,1 +1,7 @@
-true && print("hello") || print("goodbye");
+module Test;
+
+let a = 10000000;
+
+while a {
+    a = a - 1;
+}

@@ -835,12 +835,14 @@ static int compile(struct cstate *state, int final)
 
 	if (state->modspec) {
 		APPEND(OP_END_MODULE);
-		cb_agent_add_module(state->modspec);
+		cb_agent_add_modspec(state->modspec);
 		state->modspec = NULL;
 	}
 
-	if (final)
+	if (final) {
+		APPEND(OP_HALT);
 		bytecode_finalize(state->bytecode);
+	}
 
 	return 0;
 }
@@ -1486,7 +1488,7 @@ static int compile_identifier_expression(struct cstate *state)
 		NEXT();
 		export = EXPECT(TOK_IDENT);
 		APPEND(OP_LOAD_FROM_MODULE);
-		module = cb_agent_get_module_by_name(name);
+		module = cb_agent_get_modspec_by_name(name);
 		if (!module) {
 			ERROR_AT(tok, "No such module %s\n",
 					cb_strptr(cb_agent_get_string(

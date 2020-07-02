@@ -4,8 +4,8 @@
 #include <stddef.h>
 
 typedef struct cb_str {
-	size_t s_len;
-	char *s_chars;
+	size_t len;
+	char *chars;
 } cb_str;
 
 size_t cb_strlen(cb_str s);

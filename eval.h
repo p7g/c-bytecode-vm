@@ -3,16 +3,8 @@
 
 #include <stddef.h>
 
-#include "state.h"
+#include "compiler.h"
 
-struct cb_frame {
-	size_t prev_ip,
-	       prev_bp,
-	       num_args,
-	       module_id,
-	       current_function;
-};
-
-void cb_eval(uint8_t *code, size_t code_len);
+int cb_eval(cb_bytecode *bytecode);
 
 #endif
