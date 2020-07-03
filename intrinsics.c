@@ -23,8 +23,8 @@
 		cb_hashmap_set(scope, _name, _func_val); \
 	})
 
-int print(size_t argc, struct cb_value *argv, struct cb_value *result);
-int println(size_t argc, struct cb_value *argv, struct cb_value *result);
+static int print(size_t argc, struct cb_value *argv, struct cb_value *result);
+static int println(size_t argc, struct cb_value *argv, struct cb_value *result);
 
 void make_intrinsics(cb_hashmap *scope)
 {
@@ -32,7 +32,7 @@ void make_intrinsics(cb_hashmap *scope)
 	FUNC("print", 0, print);
 }
 
-int print(size_t argc, struct cb_value *argv, struct cb_value *result)
+static int print(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	int i, first;
 	char *as_string;
@@ -50,7 +50,7 @@ int print(size_t argc, struct cb_value *argv, struct cb_value *result)
 	return 0;
 }
 
-int println(size_t argc, struct cb_value *argv, struct cb_value *result)
+static int println(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	print(argc, argv, result);
 	printf("\n");

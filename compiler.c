@@ -1576,6 +1576,7 @@ static int compile_string_expression(struct cstate *state)
 	size_t id;
 
 	tok = EXPECT(TOK_STRING);
+	/* FIXME: support excape sequences (also in char expressions) */
 	id = cb_agent_intern_string(tok_start(state, &tok) + 1,
 			tok_len(&tok) - 2);
 
