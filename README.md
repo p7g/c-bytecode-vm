@@ -26,11 +26,16 @@ which will likely more than make up for complexity savings elsewhere.
 The evaluation of a program will be formally broken down into the following
 parts:
 
-0. Lexing, parsing, and Code generation
+1. Lexing, parsing, and Code generation ([compiler.c])
 1. Bytecode interpretation
-   a. Virtual machine
-   b. Language runtime
-2. Garbage collection
+   1. Virtual machine ([eval.c])
+   1. Language runtime ([value.c])
+1. Garbage collection ([gc.c])
+
+[compiler.c]: https://github.com/p7g/c-bytecode-vm/blob/master/compiler.c
+[eval.c]: https://github.com/p7g/c-bytecode-vm/blob/master/eval.c
+[value.c]: https://github.com/p7g/c-bytecode-vm/blob/master/value.c
+[gc.c]: https://github.com/p7g/c-bytecode-vm/blob/master/gc.c
 
 ### Lexing, Parsing, and Code Generation
 
