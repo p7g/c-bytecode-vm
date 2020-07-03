@@ -466,7 +466,13 @@ inline size_t cb_bytecode_len(struct bytecode *bc)
 
 inline void cb_bytecode_free(struct bytecode *bc)
 {
-	assert(bc->pending_addresses == NULL);
+	struct pending_address *current, *tmp;
+	current = bc->pending_addresses;
+	while (current) {
+		tmp = current;
+		current = current->next;
+		free(tmp);
+	}
 	if (bc->code)
 		free(bc->code);
 	if (bc->label_addresses)
@@ -646,9 +652,6 @@ static struct cstate cstate_default(int with_bytecode)
 /* NOTE: does not free bytecode or input */
 void cstate_free(struct cstate state)
 {
-	assert(state.function_state == NULL);
-	assert(state.loop_state == NULL);
-	assert(state.scope == NULL);
 	if (state.modspec)
 		cb_modspec_free(state.modspec);
 }
