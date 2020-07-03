@@ -2,6 +2,8 @@
 
 # c-bytecode-vm
 
+[![TODOs](https://badgen.net/https/api.tickgit.com/badgen/github.com/p7g/c-bytecode-vm)](https://www.tickgit.com/browse?repo=github.com/p7g/c-bytecode-vm)
+
 This is a C translation of [rust-bytecode-vm]. The goal here is to see what (if
 any) performance improvement there is to be had with a C implementation.
 
