@@ -1,4 +1,0 @@
-module Other;
-
-export function b(a) { return a; }
-export let a = 1;
