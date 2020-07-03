@@ -26,9 +26,8 @@ struct upvalue {
 };
 
 struct frame {
-	size_t prev_ip,
-	       bp,
-	       num_args,
+	size_t prev_pc,
+	       prev_bp,
 	       module_id,
 	       current_function;
 };
@@ -45,7 +44,7 @@ cb_hashmap *globals;
 
 int cb_eval(cb_bytecode *bytecode)
 {
-	size_t pc;
+	size_t pc, bp;
 	size_t stack_size, upvalues_size;
 	struct frame *call_stack;
 	size_t call_stack_idx, call_stack_size;
@@ -54,6 +53,7 @@ int cb_eval(cb_bytecode *bytecode)
 	pc = 0;
 	stack = malloc(STACK_INIT_SIZE * sizeof(struct cb_value));
 	sp = 0;
+	bp = 0;
 	stack_size = STACK_INIT_SIZE;
 	upvalues = calloc(32, sizeof(struct upvalue));
 	upvalues_idx = 0;
@@ -73,11 +73,20 @@ int cb_eval(cb_bytecode *bytecode)
 #undef TABLE_ENTRY
 
 #define NEXT() (cb_bytecode_get(bytecode, pc++))
-#define DISPATCH() ({ \
+#ifdef DEBUG_PC
+# define DISPATCH() ({ \
+		printf("pc: %zu\n", pc); \
 		size_t _next = NEXT(); \
 		assert(_next >= 0 && _next < OP_MAX); \
 		goto *dispatch_table[_next]; \
 	})
+#else
+# define DISPATCH() ({ \
+		size_t _next = NEXT(); \
+		assert(_next >= 0 && _next < OP_MAX); \
+		goto *dispatch_table[_next]; \
+	})
+#endif
 
 #define ERROR(MSG, ...) ({ \
 		fprintf(stderr, (MSG), ##__VA_ARGS__); \
@@ -106,8 +115,9 @@ int cb_eval(cb_bytecode *bytecode)
 	})
 #define TOP() (stack[sp - 1])
 #define FRAME() (&call_stack[call_stack_idx - 1])
+#define LOCAL_IDX(N) (bp + 1 + (N))
 #define LOCAL(N) ({ \
-		struct cb_value _v = stack[FRAME()->bp + 1 + (N)]; \
+		struct cb_value _v = stack[LOCAL_IDX(N)]; \
 		_v; \
 	})
 #define REPLACE(N, VAL) ({ \
@@ -277,9 +287,10 @@ DO_OP_JUMP_IF_FALSE: {
 }
 
 DO_OP_CALL: {
-	size_t num_args;
+	size_t num_args, name;
 	struct cb_value func_val, result;
 	struct cb_function *func;
+	struct frame frame;
 
 	num_args = READ_SIZE_T();
 	func_val = stack[sp - num_args - 1];
@@ -292,19 +303,54 @@ DO_OP_CALL: {
 
 	func = func_val.val.as_function;
 	if (func->type == CB_FUNCTION_NATIVE) {
-		func->value.as_native(num_args, &stack[sp - num_args], &result);
+		if (func->value.as_native(num_args, &stack[sp - num_args],
+					&result))
+			return 1;
 		assert(sp > num_args);
 		sp -= (num_args + 1);
 		PUSH(result);
 	} else {
-		// TODO
+		name = func->name;
+		if (func->arity > num_args) {
+			ERROR("Too few arguments to function '%s'\n",
+					func->name == (size_t) -1
+					? "<anonymous>"
+					: cb_strptr(cb_agent_get_string(name)));
+			return 1;
+		}
+		frame.prev_bp = bp;
+		frame.prev_pc = pc;
+		frame.current_function = call_stack_idx == 0 ? -1 : bp;
+		if (call_stack_idx >= call_stack_size) {
+			call_stack_size <<= 1;
+			call_stack = realloc(call_stack, call_stack_size
+					* sizeof(struct frame));
+		}
+		call_stack[call_stack_idx++] = frame;
+		/* jump in */
+		bp = sp - num_args - 1;
+		pc = func->value.as_user;
 	}
 
 	DISPATCH();
 }
 
-DO_OP_RETURN:
-	return 1;
+DO_OP_RETURN: {
+	struct cb_value retval;
+	struct frame frame;
+
+	retval = POP();
+	/* FIXME: bounds check */
+	frame = call_stack[--call_stack_idx];
+
+	/* TODO: close upvalues */
+	sp = bp;
+	bp = frame.prev_bp;
+	pc = frame.prev_pc;
+	PUSH(retval);
+
+	DISPATCH();
+}
 
 DO_OP_POP:
 	POP();
@@ -315,7 +361,7 @@ DO_OP_LOAD_LOCAL:
 	DISPATCH();
 
 DO_OP_STORE_LOCAL:
-	REPLACE(READ_SIZE_T(), TOP());
+	REPLACE(LOCAL_IDX(READ_SIZE_T()), TOP());
 	DISPATCH();
 
 DO_OP_LOAD_GLOBAL: {
@@ -364,11 +410,9 @@ DO_OP_NEW_FUNCTION: {
 
 	func = cb_function_new();
 	func->type = CB_FUNCTION_USER;
-	func->value.as_user = (struct cb_user_function) {
-		.address = address,
-		.name = name,
-		.arity = arity,
-	};
+	func->name = name;
+	func->arity = arity;
+	func->value.as_user = address;
 
 	func_val.type = CB_VALUE_FUNCTION;
 	func_val.val.as_function = func;
@@ -472,6 +516,7 @@ DO_OP_ALLOCATE_LOCALS: {
 #undef POP
 #undef TOP
 #undef FRAME
+#undef LOCAL_IDX
 #undef LOCAL
 #undef REPLACE
 #undef GLOBALS

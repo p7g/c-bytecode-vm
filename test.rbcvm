@@ -1,7 +1,11 @@
 module Test;
 
-let a = 10000000;
+function test() {
+    let a = 10000000;
 
-while a {
-    a = a - 1;
+    while a {
+        a = a - 1;
+    }
 }
+
+test();

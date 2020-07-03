@@ -39,18 +39,13 @@ enum cb_function_type {
 typedef int (cb_native_function)(size_t argc, struct cb_value *argv,
 		struct cb_value *retval);
 
-struct cb_user_function {
-	size_t name,
-	       address,
-	       arity;
-};
-
 struct cb_function {
 	cb_gc_header gc_header;
 	enum cb_function_type type;
+	size_t name, arity;
 	union {
 		cb_native_function *as_native;
-		struct cb_user_function as_user;
+		size_t as_user;
 	} value;
 };
 
