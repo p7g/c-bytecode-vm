@@ -4,7 +4,7 @@ LDFLAGS+=-lm
 ifeq ($(TARGET),release)
 	CFLAGS+=-DNDEBUG -O3 -flto
 else ifeq ($(TARGET),debug)
-	CFLAGS+=-DDEBUG_DISASM
+	CFLAGS+=-DDEBUG_DISASM -Og
 endif
 
 cbcvm: *.c *.h

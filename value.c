@@ -3,61 +3,63 @@
 #include <stdlib.h>
 
 #include "agent.h"
+#include "alloc.h"
 #include "string.h"
 #include "value.h"
 
+static void adjust_refcount(struct cb_value *value, int amount)
+{
+	cb_gc_header *header;
+
+	switch (value->type) {
+	case CB_VALUE_ARRAY:
+		header = &value->val.as_array->gc_header;
+		break;
+	case CB_VALUE_STRING:
+		header = &value->val.as_string->gc_header;
+		break;
+	case CB_VALUE_FUNCTION:
+		header = &value->val.as_function->gc_header;
+		break;
+
+	default:
+		return;
+	}
+
+	header->refcount += amount;
+}
+
 inline void cb_value_incref(struct cb_value *value)
 {
-	value->gc_header.refcount += 1;
+	adjust_refcount(value, 1);
 }
 
 inline void cb_value_decref(struct cb_value *value)
 {
-	value->gc_header.refcount -= 1;
-	if (value->gc_header.refcount < 0) {
-		fprintf(stderr, "Unmatched decref\n");
-		value->gc_header.refcount = 0;
-	}
+	adjust_refcount(value, -1);
 }
 
-void cb_value_deinit(void *val_ptr)
+inline struct cb_function *cb_function_new(void)
 {
-	struct cb_value *value;
-
-	value = (struct cb_value *) val_ptr;
-	switch (value->type) {
-	case CB_VALUE_INT:
-	case CB_VALUE_BOOL:
-	case CB_VALUE_CHAR:
-	case CB_VALUE_NULL:
-	case CB_VALUE_DOUBLE:
-	case CB_VALUE_INTERNED_STRING:
-		break;
-
-	case CB_VALUE_ARRAY:
-		free(value->val.as_array->values);
-		free(value->val.as_array);
-		break;
-
-	case CB_VALUE_STRING:
-		cb_str_free(*value->val.as_string);
-		free(value->val.as_string);
-		break;
-
-	case CB_VALUE_FUNCTION:
-		free(value->val.as_function);
-		break;
-	}
+	return cb_malloc(sizeof(struct cb_function), NULL);
 }
 
-struct cb_value *cb_value_new(void)
+inline struct cb_array *cb_array_new(size_t len)
 {
-	struct cb_value *v;
+	return cb_malloc(sizeof(struct cb_array)
+			+ sizeof(struct cb_value) * len, NULL);
+}
 
-	v = malloc(sizeof(struct cb_value));
-	cb_gc_register((cb_gc_header *) v, cb_value_deinit);
+static void deinit_string(void *s_ptr)
+{
+	struct cb_string *s = s;
 
-	return v;
+	cb_str_free(s->string);
+}
+
+inline struct cb_string *cb_string_new(void)
+{
+	return cb_malloc(sizeof(struct cb_string), deinit_string);
 }
 
 int cb_value_is_truthy(struct cb_value *val)
@@ -72,7 +74,7 @@ int cb_value_is_truthy(struct cb_value *val)
 	case CB_VALUE_CHAR:
 		return 1;
 	case CB_VALUE_STRING:
-		return val->val.as_string->len > 0;
+		return val->val.as_string->string.len > 0;
 	case CB_VALUE_INTERNED_STRING: {
 		cb_str s = cb_agent_get_string(val->val.as_interned_string);
 		return s.len > 0;

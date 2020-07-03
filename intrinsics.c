@@ -8,21 +8,20 @@
 #include "intrinsics.h"
 #include "value.h"
 
-int println(size_t argc, struct cb_value **argv, struct cb_value **result);
+int println(size_t argc, struct cb_value *argv, struct cb_value *result);
 
 void make_intrinsics(cb_hashmap *scope)
 {
 	struct cb_function *func;
-	struct cb_value *func_val;
+	struct cb_value func_val;
 	char *name;
 
-	func = malloc(sizeof(struct cb_function));
+	func = cb_function_new();
 	func->type = CB_FUNCTION_NATIVE;
 	func->value.as_native = println;
 
-	func_val = malloc(sizeof(struct cb_value));
-	func_val->type = CB_VALUE_FUNCTION;
-	func_val->val.as_function = func;
+	func_val.type = CB_VALUE_FUNCTION;
+	func_val.val.as_function = func;
 
 	name = malloc(sizeof("println"));
 	name[sizeof("println") - 1] = 0;
@@ -33,7 +32,7 @@ void make_intrinsics(cb_hashmap *scope)
 			func_val);
 }
 
-int println(size_t argc, struct cb_value **argv, struct cb_value **result)
+int println(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	int i, first;
 	char *as_string;
@@ -42,14 +41,12 @@ int println(size_t argc, struct cb_value **argv, struct cb_value **result)
 	for (i = 0; i < argc; i += 1) {
 		if (first)
 			first = 0;
-		as_string = cb_value_to_string(argv[i]);
+		as_string = cb_value_to_string(&argv[i]);
 		printf("%s%s", first ? "" : " ", as_string);
 		free(as_string);
 	}
 	printf("\n");
 
-	*result = cb_value_new();
-	(*result)->type = CB_VALUE_NULL;
-
+	result->type = CB_VALUE_NULL;
 	return 0;
 }

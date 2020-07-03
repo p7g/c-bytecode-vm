@@ -21,7 +21,7 @@ struct upvalue {
 	int is_open;
 	union {
 		size_t idx;
-		struct cb_value *value;
+		struct cb_value value;
 	} v;
 };
 
@@ -36,7 +36,7 @@ struct frame {
 /* global vm state... this is fine, right?
  * These values are also used by the GC */
 size_t sp;
-struct cb_value **stack;
+struct cb_value *stack;
 struct upvalue *upvalues;
 size_t upvalues_idx;
 /* size of this array is based on number of modspecs in agent */
@@ -52,7 +52,7 @@ int cb_eval(cb_bytecode *bytecode)
 	struct cb_module *current_module;
 
 	pc = 0;
-	stack = malloc(STACK_INIT_SIZE * sizeof(struct cb_value *));
+	stack = malloc(STACK_INIT_SIZE * sizeof(struct cb_value));
 	sp = 0;
 	stack_size = STACK_INIT_SIZE;
 	upvalues = calloc(32, sizeof(struct upvalue));
@@ -84,11 +84,11 @@ int cb_eval(cb_bytecode *bytecode)
 		return 1; \
 	})
 #define PUSH(V) ({ \
-		struct cb_value *_v = (V); \
+		struct cb_value _v = (V); \
 		if (sp >= stack_size) { \
 			stack_size <<= 1; \
 			stack = realloc(stack, stack_size \
-					* sizeof(struct cb_value *)); \
+					* sizeof(struct cb_value)); \
 		} \
 		stack[sp++] = _v; \
 	})
@@ -101,18 +101,17 @@ int cb_eval(cb_bytecode *bytecode)
 	})
 #define POP() ({ \
 		assert(sp > 0); \
-		struct cb_value *_v = stack[--sp]; \
-		stack[sp + 1] = NULL; \
+		struct cb_value _v = stack[--sp]; \
 		_v; \
 	})
 #define TOP() (stack[sp - 1])
 #define FRAME() (&call_stack[call_stack_idx - 1])
 #define LOCAL(N) ({ \
-		struct cb_value *_v = stack[FRAME()->bp + 1 + (N)]; \
+		struct cb_value _v = stack[FRAME()->bp + 1 + (N)]; \
 		_v; \
 	})
 #define REPLACE(N, VAL) ({ \
-		struct cb_value *_v = (VAL); \
+		struct cb_value _v = (VAL); \
 		stack[(N)] = _v; \
 	})
 #define GLOBALS() (current_module ? current_module->global_scope : globals)
@@ -126,92 +125,86 @@ DO_OP_HALT:
 
 DO_OP_CONST_INT: {
 	size_t as_size_t = READ_SIZE_T();
-	struct cb_value *val = cb_value_new();
-	val->type = CB_VALUE_INT;
-	val->val.as_int = (intptr_t) as_size_t;
+	struct cb_value val;
+	val.type = CB_VALUE_INT;
+	val.val.as_int = (intptr_t) as_size_t;
 	PUSH(val);
 	DISPATCH();
 
 DO_OP_CONST_DOUBLE: {
-	struct cb_value *val = cb_value_new();
-	val->type = CB_VALUE_DOUBLE;
-	val->val.as_double = (double) READ_SIZE_T();
+	struct cb_value val;
+	val.type = CB_VALUE_DOUBLE;
+	val.val.as_double = (double) READ_SIZE_T();
 	PUSH(val);
 	DISPATCH();
 }
 
 DO_OP_CONST_STRING: {
-	struct cb_value *val = cb_value_new();
-	val->type = CB_VALUE_INTERNED_STRING;
-	val->val.as_interned_string = READ_SIZE_T();
+	struct cb_value val;
+	val.type = CB_VALUE_INTERNED_STRING;
+	val.val.as_interned_string = READ_SIZE_T();
 	PUSH(val);
 	DISPATCH();
 }
 
 DO_OP_CONST_CHAR: {
-	struct cb_value *val = cb_value_new();
-	val->type = CB_VALUE_CHAR;
-	val->val.as_char = (uint32_t) READ_SIZE_T();
+	struct cb_value val;
+	val.type = CB_VALUE_CHAR;
+	val.val.as_char = (uint32_t) READ_SIZE_T();
 	PUSH(val);
 	DISPATCH();
 }
 
 /* FIXME: Shouldn't allocate these each time */
 DO_OP_CONST_TRUE: {
-	struct cb_value *val = cb_value_new();
-	val->type = CB_VALUE_BOOL;
-	val->val.as_bool = 1;
+	struct cb_value val;
+	val.type = CB_VALUE_BOOL;
+	val.val.as_bool = 1;
 	PUSH(val);
 	DISPATCH();
 }
 
 DO_OP_CONST_FALSE: {
-	struct cb_value *val = cb_value_new();
-	val->type = CB_VALUE_BOOL;
-	val->val.as_bool = 0;
+	struct cb_value val;
+	val.type = CB_VALUE_BOOL;
+	val.val.as_bool = 0;
 	PUSH(val);
 	DISPATCH();
 }
 
 DO_OP_CONST_NULL: {
-	struct cb_value *val = cb_value_new();
-	val->type = CB_VALUE_NULL;
+	struct cb_value val;
+	val.type = CB_VALUE_NULL;
 	PUSH(val);
 	DISPATCH();
 }
 
 #define NUMBER_BINOP(OP) ({ \
-		struct cb_value *a, *b, *result; \
+		struct cb_value a, b, result; \
 		b = POP(); \
 		a = POP(); \
-		cb_value_incref(a); \
-		cb_value_incref(b); \
-		result = cb_value_new(); \
-		if (a->type == CB_VALUE_INT && b->type == CB_VALUE_INT) { \
-			result->type = CB_VALUE_INT; \
-			result->val.as_int = a->val.as_int \
-					OP b->val.as_int; \
-		} else if (a->type == CB_VALUE_DOUBLE \
-				&& b->type == CB_VALUE_DOUBLE) { \
-			result->type = CB_VALUE_DOUBLE; \
-			result->val.as_double = a->val.as_double \
-					OP b->val.as_double; \
-		} else if (a->type == CB_VALUE_INT \
-				&& b->type == CB_VALUE_DOUBLE) { \
-			result->type = CB_VALUE_DOUBLE; \
-			result->val.as_double = a->val.as_int \
-					OP b->val.as_double; \
-		} else if (a->type == CB_VALUE_DOUBLE \
-				&& b->type == CB_VALUE_INT) { \
-			result->type = CB_VALUE_DOUBLE; \
-			result->val.as_double = a->val.as_double \
-					OP b->val.as_int; \
+		if (a.type == CB_VALUE_INT && b.type == CB_VALUE_INT) { \
+			result.type = CB_VALUE_INT; \
+			result.val.as_int = a.val.as_int OP b.val.as_int; \
+		} else if (a.type == CB_VALUE_DOUBLE \
+				&& b.type == CB_VALUE_DOUBLE) { \
+			result.type = CB_VALUE_DOUBLE; \
+			result.val.as_double = a.val.as_double \
+					OP b.val.as_double; \
+		} else if (a.type == CB_VALUE_INT \
+				&& b.type == CB_VALUE_DOUBLE) { \
+			result.type = CB_VALUE_DOUBLE; \
+			result.val.as_double = a.val.as_int \
+					OP b.val.as_double; \
+		} else if (a.type == CB_VALUE_DOUBLE \
+				&& b.type == CB_VALUE_INT) { \
+			result.type = CB_VALUE_DOUBLE; \
+			result.val.as_double = a.val.as_double \
+					OP b.val.as_int; \
 		} else { \
 			ERROR("Invalid operands for %s\n", #OP); \
 			return 1; \
 		} \
-		cb_value_decref(a); \
-		cb_value_decref(b); \
 		PUSH(result); \
 	})
 
@@ -232,42 +225,32 @@ DO_OP_DIV:
 	DISPATCH();
 
 DO_OP_MOD: {
-	struct cb_value *a, *b, *result;
+	struct cb_value a, b, result;
 	b = POP();
 	a = POP();
-	if (a->type != CB_VALUE_INT || b->type != CB_VALUE_INT) {
+	if (a.type != CB_VALUE_INT || b.type != CB_VALUE_INT) {
 		ERROR("Operands to '%%' must be integers\n");
 		return 1;
 	}
-	cb_value_incref(a);
-	cb_value_incref(b);
-	result = cb_value_new();
-	result->type = CB_VALUE_INT;
-	result->val.as_int = a->val.as_int % b->val.as_int;
+	result.type = CB_VALUE_INT;
+	result.val.as_int = a.val.as_int % b.val.as_int;
 	PUSH(result);
-	cb_value_decref(a);
-	cb_value_decref(b);
 	DISPATCH();
 }
 
 DO_OP_EXP: {
-	struct cb_value *a, *b, *result;
+	struct cb_value a, b, result;
 	b = POP();
 	a = POP();
-	cb_value_incref(a);
-	cb_value_incref(b);
-	result = cb_value_new();
-	result->type = CB_VALUE_DOUBLE;
-	result->val.as_double = pow(
-			a->type == CB_VALUE_INT
-			? (double) a->val.as_int
-			: a->val.as_double,
-			b->type == CB_VALUE_INT
-			? (double) b->val.as_int
-			: b->val.as_double);
+	result.type = CB_VALUE_DOUBLE;
+	result.val.as_double = pow(
+			a.type == CB_VALUE_INT
+			? (double) a.val.as_int
+			: a.val.as_double,
+			b.type == CB_VALUE_INT
+			? (double) b.val.as_int
+			: b.val.as_double);
 	PUSH(result);
-	cb_value_decref(a);
-	cb_value_decref(b);
 	DISPATCH();
 }
 
@@ -276,45 +259,42 @@ DO_OP_JUMP:
 	DISPATCH();
 
 DO_OP_JUMP_IF_TRUE: {
-	struct cb_value *pred;
+	struct cb_value pred;
 	size_t next = READ_SIZE_T();
 	pred = POP();
-	if (cb_value_is_truthy(pred))
+	if (cb_value_is_truthy(&pred))
 		pc = next;
 	DISPATCH();
 }
 
 DO_OP_JUMP_IF_FALSE: {
-	struct cb_value *pred;
+	struct cb_value pred;
 	size_t next = READ_SIZE_T();
 	pred = POP();
-	if (!cb_value_is_truthy(pred))
+	if (!cb_value_is_truthy(&pred))
 		pc = next;
 	DISPATCH();
 }
 
 DO_OP_CALL: {
 	size_t num_args;
-	struct cb_value *func_val, *result;
+	struct cb_value func_val, result;
 	struct cb_function *func;
 
 	num_args = READ_SIZE_T();
 	func_val = stack[sp - num_args - 1];
 
-	if (func_val->type != CB_VALUE_FUNCTION) {
+	if (func_val.type != CB_VALUE_FUNCTION) {
 		ERROR("Value of type '%s' is not callable\n",
-				cb_value_type_name(func_val->type));
+				cb_value_type_name(func_val.type));
 		return 1;
 	}
 
-	func = func_val->val.as_function;
+	func = func_val.val.as_function;
 	if (func->type == CB_FUNCTION_NATIVE) {
-		func->value.as_native(num_args, &stack[sp - num_args],
-				&result);
+		func->value.as_native(num_args, &stack[sp - num_args], &result);
 		assert(sp > num_args);
 		sp -= (num_args + 1);
-		/* FIXME: is it necessary to clean up to this extent ? */
-		memset(&stack[sp], 0, num_args + 1);
 		PUSH(result);
 	} else {
 		// TODO
@@ -351,17 +331,16 @@ DO_OP_LOAD_GLOBAL: {
 		return 1;
 	}
 
-	PUSH(value);
+	PUSH(*value);
 	DISPATCH();
 }
 
 DO_OP_DECLARE_GLOBAL: {
 	size_t id;
-	struct cb_value *null_value;
+	struct cb_value null_value;
 
 	id = READ_SIZE_T();
-	null_value = cb_value_new();
-	null_value->type = CB_VALUE_NULL;
+	null_value.type = CB_VALUE_NULL;
 	cb_hashmap_set(GLOBALS(), id, null_value);
 	DISPATCH();
 }
@@ -377,13 +356,13 @@ DO_OP_STORE_GLOBAL: {
 DO_OP_NEW_FUNCTION: {
 	size_t name, arity, address;
 	struct cb_function *func;
-	struct cb_value *func_val;
+	struct cb_value func_val;
 
 	name = READ_SIZE_T();
 	arity = READ_SIZE_T();
 	address = READ_SIZE_T();
 
-	func = malloc(sizeof(struct cb_function));
+	func = cb_function_new();
 	func->type = CB_FUNCTION_USER;
 	func->value.as_user = (struct cb_user_function) {
 		.address = address,
@@ -391,9 +370,8 @@ DO_OP_NEW_FUNCTION: {
 		.arity = arity,
 	};
 
-	func_val = cb_value_new();
-	func_val->type = CB_VALUE_FUNCTION;
-	func_val->val.as_function = func;
+	func_val.type = CB_VALUE_FUNCTION;
+	func_val.val.as_function = func;
 
 	PUSH(func_val);
 	DISPATCH();
@@ -416,7 +394,7 @@ DO_OP_LOAD_FROM_MODULE: {
 	export_name = cb_modspec_get_export_name(mod->spec, export_id);
 	val = cb_hashmap_get(mod->global_scope, export_name);
 	assert(val != NULL);
-	PUSH(val);
+	PUSH(*val);
 	DISPATCH();
 }
 
@@ -467,7 +445,7 @@ DO_OP_EXIT_MODULE:
 	DISPATCH();
 
 DO_OP_DUP: {
-	struct cb_value *val;
+	struct cb_value val;
 
 	val = POP();
 	PUSH(val);
@@ -478,8 +456,8 @@ DO_OP_DUP: {
 DO_OP_ALLOCATE_LOCALS: {
 	int i;
 	size_t nlocals = READ_SIZE_T();
-	struct cb_value *null_value = cb_value_new();
-	null_value->type = CB_VALUE_NULL;
+	struct cb_value null_value;
+	null_value.type = CB_VALUE_NULL;
 	for (i = 0; i < nlocals; i += 1)
 		PUSH(null_value);
 	DISPATCH();

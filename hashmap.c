@@ -11,7 +11,7 @@
 struct entry {
 	struct entry *next;
 	size_t key;
-	struct cb_value *value;
+	struct cb_value value;
 };
 
 struct cb_hashmap {
@@ -102,20 +102,20 @@ struct cb_value *cb_hashmap_get(cb_hashmap *m, size_t key)
 	entry = m->entries[idx];
 	while (entry) {
 		if (entry->key == key)
-			return entry->value;
+			return &entry->value;
 		entry = entry->next;
 	}
 	return NULL;
 }
 
-void cb_hashmap_set(cb_hashmap *m, size_t key, struct cb_value *value)
+void cb_hashmap_set(cb_hashmap *m, size_t key, struct cb_value value)
 {
 	size_t idx;
 	struct entry *entry;
 
 	maybe_grow(m);
 
-	cb_value_incref(value);
+	cb_value_incref(&value);
 	idx = hash_size_t(key) % m->size;
 	entry = malloc(sizeof(struct entry));
 	entry->key = key;

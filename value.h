@@ -25,9 +25,9 @@ enum cb_value_type {
 
 struct cb_value;
 
-struct cb_array {
-	size_t len;
-	struct cb_value *values;
+struct cb_string {
+	cb_gc_header gc_header;
+	cb_str string;
 };
 
 enum cb_function_type {
@@ -36,8 +36,8 @@ enum cb_function_type {
 };
 
 /* FIXME: argv should be const since it points to the stack */
-typedef int (cb_native_function)(size_t argc, struct cb_value **argv,
-		struct cb_value **retval);
+typedef int (cb_native_function)(size_t argc, struct cb_value *argv,
+		struct cb_value *retval);
 
 struct cb_user_function {
 	size_t name,
@@ -46,6 +46,7 @@ struct cb_user_function {
 };
 
 struct cb_function {
+	cb_gc_header gc_header;
 	enum cb_function_type type;
 	union {
 		cb_native_function *as_native;
@@ -53,8 +54,9 @@ struct cb_function {
 	} value;
 };
 
+struct cb_array;
+
 struct cb_value {
-	cb_gc_header gc_header;
 	enum cb_value_type type;
 	union {
 		intptr_t as_int;
@@ -62,10 +64,17 @@ struct cb_value {
 		int as_bool;
 		uint32_t as_char;
 		size_t as_interned_string;
-		cb_str *as_string;
+		/* heap allocated */
+		struct cb_string *as_string;
 		struct cb_array *as_array;
 		struct cb_function *as_function;
 	} val;
+};
+
+struct cb_array {
+	cb_gc_header gc_header;
+	size_t len;
+	struct cb_value values[];
 };
 
 int cb_value_eq(struct cb_value *a, struct cb_value *b);
@@ -73,10 +82,12 @@ int cb_value_cmp(struct cb_value *a, struct cb_value *b);
 char *cb_value_to_string(struct cb_value *val);
 int cb_value_is_truthy(struct cb_value *val);
 
-struct cb_value *cb_value_new(void);
 void cb_value_mark(struct cb_value *val);
 void cb_value_incref(struct cb_value *val);
 void cb_value_decref(struct cb_value *val);
+struct cb_function *cb_function_new(void);
+struct cb_string *cb_string_new(void);
+struct cb_array *cb_array_new(size_t len);
 
 const char *cb_value_type_name(enum cb_value_type type);
 
