@@ -8,31 +8,31 @@
 #include "intrinsics.h"
 #include "value.h"
 
+#define FUNC(NAME, ARITY, FN) ({ \
+		struct cb_function *_func; \
+		struct cb_value _func_val; \
+		size_t _name; \
+		_name = cb_agent_intern_string(strdup(NAME), sizeof(NAME) - 1); \
+		_func = cb_function_new(); \
+		_func->arity = (ARITY); \
+		_func->name = _name; \
+		_func->type = CB_FUNCTION_NATIVE; \
+		_func->value.as_native = (cb_native_function *) (FN); \
+		_func_val.type = CB_VALUE_FUNCTION; \
+		_func_val.val.as_function = _func; \
+		cb_hashmap_set(scope, _name, _func_val); \
+	})
+
+int print(size_t argc, struct cb_value *argv, struct cb_value *result);
 int println(size_t argc, struct cb_value *argv, struct cb_value *result);
 
 void make_intrinsics(cb_hashmap *scope)
 {
-	struct cb_function *func;
-	struct cb_value func_val;
-	char *name;
-
-	func = cb_function_new();
-	func->type = CB_FUNCTION_NATIVE;
-	func->value.as_native = println;
-
-	func_val.type = CB_VALUE_FUNCTION;
-	func_val.val.as_function = func;
-
-	name = malloc(sizeof("println"));
-	name[sizeof("println") - 1] = 0;
-	memcpy(name, "println", sizeof("println") - 1);
-
-	cb_hashmap_set(scope,
-			cb_agent_intern_string(name, sizeof("println") - 1),
-			func_val);
+	FUNC("println", 0, println);
+	FUNC("print", 0, print);
 }
 
-int println(size_t argc, struct cb_value *argv, struct cb_value *result)
+int print(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	int i, first;
 	char *as_string;
@@ -45,8 +45,15 @@ int println(size_t argc, struct cb_value *argv, struct cb_value *result)
 		printf("%s%s", first ? "" : " ", as_string);
 		free(as_string);
 	}
-	printf("\n");
 
 	result->type = CB_VALUE_NULL;
+	return 0;
+}
+
+int println(size_t argc, struct cb_value *argv, struct cb_value *result)
+{
+	print(argc, argv, result);
+	printf("\n");
+
 	return 0;
 }

@@ -153,6 +153,11 @@ char *cb_value_to_string(struct cb_value *val)
 		buf = strdup(cb_strptr(val->val.as_string->string));
 		break;
 
+	case CB_VALUE_INTERNED_STRING:
+		buf = strdup(cb_strptr(cb_agent_get_string(
+						val->val.as_interned_string)));
+		break;
+
 	case CB_VALUE_FUNCTION: {
 		size_t name = val->val.as_function->name;
 		if (name != (size_t) -1) {
