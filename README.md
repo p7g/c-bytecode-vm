@@ -32,54 +32,57 @@ parts:
 
 ### Lexing, Parsing, and Code Generation
 
-The lexer and parser will be written by hand. This allows us to skip some
+The lexer and parser is written by hand. This allows us to skip some
 dependencies, and makes it simpler to provide useful errors to the user at
 parse-time.
 
-The parser will be a simple recursive-descent parser, like the one in
+The parser is a simple recursive-descent parser, like the one in
 rust-bytecode-vm. This has served its purpose well there; parsing doesn't take
 long enough to be worth worrying about.
 
-For simplicity's sake, a parse or compile error will result in the immediate
-termination of the program. During parsing, any identifiers and string literals
-will be interned in the agent, which will just be a global instance. Interned
-strings are stored globally so the interpreter will have access to them as
-well.
+For simplicity's sake, a parse or compile error will result in the (almost)
+immediate termination of the program. During parsing, any identifiers and
+string literals will be interned in the agent, which is just a global instance.
+Interned strings are stored globally so the interpreter will have access to
+them as well.
 
-The set of op codes will be the same as those defined in rust-bytecode-vm.
+The set of op codes is nearly the same as those defined in rust-bytecode-vm.
 Hopefully this will provide a more apples-to-apples comparison.
 
-Code will be generated in one pass. This is a departure from rust-bytecode-vm,
+Code is generated in one pass. This is a departure from rust-bytecode-vm,
 which parses the source into an AST, and later traverses it to compile the
 bytecode. This likely won't make a huge performance difference for non-trivial
-applications.
+applications. An interesting implication of this is that a for loop requires
+more jumps than in rust-bytecode-vm.
 
 A requirement is to support the same programs as rust-bytecode-vm.
 
 ### Bytecode Interpretation
 
-Thi interpretation of bytecode is the job of the virtual machine, which
+The interpretation of bytecode is the job of the virtual machine, which
 delegates business logic to the language runtime. As an example, upon reaching
 an "add" opcode, the virtual machine would retrieve two values from the stack,
 call into the runtime to sum them or report an error, and then push the result
 back onto the stack.
 
+I haven't been very good at keeping to this, but it is a goal to pull that
+logic out of the interpreter loop where possible.
+
 #### Virtual Machine
 
-The architecture of the virtual machine will be the same as that of
-rust-bytecode-vm. Essentially, the array of opcodes will be iterated over, and
-each opcode will be processed by a large switch case.
+The architecture of the virtual machine is similar to that of rust-bytecode-vm.
+As opposed to a single massive switch statement, computed gotos are used.
+Thanks to this, there are many branching points within the interpreter loop
+rather than one, which should result in better usage of the CPU's branch
+predictor (or so they say).
 
-The switch statement will likely be implemented as in CPython, where a set of
-macros is used rather than hard-coding the switch statement. If the compiler
-and platform supports it, computed gotos will be used. It should be interesting
-to compare the performance of these alternatives.
+Initially, I planned to try to support compilers without GNU C extensions, but
+that didn't happen. Maybe eventually that will be a goal, but for now GNU
+extensions are used all over the place (turns out they're pretty nice).
 
-They say that the CPU's branch predictor can do a much better job with computed
-gotos as opposed to a large jump table like a switch statement would generate.
-
-For profiling and debugging purposes, each opcode's handler should be its own
+For profiling and debugging purposes, each opcode's handler _should_ be its own
 function. Ideally the compiler will inline these functions where necessary.
+This is entirely not the case right now.
 
 #### Runtime
 
@@ -111,6 +114,8 @@ the roots will be as follows:
 
 - Values on the stack, and all values accessible from those values
 - Upvalues stored in the interpreter state, and any value accessible from there
+- Each module's global scope, as well as the global scope for any files that
+  are not modules (this is new with c-bytecode-vm)
 
 A collection can happen on any allocation. As such, we need a way to prevent
 objects being used from C code (i.e. inaccessible according to the garbage
