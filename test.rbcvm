@@ -8,4 +8,6 @@ function fact(n) {
     return n * fact(n - 1);
 }
 
-println(fact(10));
+# println(fact(10));
+
+println([1, 2, 3]);

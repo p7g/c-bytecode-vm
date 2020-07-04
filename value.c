@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -168,6 +169,36 @@ char *cb_value_to_string(struct cb_value *val)
 			sprintf(buf, "<anonymous>");
 			buf[len] = 0;
 		}
+		break;
+	}
+
+	case CB_VALUE_ARRAY: {
+		char *ptr;
+		size_t array_len = val->val.as_array->len;
+		size_t element_lens[array_len];
+		char *elements[array_len];
+		len = 2; /* square brackets around elements */
+		for (int i = 0; i < array_len; i += 1) {
+			elements[i] = cb_value_to_string(
+					&val->val.as_array->values[i]);
+			len += element_lens[i] = strlen(elements[i]);
+			if (i != 0)
+				len += 2; /* comma space */
+		}
+		ptr = buf = malloc(len + 1);
+		buf[len] = 0;
+		*ptr++ = '[';
+		for (int i = 0; i < array_len; i += 1) {
+			memcpy(ptr, elements[i], element_lens[i]);
+			free(elements[i]);
+			ptr += element_lens[i];
+			if (i + 1 < array_len) {
+				*ptr++ = ',';
+				*ptr++ = ' ';
+			}
+		}
+		*ptr++ = ']';
+		assert(ptr == buf + len);
 		break;
 	}
 

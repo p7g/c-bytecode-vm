@@ -74,7 +74,6 @@ int cb_disassemble(cb_bytecode *bytecode)
 		case OP_BIND_UPVALUE:
 		case OP_LOAD_UPVALUE:
 		case OP_STORE_UPVALUE:
-		case OP_NEW_ARRAY:
 		case OP_INIT_MODULE:
 		case OP_ALLOCATE_LOCALS:
 		case OP_EXPORT:

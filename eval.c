@@ -165,7 +165,6 @@ DO_OP_CONST_CHAR: {
 	DISPATCH();
 }
 
-/* FIXME: Shouldn't allocate these each time */
 DO_OP_CONST_TRUE: {
 	struct cb_value val;
 	val.type = CB_VALUE_BOOL;
@@ -302,6 +301,14 @@ DO_OP_CALL: {
 	}
 
 	func = func_val.val.as_function;
+	name = func->name;
+	if (func->arity > num_args) {
+		ERROR("Too few arguments to function '%s'\n",
+				func->name == (size_t) -1
+				? "<anonymous>"
+				: cb_strptr(cb_agent_get_string(name)));
+		return 1;
+	}
 	if (func->type == CB_FUNCTION_NATIVE) {
 		if (func->value.as_native(num_args, &stack[sp - num_args],
 					&result))
@@ -310,14 +317,6 @@ DO_OP_CALL: {
 		sp -= (num_args + 1);
 		PUSH(result);
 	} else {
-		name = func->name;
-		if (func->arity > num_args) {
-			ERROR("Too few arguments to function '%s'\n",
-					func->name == (size_t) -1
-					? "<anonymous>"
-					: cb_strptr(cb_agent_get_string(name)));
-			return 1;
-		}
 		frame.prev_bp = bp;
 		frame.prev_pc = pc;
 		frame.current_function = call_stack_idx == 0 ? -1 : bp;
@@ -447,8 +446,19 @@ DO_OP_EXPORT:
 	READ_SIZE_T();
 	DISPATCH();
 
-DO_OP_NEW_ARRAY:
-DO_OP_NEW_ARRAY_WITH_VALUES:
+DO_OP_NEW_ARRAY_WITH_VALUES: {
+	struct cb_value arrayval;
+	size_t size = READ_SIZE_T();
+	struct cb_array *array = cb_array_new(size);
+	array->len = size;
+	for (int i = size - 1; i >= 0; i -= 1)
+		array->values[i] = POP();
+	arrayval.type = CB_VALUE_ARRAY;
+	arrayval.val.as_array = array;
+	PUSH(arrayval);
+	DISPATCH();
+}
+
 DO_OP_ARRAY_GET:
 DO_OP_ARRAY_SET:
 	return 1;
