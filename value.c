@@ -179,3 +179,101 @@ char *cb_value_to_string(struct cb_value *val)
 
 	return buf;
 }
+
+int cb_value_eq(struct cb_value *a, struct cb_value *b)
+{
+	if (a == b)
+		return 1;
+	if (a->type == CB_VALUE_INTERNED_STRING && b->type == CB_VALUE_STRING) {
+		return !strcmp(cb_strptr(b->val.as_string->string),
+				cb_strptr(cb_agent_get_string(
+						a->val.as_interned_string)));
+	} else if (b->type == CB_VALUE_INTERNED_STRING
+			&& a->type == CB_VALUE_STRING) {
+		return !strcmp(cb_strptr(a->val.as_string->string),
+				cb_strptr(cb_agent_get_string(
+						b->val.as_interned_string)));
+	}
+	if (a->type != b->type)
+		return 0;
+
+	switch (a->type) {
+	case CB_VALUE_INT:
+		return a->val.as_int == b->val.as_int;
+	case CB_VALUE_DOUBLE:
+		return a->val.as_double == b->val.as_double;
+	case CB_VALUE_BOOL:
+		return a->val.as_bool == b->val.as_bool;
+	case CB_VALUE_CHAR:
+		return a->val.as_char == b->val.as_char;
+	case CB_VALUE_NULL:
+		return 1;
+	case CB_VALUE_ARRAY:
+		fprintf(stderr, "Checking eq of array");
+		abort();
+	case CB_VALUE_STRING:
+		return !strcmp(cb_strptr(a->val.as_string->string),
+				cb_strptr(b->val.as_string->string));
+	case CB_VALUE_FUNCTION:
+		if (a->val.as_function->type != b->val.as_function->type)
+			return 0;
+		if (a->val.as_function->type == CB_FUNCTION_USER)
+			return a->val.as_function->value.as_user
+				== b->val.as_function->value.as_user;
+		return a->val.as_function->value.as_native
+			== b->val.as_function->value.as_native;
+	case CB_VALUE_INTERNED_STRING:
+		return a->val.as_interned_string == b->val.as_interned_string;
+	default:
+		return 0;
+	}
+}
+
+/* There is only a partial ordering defined for values. If ok is set to true
+ * when this function returns, it means the result is the actual ordering
+ * between the values `a` and `b`. Otherwise, the return value will be 0.
+ *
+ * `ok` can be NULL for convenience. If two values are not comparable, the
+ * result will be 0 (i.e. neutral).
+ *
+ * If the result is negative, `a` is less than `b`. If the value is positive,
+ * the reverse is true. Otherwise, if the result is zero, the values are equal
+ * (or the ordering is undefined).
+ */
+int cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok)
+{
+#define UNDEFINED() ({ \
+		if (ok != NULL) \
+			*ok = 0; \
+		0; \
+	})
+#define OK(VAL) ({ \
+		if (ok != NULL) \
+			*ok = 1; \
+		(VAL); \
+	})
+
+	if (cb_value_eq(a, b))
+		return OK(0);
+
+	switch (a->type) {
+	case CB_VALUE_INT:
+		if (b->type == CB_VALUE_INT)
+			return OK(a->val.as_int - b->val.as_int);
+		if (b->type == CB_VALUE_DOUBLE)
+			return OK(((double) a->val.as_int) - b->val.as_double);
+		return UNDEFINED();
+	case CB_VALUE_DOUBLE:
+		if (b->type == CB_VALUE_INT)
+			return OK(a->val.as_double - (double) b->val.as_int);
+		if (b->type == CB_VALUE_DOUBLE)
+			return OK(a->val.as_double - b->val.as_double);
+		return UNDEFINED();
+
+	default:
+		return UNDEFINED();
+	}
+
+#undef UNDEFINED
+#undef OK
+}

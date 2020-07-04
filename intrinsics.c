@@ -39,10 +39,10 @@ static int print(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 	first = 1;
 	for (i = 0; i < argc; i += 1) {
-		if (first)
-			first = 0;
 		as_string = cb_value_to_string(&argv[i]);
 		printf("%s%s", first ? "" : " ", as_string);
+		if (first)
+			first = 0;
 		free(as_string);
 	}
 

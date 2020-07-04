@@ -443,16 +443,98 @@ DO_OP_LOAD_FROM_MODULE: {
 }
 
 DO_OP_EXPORT:
+	/* FIXME: use export IDs rather than hashmap lookups */
+	READ_SIZE_T();
+	DISPATCH();
+
 DO_OP_NEW_ARRAY:
 DO_OP_NEW_ARRAY_WITH_VALUES:
 DO_OP_ARRAY_GET:
 DO_OP_ARRAY_SET:
-DO_OP_EQUAL:
-DO_OP_NOT_EQUAL:
-DO_OP_LESS_THAN:
-DO_OP_LESS_THAN_EQUAL:
-DO_OP_GREATER_THAN:
-DO_OP_GREATER_THAN_EQUAL:
+	return 1;
+
+DO_OP_EQUAL: {
+	struct cb_value result, a, b;
+	b = POP();
+	a = POP();
+	result.type = CB_VALUE_BOOL;
+	result.val.as_bool = cb_value_eq(&a, &b);
+	PUSH(result);
+	DISPATCH();
+}
+
+DO_OP_NOT_EQUAL: {
+	struct cb_value result, a, b;
+	b = POP();
+	a = POP();
+	result.type = CB_VALUE_BOOL;
+	result.val.as_bool = !cb_value_eq(&a, &b);
+	PUSH(result);
+	DISPATCH();
+}
+
+#define CMP(A, B) ({ \
+		int _ok; \
+		int _result = cb_value_cmp(&(A), &(B), &_ok); \
+		if (!_ok) { \
+			ERROR("Cannot compare values of types %s and %s\n", \
+					cb_value_type_name((A).type), \
+					cb_value_type_name((B).type)); \
+			return 1; \
+		} \
+		_result; \
+	})
+
+DO_OP_LESS_THAN: {
+	int diff;
+	struct cb_value result, a, b;
+	b = POP();
+	a = POP();
+	result.type = CB_VALUE_BOOL;
+	diff = CMP(a, b);
+	result.val.as_bool = diff < 0;
+	PUSH(result);
+	DISPATCH();
+}
+
+DO_OP_LESS_THAN_EQUAL: {
+	int diff;
+	struct cb_value result, a, b;
+	b = POP();
+	a = POP();
+	result.type = CB_VALUE_BOOL;
+	diff = CMP(a, b);
+	result.val.as_bool = diff <= 0;
+	PUSH(result);
+	DISPATCH();
+}
+
+DO_OP_GREATER_THAN: {
+	int diff;
+	struct cb_value result, a, b;
+	b = POP();
+	a = POP();
+	result.type = CB_VALUE_BOOL;
+	diff = CMP(a, b);
+	result.val.as_bool = diff > 0;
+	PUSH(result);
+	DISPATCH();
+}
+
+DO_OP_GREATER_THAN_EQUAL: {
+	int diff;
+	struct cb_value result, a, b;
+	b = POP();
+	a = POP();
+	result.type = CB_VALUE_BOOL;
+	diff = CMP(a, b);
+	result.val.as_bool = diff >= 0;
+	PUSH(result);
+	DISPATCH();
+}
+
+#undef CMP
+
 DO_OP_BITWISE_AND:
 DO_OP_BITWISE_OR:
 DO_OP_BITWISE_XOR:

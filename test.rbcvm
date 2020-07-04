@@ -1,11 +1,11 @@
 module Test;
 
-function test() {
-    let a = 10000000;
-
-    while a {
-        a = a - 1;
+function fact(n) {
+    if n == 1 {
+        return n;
     }
+
+    return n * fact(n - 1);
 }
 
-test();
+println(fact(10));
