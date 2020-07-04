@@ -459,9 +459,52 @@ DO_OP_NEW_ARRAY_WITH_VALUES: {
 	DISPATCH();
 }
 
-DO_OP_ARRAY_GET:
-DO_OP_ARRAY_SET:
-	return 1;
+#define EXPECT_INT_INDEX(V) ({ \
+		struct cb_value v = (V); \
+		if (v.type != CB_VALUE_INT) { \
+			ERROR("Array index must be integer, got %s\n", \
+					cb_value_type_name(v.type)); \
+			return 1; \
+		} \
+		v.val.as_int; \
+	})
+#define ARRAY_PTR(ARR, IDX) ({ \
+		struct cb_value _arr = (ARR); \
+		if (_arr.type != CB_VALUE_ARRAY) { \
+			ERROR("Can only index arrays, got %s\n", \
+					cb_value_type_name(_arr.type)); \
+			return 1; \
+		} \
+		size_t _idx = EXPECT_INT_INDEX(IDX); \
+		if (_idx >= _arr.val.as_array->len) { \
+			ERROR("Index %zu greater than array length %zu\n", \
+					_idx, _arr.val.as_array->len); \
+			return 1; \
+		} \
+		&_arr.val.as_array->values[_idx]; \
+	})
+
+DO_OP_ARRAY_GET: {
+	struct cb_value arr, idx, val;
+	idx = POP();
+	arr = POP();
+	val = *ARRAY_PTR(arr, idx);
+	PUSH(val);
+	DISPATCH();
+}
+
+DO_OP_ARRAY_SET: {
+	struct cb_value arr, idx, val;
+	val = POP();
+	idx = POP();
+	arr = POP();
+	*ARRAY_PTR(arr, idx) = val;
+	PUSH(val);
+	DISPATCH();
+}
+
+#undef EXPECT_INT_INDEX
+#undef ARRAY_PTR
 
 DO_OP_EQUAL: {
 	struct cb_value result, a, b;

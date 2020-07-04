@@ -1,13 +1,5 @@
-module Test;
+let arr = [324];
 
-function fact(n) {
-    if n == 1 {
-        return n;
-    }
+arr[0] = 3;
 
-    return n * fact(n - 1);
-}
-
-# println(fact(10));
-
-println([1, 2, 3]);
+println(arr[0]);
