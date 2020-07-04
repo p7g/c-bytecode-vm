@@ -588,13 +588,76 @@ DO_OP_GREATER_THAN_EQUAL: {
 
 #undef CMP
 
+#define BITOP(OP) ({ \
+		struct cb_value a, b, result; \
+		b = POP(); \
+		a = POP(); \
+		if (a.type != CB_VALUE_INT) { \
+			ERROR("Bitwise operands must be integers, got %s\n", \
+					cb_value_type_name(a.type)); \
+			return 1; \
+		} \
+		if (b.type != CB_VALUE_INT) { \
+			ERROR("Bitwise operands must be integers, got %s\n", \
+					cb_value_type_name(b.type)); \
+			return 1; \
+		} \
+		result.type = CB_VALUE_INT; \
+		result.val.as_int = a.val.as_int OP b.val.as_int; \
+		PUSH(result); \
+	})
+
 DO_OP_BITWISE_AND:
+	BITOP(&);
+	DISPATCH();
+
 DO_OP_BITWISE_OR:
+	BITOP(|);
+	DISPATCH();
+
 DO_OP_BITWISE_XOR:
-DO_OP_BITWISE_NOT:
-DO_OP_NOT:
-DO_OP_NEG:
-	return 1;
+	BITOP(^);
+	DISPATCH();
+
+DO_OP_BITWISE_NOT: {
+	struct cb_value a;
+	a = POP();
+	if (a.type != CB_VALUE_INT) {
+		ERROR("Bitwise operands must be integers, got %s\n",
+				cb_value_type_name(a.type));
+		return 1;
+	}
+	a.val.as_int = ~a.val.as_int;
+	PUSH(a);
+	DISPATCH();
+}
+
+#undef BITOP
+
+DO_OP_NOT: {
+	struct cb_value a, result;
+	a = POP();
+	result.type = CB_VALUE_BOOL;
+	result.val.as_bool = !cb_value_is_truthy(&a);
+	PUSH(result);
+	DISPATCH();
+}
+
+DO_OP_NEG: {
+	struct cb_value a;
+	a = POP();
+	if (a.type == CB_VALUE_INT) {
+		a.val.as_int = -a.val.as_int;
+	} else if (a.type == CB_VALUE_DOUBLE) {
+		a.val.as_double = -a.val.as_double;
+	} else{
+		ERROR("Operand for negation must be int or double, got %s\n",
+				cb_value_type_name(a.type));
+		return 1;
+	}
+	PUSH(a);
+	DISPATCH();
+}
 
 DO_OP_INIT_MODULE: {
 	size_t module_id;
