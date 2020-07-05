@@ -161,12 +161,20 @@ char *cb_value_to_string(struct cb_value *val)
 
 	case CB_VALUE_FUNCTION: {
 		size_t name = val->val.as_function->name;
+		cb_str s;
 		if (name != (size_t) -1) {
-			buf = strdup(cb_strptr(cb_agent_get_string(name)));
+			s = cb_agent_get_string(name);
+			len = cb_strlen(s);
+			len += sizeof("function "); /* includes NUL byte */
+			buf = malloc(len);
+			sprintf(buf, "function ");
+			memcpy(buf + sizeof("function ") - 1, cb_strptr(s),
+					cb_strlen(s));
+			buf[len - 1] = 0;
 		} else {
-			len = sizeof("<anonymous>") - 1;
+			len = sizeof("function <anonymous>") - 1;
 			buf = malloc(len + 1);
-			sprintf(buf, "<anonymous>");
+			sprintf(buf, "function <anonymous>");
 			buf[len] = 0;
 		}
 		break;
