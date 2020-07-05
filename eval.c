@@ -523,7 +523,7 @@ DO_OP_BIND_LOCAL: {
 
 	func = POP();
 	if (func.type != CB_VALUE_FUNCTION
-			&& func.val.as_function->type != CB_FUNCTION_USER) {
+			|| func.val.as_function->type != CB_FUNCTION_USER) {
 		ERROR("Can only bind upvalues to user functions\n");
 		return 1;
 	}
@@ -595,9 +595,9 @@ DO_OP_STORE_UPVALUE: {
 
 	uv = &upvalues[self->val.as_function->value.as_user.upvalues[idx]];
 	if (uv->is_open)
-		stack[uv->v.idx] = POP();
+		stack[uv->v.idx] = TOP();
 	else
-		uv->v.value = POP();
+		uv->v.value = TOP();
 
 	DISPATCH();
 }

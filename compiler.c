@@ -943,7 +943,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 {
 	int first_param, old_is_global;
 	struct token name, param;
-	size_t name_id;
+	size_t name_id, binding_id;
 	size_t num_params, local_count_pos;
 	struct scope inner_scope, *old_scope;
 	struct function_state fstate, *old_fstate;
@@ -991,6 +991,20 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	APPEND_SIZE_T(name_id);
 	APPEND_SIZE_T(num_params);
 	ADDR_OF(start_label);
+
+	if (state->is_global && name_id != -1) {
+		APPEND(OP_DECLARE_GLOBAL);
+		APPEND_SIZE_T(name_id);
+		APPEND(OP_STORE_GLOBAL);
+		APPEND_SIZE_T(name_id);
+	} else if (name_id != -1) {
+		assert(state->scope != NULL);
+		binding_id = scope_add_binding(state->scope, name_id,
+				0);
+		APPEND(OP_STORE_LOCAL);
+		APPEND_SIZE_T(binding_id);
+	}
+
 	APPEND(OP_JUMP);
 	ADDR_OF(end_label);
 
@@ -1063,26 +1077,13 @@ static int compile_function(struct cstate *state, size_t *name_out)
 static int compile_function_statement(struct cstate *state, size_t *name_out,
 		int leave)
 {
-	size_t name, binding_id;
+	size_t name;
 
 	X(compile_function(state, &name));
 	if (name_out)
 		*name_out = name;
-
-	if (state->is_global) {
-		APPEND(OP_DECLARE_GLOBAL);
-		APPEND_SIZE_T(name);
-		APPEND(OP_STORE_GLOBAL);
-		APPEND_SIZE_T(name);
-		if (!leave)
-			APPEND(OP_POP);
-	} else {
-		assert(state->scope != NULL);
-		binding_id = scope_add_binding(state->scope, name, 0);
-		APPEND(OP_STORE_LOCAL);
-		APPEND_SIZE_T(binding_id);
+	if (!leave || !state->is_global)
 		APPEND(OP_POP);
-	}
 
 	return 0;
 }
