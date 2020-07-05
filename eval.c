@@ -308,7 +308,7 @@ DO_OP_CALL: {
 
 	if (func_val.type != CB_VALUE_FUNCTION) {
 		ERROR("Value of type '%s' is not callable\n",
-				cb_value_type_name(func_val.type));
+				cb_value_type_friendly_name(func_val.type));
 		return 1;
 	}
 
@@ -569,7 +569,7 @@ DO_OP_NEW_ARRAY_WITH_VALUES: {
 		struct cb_value v = (V); \
 		if (v.type != CB_VALUE_INT) { \
 			ERROR("Array index must be integer, got %s\n", \
-					cb_value_type_name(v.type)); \
+					cb_value_type_friendly_name(v.type)); \
 			return 1; \
 		} \
 		v.val.as_int; \
@@ -578,7 +578,7 @@ DO_OP_NEW_ARRAY_WITH_VALUES: {
 		struct cb_value _arr = (ARR); \
 		if (_arr.type != CB_VALUE_ARRAY) { \
 			ERROR("Can only index arrays, got %s\n", \
-					cb_value_type_name(_arr.type)); \
+					cb_value_type_friendly_name(_arr.type)); \
 			return 1; \
 		} \
 		size_t _idx = EXPECT_INT_INDEX(IDX); \
@@ -637,8 +637,8 @@ DO_OP_NOT_EQUAL: {
 		int _result = cb_value_cmp(&(A), &(B), &_ok); \
 		if (!_ok) { \
 			ERROR("Cannot compare values of types %s and %s\n", \
-					cb_value_type_name((A).type), \
-					cb_value_type_name((B).type)); \
+					cb_value_type_friendly_name((A).type), \
+					cb_value_type_friendly_name((B).type)); \
 			return 1; \
 		} \
 		_result; \
@@ -700,12 +700,12 @@ DO_OP_GREATER_THAN_EQUAL: {
 		a = POP(); \
 		if (a.type != CB_VALUE_INT) { \
 			ERROR("Bitwise operands must be integers, got %s\n", \
-					cb_value_type_name(a.type)); \
+					cb_value_type_friendly_name(a.type)); \
 			return 1; \
 		} \
 		if (b.type != CB_VALUE_INT) { \
 			ERROR("Bitwise operands must be integers, got %s\n", \
-					cb_value_type_name(b.type)); \
+					cb_value_type_friendly_name(b.type)); \
 			return 1; \
 		} \
 		result.type = CB_VALUE_INT; \
@@ -730,7 +730,7 @@ DO_OP_BITWISE_NOT: {
 	a = POP();
 	if (a.type != CB_VALUE_INT) {
 		ERROR("Bitwise operands must be integers, got %s\n",
-				cb_value_type_name(a.type));
+				cb_value_type_friendly_name(a.type));
 		return 1;
 	}
 	a.val.as_int = ~a.val.as_int;
@@ -758,7 +758,7 @@ DO_OP_NEG: {
 		a.val.as_double = -a.val.as_double;
 	} else{
 		ERROR("Operand for negation must be int or double, got %s\n",
-				cb_value_type_name(a.type));
+				cb_value_type_friendly_name(a.type));
 		return 1;
 	}
 	PUSH(a);
