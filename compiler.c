@@ -1610,7 +1610,7 @@ static int compile_char_expression(struct cstate *state)
 
 	tok = EXPECT(TOK_CHAR);
 	/* FIXME: support unicode */
-	c = *tok_start(state, &tok);
+	c = tok_start(state, &tok)[1];
 
 	APPEND(OP_CONST_CHAR);
 	APPEND_SIZE_T(c);
