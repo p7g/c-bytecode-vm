@@ -1,0 +1,92 @@
+module List;
+
+import "array.rbcvm";
+import "box.rbcvm";
+
+export function new() {
+  return Box.new(null);
+}
+
+export function length(self) {
+  let current = Box.get(self);
+  let len = 0;
+
+  while current {
+    len = len + 1;
+    current = current[1];
+  }
+
+  return len;
+}
+
+export function prepend(self, value) {
+  let current = Box.get(self);
+  Box.set(self, [value, current]);
+}
+
+export function append(self, value) {
+  let current = Box.get(self);
+  let prev = null;
+  if current == null {
+    Box.set(self, [value, null]);
+    return;
+  }
+
+  while current {
+    prev = current;
+    current = current[1];
+  }
+
+  prev[1] = [value, null];
+}
+
+export function foreach(self, func) {
+  let current = Box.get(self);
+
+  for let i = 0; current; i = i + 1 {
+    func(current[0], i, self);
+    current = current[1];
+  }
+}
+
+export function find(self, func) {
+  let current = Box.get(self);
+
+  for let i = 0; current; i = i + 1 {
+    if func(current[0], i, self) {
+      return current;
+    }
+  }
+
+  return null;
+}
+
+export function reverse(self) {
+  let new_list = new();
+
+  foreach(self, function(val) {
+    prepend(new_list, val);
+  });
+
+  return new_list;
+}
+
+export function map(self, func) {
+  let new_list = new();
+
+  foreach(self, function(val, i) {
+    prepend(new_list, func(val, i, self));
+  });
+
+  return reverse(new_list);
+}
+
+export function to_array(self) {
+  let arr = Array.new(length(self));
+
+  foreach(self, function(val, i) {
+    arr[i] = val;
+  });
+
+  return arr;
+}

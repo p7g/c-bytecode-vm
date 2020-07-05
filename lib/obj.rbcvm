@@ -1,0 +1,77 @@
+module Obj;
+
+import "fn.rbcvm";
+import "op.rbcvm";
+import "result.rbcvm";
+
+let OBJ_CLASS = 0;
+let OBJ_DICT = 1;
+let CLS_SUPER = 0;
+let CLS_METHODS = 1;
+
+export let E_NO_SUCH_METHOD = -1;
+
+
+export function class(super, methods) {
+  return [super, methods];
+}
+
+export function new(class, args) {
+  let obj = [class, HashMap.new()];
+  send(obj, "init", args);
+  return obj;
+}
+
+export function getclass(obj) {
+  return obj[OBJ_CLASS];
+}
+
+function methods(cls) {
+  return cls[CLS_METHODS];
+}
+
+export function getsuper(cls) {
+  return cls[CLS_SUPER];
+}
+
+function resolve_method(cls, name) {
+  let meth = null;
+
+  while null == (meth = HashMap.get(methods(cls), name))
+    && null != (cls = getsuper(cls)) {}
+  return meth;
+}
+
+export function _send(cls, obj, msg, args) {
+  let meth = resolve_method(cls, msg);
+  if meth == null {
+    meth = resolve_method(cls, "method_missing");
+    let args_len = Array.length(args);
+    let new_args = Array.new(args_len + 1);
+    new_args[0] = msg;
+    Array.foreach(args, function(v, i) {
+      new_args[i + 1] = v;
+    });
+    args = new_args;
+  }
+  if meth == null {
+    return Result.error(E_NO_SUCH_METHOD, msg);
+  }
+  return meth(obj, args);
+}
+
+export function send(obj, msg, args) {
+  return _send(getclass(obj), obj, msg, args);
+}
+
+export function super(obj, msg, args) {
+  return _send(getsuper(getclass(obj)), obj, msg, args);
+}
+
+export function getattr(obj, name) {
+  return HashMap.get(obj[OBJ_DICT], name);
+}
+
+export function setattr(obj, name, value) {
+  HashMap.set(obj[OBJ_DICT], name, value);
+}

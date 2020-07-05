@@ -1,0 +1,40 @@
+module Char;
+
+let ZERO = ord('0');
+let NINE = ord('9');
+
+export function is_digit(c) {
+  let code = ord(c);
+  return code >= ZERO && code <= NINE;
+}
+
+
+let A = ord('a');
+let Z = ord('z');
+# https://catonmat.net/ascii-case-conversion-trick
+let UPCASE_MASK = ord(' ');
+
+export function is_alpha(c) {
+  let code = ord(c) | UPCASE_MASK;
+  return code >= A && code <= Z;
+}
+
+export function is_uppercase(c) {
+  return (ord(c) & UPCASE_MASK) == 0;
+}
+
+export function is_lowercase(c) {
+  return !is_uppercase(c);
+}
+
+export function to_uppercase(c) {
+  return chr(ord(c) & ~UPCASE_MASK);
+}
+
+export function to_lowercase(c) {
+  return chr(ord(c) | UPCASE_MASK);
+}
+
+export function to_digit(c) {
+  return ord(c) - ZERO;
+}

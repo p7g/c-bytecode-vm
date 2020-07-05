@@ -1,0 +1,20 @@
+module Hash;
+
+let FNV_OFFSET_BASIS_32 = 2166136261;
+let FNV_PRIME_32 = 16777619;
+
+export function fnv1a(bytes) {
+  let len = Array.length(bytes);
+  let hash = FNV_OFFSET_BASIS_32;
+
+  Array.foreach(bytes, function(byte) {
+    hash = hash ^ byte;
+    hash = hash * FNV_PRIME_32;
+  });
+
+  return hash;
+}
+
+export function int(n) {
+  return n;
+}

@@ -1,0 +1,61 @@
+module Op;
+
+export function eq(a, b) {
+  return a == b;
+}
+
+export function ne(a, b) {
+  return a != b;
+}
+
+export function lt(a, b) {
+  return a < b;
+}
+
+export function lte(a, b) {
+  return a <= b;
+}
+
+export function gt(a, b) {
+  return a > b;
+}
+
+export function gte(a, b) {
+  return a >= b;
+}
+
+export function add(a, b) {
+  return a + b;
+}
+
+export function sub(a, b) {
+  return a - b;
+}
+
+export function neg(a) {
+  return -a;
+}
+
+export function mul(a, b) {
+  return a * b;
+}
+
+export function div(a, b) {
+  return a / b;
+}
+
+export function mod(a, b) {
+  return a % b;
+}
+
+export function band(a, b) {
+  return a & b;
+}
+
+export function bor(a, b) {
+  return a | b;
+}
+
+export function bxor(a, b) {
+  return a ^ b;
+}

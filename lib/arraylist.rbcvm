@@ -1,0 +1,121 @@
+module ArrayList;
+
+import "array.rbcvm";
+
+let INITIAL_SIZE = 16;
+
+export function from_array(len, array) {
+  return [len, array];
+}
+
+export function with_capacity(cap) {
+  return from_array(0, Array.new(cap));
+}
+
+export function new() {
+  return with_capacity(INITIAL_SIZE);
+}
+
+export function length(self) {
+  return self[0];
+}
+
+export function capacity(self) {
+  return Array.length(self[1]);
+}
+
+export function get(self, idx) {
+  return self[1][idx];
+}
+
+export function set(self, idx, value) {
+  self[1][idx] = value;
+}
+
+export function delete(self, index) {
+  let len = length(self);
+
+  for let i = index + 1; i < len; i = i + 1 {
+    set(self, i - 1, get(self, i));
+  }
+}
+
+export function to_array(self) {
+  let new_array = Array.new(self[0]);
+
+  foreach(self, function(val, i) {
+    new_array[i] = val;
+  });
+
+  return new_array;
+}
+
+export function push(self, value) {
+  let next_idx = self[0];
+  let array = self[1];
+  let len = Array.length(array);
+
+  if next_idx >= len {
+    let new_array = Array.new(2 * len);
+    for let i = 0; i < next_idx; i = i + 1 {
+      new_array[i] = array[i];
+    }
+    self[1] = array = new_array;
+  }
+
+  array[next_idx] = value;
+  self[0] = next_idx + 1;
+}
+
+export function pop(self) {
+  if (self[0] <= 0) {
+    return null;
+  }
+
+  let i = self[0] = self[0] - 1;
+  return self[1][i];
+}
+
+export function foreach(self, func) {
+  let len = self[0];
+  let array = self[1];
+
+  for let i = 0; i < len; i = i + 1 {
+    func(array[i], i, self);
+  }
+}
+
+export function find_index(self, func) {
+  let len = length(self);
+  let array = self[1];
+
+  for let i = 0; i < len; i = i + 1 {
+    if func(array[i], i, self) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+export function map(self, func) {
+  let len = length(self);
+  let cap = capacity(self);
+  let new_array = Array.new(cap);
+
+  foreach(self, function(val, i) {
+    new_array[i] = val;
+  });
+
+  return from_array(len, new_array);
+}
+
+export function find(self, func) {
+  let index = find_index(self, func);
+
+  if index < 0 {
+    return null;
+  }
+
+  return get(self, index);
+}

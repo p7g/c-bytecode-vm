@@ -1,0 +1,119 @@
+module HashMap;
+
+import "array.rbcvm";
+import "assoclist.rbcvm";
+import "hash.rbcvm";
+import "string.rbcvm";
+
+let INITIAL_CAPACITY = 2 ** 3;
+let LOAD_FACTOR = 0.7;
+
+# hashmap
+
+# members
+
+let CAP = 0;
+let LOAD = 1;
+let HASH_FN = 2;
+let BUCKETS = 3;
+
+function hash_string(str) {
+  return Hash.fnv1a(string_bytes(str));
+}
+
+function do_hash(self, key) {
+  return self[HASH_FN](key) & self[CAP] - 1;
+}
+
+function grow(self) {
+  let cap = self[CAP] = self[CAP] * 2;
+
+  let old_buckets = self[BUCKETS];
+  self[BUCKETS] = Array.new(cap);
+  self[LOAD] = 0;
+
+  Array.foreach(oldbuckets, function(bucket) {
+    Array.foreach(AssocList.entries(bucket), function(entry) {
+      set(self, entry[0], entry[1]);
+    });
+  });
+}
+
+# public
+
+export function with_capacity(capacity) {
+  return [
+    capacity,
+    0,
+    hash_string,
+    Array.new(capacity),
+  ];
+}
+
+export function new() {
+  return with_capacity(INITIAL_CAPACITY);
+}
+
+export function set_hash_function(self, func) {
+  self[HASH_FN] = func;
+}
+
+export function get(self, key) {
+  let hashed = do_hash(self, key);
+  let bucket = self[BUCKETS][hashed];
+
+  if bucket == null {
+    return null;
+  }
+
+  return AssocList.get(bucket, key);
+}
+
+export function set(self, key, value) {
+  let hashed = do_hash(self, key);
+  let bucket = self[BUCKETS][hashed];
+
+  if bucket == null {
+    bucket = AssocList.new();
+    self[LOAD] = self[LOAD] + 1;
+    self[BUCKETS][hashed] = bucket;
+  }
+
+  AssocList.set(bucket, key, value);
+
+  if self[LOAD] / self[CAP] < LOAD_FACTOR {
+    grow(self);
+  }
+}
+
+export function delete(self, key) {
+  let hashed = do_hash(self, key);
+  let bucket = self[BUCKETS][hashed];
+  if !bucket {
+    return false;
+  }
+
+  if AssocList.delete(bucket, key) {
+    if AssocList.is_empty(bucket) {
+      self[BUCKETS][hashed] = null;
+      self[LOAD] = self[LOAD] - 1;
+    }
+    return true;
+  }
+  return false;
+}
+
+export function make_with_hash_function(hash, init_fn) {
+  let map = new();
+  set_hash_function(map, hash);
+
+  init_fn(function(k, v) {
+    set(map, k, v);
+  });
+
+  return map;
+}
+
+export function make(init_fn) {
+  return make_with_hash_function(hash_string, init_fn);
+}

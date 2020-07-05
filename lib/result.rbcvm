@@ -1,0 +1,43 @@
+module Result;
+
+export let OK = "ok";
+export let ERROR = "error";
+
+
+export function ok(data) {
+  return [OK, data];
+}
+
+export function error(code, data) {
+  return [ERROR, data, code];
+}
+
+export function is_ok(result) {
+  return result[0] == OK;
+}
+
+export function is_error(result) {
+  return result[0] == ERROR;
+}
+
+export function code(result) {
+  return result[2];
+}
+
+export function data(result) {
+  return result[1];
+}
+
+export function map(result, fn) {
+  if is_ok(result) {
+    return fn(result);
+  }
+  return result;
+}
+
+export function map_error(result, fn) {
+  if is_error(result) {
+    return fn(result);
+  }
+  return result;
+}

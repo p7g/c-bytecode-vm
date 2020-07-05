@@ -1,0 +1,35 @@
+module Fn;
+
+import "array.rbcvm";
+
+export function identity(n) {
+    return n;
+}
+
+export function flip(f) {
+    return function(a, b) {
+        return f(b, a);
+    };
+}
+
+export function curry(fn, a) {
+    return function(b) {
+        return fn(a, b);
+    };
+}
+
+export function partial(fn, args) {
+    return Array.foldl(args, fn, function(acc, i) {
+        return curry(acc, i);
+    });
+}
+
+export function compose(functions) {
+    return Array.foldl1(functions, function(acc, fn) {
+        return function(arg) {
+            return acc(fn(arg));
+        };
+    });
+}
+
+export let chain = compose([compose, Array.reversed]);

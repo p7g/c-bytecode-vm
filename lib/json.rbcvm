@@ -1,0 +1,284 @@
+module JSON;
+
+import "array.rbcvm";
+import "arraylist.rbcvm";
+import "char.rbcvm";
+import "hashmap.rbcvm";
+import "iter.rbcvm";
+import "result.rbcvm";
+import "string.rbcvm";
+
+
+let T_LEFT_BRACE = 0;
+let T_RIGHT_BRACE = 1;
+let T_LEFT_BRACKET = 2;
+let T_RIGHT_BRACKET = 3;
+let T_COLON = 4;
+let T_COMMA = 5;
+let T_STRING = 6;
+let T_NUMBER = 7;
+let T_TRUE = 8;
+let T_FALSE = 9;
+let T_NULL = 10;
+
+export let E_UNEXPECTED_TOKEN = 0;
+export let E_INVALID_JSON = 1;
+
+let TOK_TYPE = 0;
+let TOK_VALUE = 1;
+
+function token_new(type, value) {
+  return [type, value];
+}
+
+function tokenize(input) {
+  let chars = String.chars(input);
+  let tokens = ArrayList.new();
+  let len = Array.length(chars);
+  let i = 0;
+
+  while i < len {
+    let char = chars[i];
+    let token;
+
+    if char == ' '
+        || char == '\n'
+        || char == '\r'
+        || char == '\t' {
+      i = i + 1;
+      continue;
+    } else if char == '{' {
+      token = token_new(T_LEFT_BRACE, "{");
+      i = i + 1;
+    } else if char == '}' {
+      token = token_new(T_RIGHT_BRACE, "}");
+      i = i + 1;
+    } else if char == '[' {
+      token = token_new(T_LEFT_BRACKET, "[");
+      i = i + 1;
+    } else if char == ']' {
+      token = token_new(T_RIGHT_BRACKET, "]");
+      i = i + 1;
+    } else if char == ':' {
+      token = token_new(T_COLON, ":");
+      i = i + 1;
+    } else if char == ',' {
+      token = token_new(T_COMMA, ",");
+      i = i + 1;
+    } else if char == 't'
+        && chars[i + 1] == 'r'
+        && chars[i + 2] == 'u'
+        && chars[i + 3] == 'e' {
+      token = token_new(T_TRUE, "true");
+      i = i + 4;
+    } else if char == 'f'
+        && chars[i + 1] == 'a'
+        && chars[i + 2] == 'l'
+        && chars[i + 3] == 's'
+        && chars[i + 4] == 'e' {
+      token = token_new(T_FALSE, "false");
+      i = i + 5;
+    } else if char == 'n'
+        && chars[i + 1] == 'u'
+        && chars[i + 2] == 'l'
+        && chars[i + 3] == 'l' {
+      token = token_new(T_NULL, "null");
+      i = i + 4;
+    } else if char == '"' {
+      let str = "";
+      i = i + 1;
+
+      while i < len && chars[i] != '"' {
+        str = string_concat(str, tostring(chars[i]));
+        i = i + 1;
+      }
+
+      i = i + 1;
+      token = token_new(T_STRING, str);
+    } else if Char.is_digit(char) || char == '-' {
+      let is_float = false;
+      let c;
+      let str;
+      if char == '-' {
+        i = i + 1;
+        c = chars[i];
+        str = tostring(char);
+      } else {
+        c = char;
+        str = "";
+      }
+      if c == '0' {
+        is_float = true;
+        i = i + 1;
+        str = string_concat(str, "0");
+      } else if Char.is_digit(c) && c != '0' {
+        str = string_concat(str, tostring(c));
+        i = i + 1;
+      } else {
+        return Result.error(E_UNEXPECTED_TOKEN, c);
+      }
+
+      if chars[i] == '.' {
+        is_float = true;
+        i = i + 1;
+        str = string_concat(str, ".");
+      } else if is_float {
+        return Result.error(E_UNEXPECTED_TOKEN, chars[i]);
+      }
+
+      while i < len && Char.is_digit(chars[i]) {
+        str = string_concat(str, tostring(chars[i]));
+        i = i + 1;
+      }
+
+      token = token_new(T_NUMBER, str);
+    } else {
+      return Result.error(E_UNEXPECTED_TOKEN, char);
+    }
+
+    ArrayList.push(tokens, token);
+  }
+
+  return Result.ok(ArrayList.to_array(tokens));
+}
+
+function parse_value(next, peek) {
+  let token = next();
+  let type = token[TOK_TYPE];
+  let value = token[TOK_VALUE];
+
+  let ret;
+  if type == T_NUMBER {
+    ret = String.parse_float(value, 10);
+  } else if type == T_STRING {
+    ret = value;
+  } else if type == T_TRUE {
+    ret = true;
+  } else if type == T_FALSE {
+    ret = false;
+  } else if type == T_NULL {
+    ret = null;
+  } else if type == T_LEFT_BRACE {
+    let values = HashMap.new();
+    let is_first = true;
+
+    while peek()[TOK_TYPE] != T_RIGHT_BRACE {
+      if !is_first {
+        let comma = next();
+        if comma[TOK_TYPE] != T_COMMA {
+          return Result.error(
+            E_UNEXPECTED_TOKEN,
+            string_concat("Expected comma, found '", comma[TOK_VALUE], "'"),
+          );
+        }
+      } else {
+        is_first = false;
+      }
+
+      let key = parse_value(next, peek);
+
+      if Result.is_ok(key) {
+        key = Result.data(key);
+      } else if type_of(Result.data(key)) != "string" {
+        return Result.error(
+          E_UNEXPECTED_TOKEN,
+          string_concat("Expected string, found ", key),
+        );
+      } else {
+        return result;
+      }
+
+      let colon = next();
+      if colon[TOK_TYPE] != T_COLON {
+        return Result.error(
+          E_UNEXPECTED_TOKEN,
+          string_concat("Expected colon, found '", comma[TOK_VALUE], "'"),
+        );
+      }
+
+      let map_value = parse_value(next, peek);
+
+      if Result.is_ok(map_value) {
+        HashMap.set(values, key, Result.data(map_value));
+      } else {
+        return map_value;
+      }
+    }
+
+    next();  # consume right brace
+
+    ret = values;
+  } else if type == T_LEFT_BRACKET {
+    let values = ArrayList.new();
+
+    let is_first = true;
+    while peek()[TOK_TYPE] != T_RIGHT_BRACKET {
+      if !is_first {
+        let comma = next();
+        if comma[TOK_TYPE] != T_COMMA {
+          return Result.error(
+            E_UNEXPECTED_TOKEN,
+            string_concat("Expected comma, found '", comma[TOK_VALUE], "'"),
+          );
+        }
+      } else {
+        is_first = false;
+      }
+
+      let result = parse_value(next, peek);
+
+      if Result.is_ok(result) {
+        ArrayList.push(values, Result.data(result));
+      } else {
+        return result;
+      }
+    }
+
+    next(); # consume right bracket
+
+    ret = ArrayList.to_array(values);
+  } else {
+    return Result.error(
+      E_UNEXPECTED_TOKEN,
+      string_concat("Unexpected token ", tostring(value)),
+    );
+  }
+
+  return Result.ok(ret);
+}
+
+export function parse(input) {
+  let tokens = tokenize(input);
+  let i = 0;
+
+  if Result.is_error(tokens) {
+    return tokens;
+  }
+  tokens = Result.data(tokens);
+  let len = Array.length(tokens);
+
+  function peek() {
+    return tokens[i];
+  }
+
+  function next() {
+    let value = tokens[i];
+    i = i + 1;
+    return value;
+  }
+
+  let data = parse_value(next, peek);
+
+  if Result.is_error(data) {
+    return data;
+  }
+
+  if i != len {
+    return Result.error(
+      E_INVALID_JSON,
+      string_concat("Expected EOF, found ", tostring(tokens[i - 1][TOK_VALUE])),
+    );
+  }
+
+  return data;
+}

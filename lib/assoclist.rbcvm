@@ -1,0 +1,53 @@
+module AssocList;
+
+import "arraylist.rbcvm";
+
+export function new() {
+  return ArrayList.new();
+}
+
+function get_entry(self, key) {
+  return ArrayList.find(self, function(entry) {
+    return entry[0] == key;
+  });
+}
+
+export function set(self, key, value) {
+  let found = get_entry(self, key);
+
+  if found == null {
+    ArrayList.push(self, [key, value]);
+  } else {
+    found[1] = value;
+  }
+}
+
+export function get(self, key) {
+  let found = get_entry(self, key);
+
+  if found == null {
+    return null;
+  } else {
+    return found[1];
+  }
+}
+
+export function delete(self, key) {
+  let idx = ArrayList.find_index(self, function(entry) {
+    return entry[0] == key;
+  });
+
+  if idx < 0 {
+    return false;
+  } else {
+    ArrayList.delete(self, idx);
+  }
+}
+
+export function is_empty(self) {
+  return ArrayList.length(self) == 0;
+}
+
+export function entries(self) {
+  return ArrayList.to_array(self);
+}

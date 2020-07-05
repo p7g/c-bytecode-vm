@@ -1,0 +1,127 @@
+module Iter;
+
+import "arraylist.rbcvm";
+
+
+export function from_array(array) {
+  let index = 0;
+  let len = Array.length(array);
+  return function() {
+    if index == len {
+      return null;
+    }
+    let item = array[index];
+    index = index + 1;
+    return item;
+  };
+}
+
+export function count() {
+  let i = 0;
+  return function() {
+    let val = i;
+    i = i + 1;
+    return val;
+  };
+}
+
+export function range(to) {
+  let i = 0;
+  return function() {
+    if i >= to {
+      return null;
+    }
+    let val = i;
+    i = i + 1;
+    return val;
+  };
+}
+
+export function enumerate(it) {
+  let i = 0;
+  return function() {
+    let val = it();
+    if val == null {
+      return null;
+    }
+
+    let retval = [i, val];
+    i = i + 1;
+    return retval;
+  };
+}
+
+export function foreach(it, fn) {
+  for let val; (val = it()) != null; {
+    fn(val);
+  }
+}
+
+export function drain(it) {
+  let dest = ArrayList.new();
+
+  foreach(it, function(val) {
+    ArrayList.push(dest, val);
+  });
+
+  return ArrayList.to_array(dest);
+}
+
+export function map(it, fn) {
+  return function() {
+    let val = it();
+    if val == null {
+      return null;
+    }
+    return fn(val);
+  };
+}
+
+export function take(it, n) {
+  let i = 0;
+  return function() {
+    if i >= n {
+      return null;
+    }
+    i = i + 1;
+    return it();
+  };
+}
+
+export function drop(it, n) {
+  for let i = 0; i < n; i = i + 1 {
+    it();
+  }
+
+  return it;
+}
+
+export function take_while(it, pred) {
+  let done = false;
+
+  return function() {
+    if done {
+      return null;
+    }
+
+    let val = it();
+    if !pred(val) {
+      done = true;
+      return null;
+    }
+
+    return val;
+  };
+}
+
+export function zip(a, b) {
+  return function() {
+    let val_a = a();
+    let val_b = b();
+
+    if a == null && b == null {
+      return null;
+    }
+    return [val_a, val_b];
+  };
+}

@@ -1,0 +1,13 @@
+module Box;
+
+export function new(value) {
+  return [value];
+}
+
+export function set(self, value) {
+  self[0] = value;
+}
+
+export function get(self, value) {
+  return self[0];
+}
