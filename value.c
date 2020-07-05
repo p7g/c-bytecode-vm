@@ -41,9 +41,20 @@ inline void cb_value_decref(struct cb_value *value)
 	adjust_refcount(value, -1);
 }
 
+static void cb_function_deinit(void *ptr)
+{
+	struct cb_function *fn = ptr;
+
+	if (fn->type != CB_FUNCTION_USER)
+		return;
+
+	if (fn->value.as_user.upvalues)
+		free(fn->value.as_user.upvalues);
+}
+
 inline struct cb_function *cb_function_new(void)
 {
-	return cb_malloc(sizeof(struct cb_function), NULL);
+	return cb_malloc(sizeof(struct cb_function), cb_function_deinit);
 }
 
 inline struct cb_array *cb_array_new(size_t len)
@@ -257,8 +268,8 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		if (a->val.as_function->type != b->val.as_function->type)
 			return 0;
 		if (a->val.as_function->type == CB_FUNCTION_USER)
-			return a->val.as_function->value.as_user
-				== b->val.as_function->value.as_user;
+			return a->val.as_function->value.as_user.address
+				== b->val.as_function->value.as_user.address;
 		return a->val.as_function->value.as_native
 			== b->val.as_function->value.as_native;
 	case CB_VALUE_INTERNED_STRING:
@@ -315,4 +326,17 @@ int cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok)
 
 #undef UNDEFINED
 #undef OK
+}
+
+void cb_function_add_upvalue(struct cb_user_function *fn, size_t idx)
+{
+	if (fn->upvalues_len >= fn->upvalues_size) {
+		/* FIXME: this could probably be pre-allocated; we know how many
+		 * upvalues a function has when compiling, so the information
+		 * just needs to be passed through the bytecode */
+		fn->upvalues_size <<= 1;
+		fn->upvalues = realloc(fn->upvalues,
+				fn->upvalues_size * sizeof(size_t));
+	}
+	fn->upvalues[fn->upvalues_len++] = idx;
 }

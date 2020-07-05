@@ -6,6 +6,9 @@
 #include "gc.h"
 #include "string.h"
 
+#define CB_VALUE_IS_USER_FN(V) ((V)->type == CB_VALUE_FUNCTION \
+		&& (V)->val.as_function->type == CB_FUNCTION_USER)
+
 #define CB_VALUE_TYPE_LIST(X) \
 	X(CB_VALUE_INT) \
 	X(CB_VALUE_DOUBLE) \
@@ -39,13 +42,19 @@ enum cb_function_type {
 typedef int (cb_native_function)(size_t argc, struct cb_value *argv,
 		struct cb_value *retval);
 
+struct cb_user_function {
+	size_t address;
+	size_t *upvalues;
+	size_t upvalues_size, upvalues_len;
+};
+
 struct cb_function {
 	cb_gc_header gc_header;
 	enum cb_function_type type;
 	size_t name, arity;
 	union {
 		cb_native_function *as_native;
-		size_t as_user;
+		struct cb_user_function as_user;
 	} value;
 };
 
@@ -76,6 +85,7 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b);
 int cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok);
 char *cb_value_to_string(struct cb_value *val);
 int cb_value_is_truthy(struct cb_value *val);
+void cb_function_add_upvalue(struct cb_user_function *fn, size_t idx);
 
 void cb_value_mark(struct cb_value *val);
 void cb_value_incref(struct cb_value *val);

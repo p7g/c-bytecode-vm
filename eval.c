@@ -37,15 +37,27 @@ struct frame {
 size_t sp;
 struct cb_value *stack;
 struct upvalue *upvalues;
-size_t upvalues_idx;
+size_t upvalues_idx, upvalues_size;
 /* size of this array is based on number of modspecs in agent */
 struct cb_module *modules;
 cb_hashmap *globals;
 
+static size_t add_upvalue(struct upvalue uv)
+{
+	size_t ret;
+	if (upvalues_idx >= upvalues_size) {
+		upvalues_size <<= 1;
+		upvalues = realloc(upvalues, upvalues_size
+				* sizeof(struct upvalue));
+	}
+	upvalues[ret = upvalues_idx++] = uv;
+	return ret;
+}
+
 int cb_eval(cb_bytecode *bytecode)
 {
 	size_t pc, bp;
-	size_t stack_size, upvalues_size;
+	size_t stack_size;
 	struct frame *call_stack;
 	size_t call_stack_idx, call_stack_size;
 	struct cb_module *current_module;
@@ -328,13 +340,14 @@ DO_OP_CALL: {
 		call_stack[call_stack_idx++] = frame;
 		/* jump in */
 		bp = sp - num_args - 1;
-		pc = func->value.as_user;
+		pc = func->value.as_user.address;
 	}
 
 	DISPATCH();
 }
 
 DO_OP_RETURN: {
+	int i;
 	struct cb_value retval;
 	struct frame frame;
 
@@ -342,7 +355,14 @@ DO_OP_RETURN: {
 	/* FIXME: bounds check */
 	frame = call_stack[--call_stack_idx];
 
-	/* TODO: close upvalues */
+	/* close upvalues */
+	for (i = upvalues_idx - 1; i >= 0; i -= 1) {
+		if (!upvalues[i].is_open || upvalues[i].v.idx <= bp)
+			break;
+		upvalues[i].is_open = 0;
+		upvalues[i].v.value = stack[upvalues[i].v.idx];
+	}
+
 	sp = bp;
 	bp = frame.prev_bp;
 	pc = frame.prev_pc;
@@ -411,7 +431,12 @@ DO_OP_NEW_FUNCTION: {
 	func->type = CB_FUNCTION_USER;
 	func->name = name;
 	func->arity = arity;
-	func->value.as_user = address;
+	func->value.as_user = (struct cb_user_function) {
+		.address = address,
+		.upvalues = NULL,
+		.upvalues_len = 0,
+		.upvalues_size = 0,
+	};
 
 	func_val.type = CB_VALUE_FUNCTION;
 	func_val.val.as_function = func;
@@ -420,11 +445,91 @@ DO_OP_NEW_FUNCTION: {
 	DISPATCH();
 }
 
-DO_OP_BIND_LOCAL:
-DO_OP_BIND_UPVALUE:
-DO_OP_LOAD_UPVALUE:
-DO_OP_STORE_UPVALUE:
-	return 1;
+DO_OP_BIND_LOCAL: {
+	int i, found;
+	struct cb_value func;
+	size_t idx = LOCAL_IDX(READ_SIZE_T());
+
+	func = POP();
+	if (func.type != CB_VALUE_FUNCTION
+			&& func.val.as_function->type != CB_FUNCTION_USER) {
+		ERROR("Can only bind upvalues to user functions\n");
+		return 1;
+	}
+
+	found = 0;
+	for (i = upvalues_size - 1; i >= 0; i -= 1) {
+		if (upvalues[i].is_open && upvalues[i].v.idx == idx) {
+			found = 1;
+			break;
+		}
+	}
+
+	if (!found) {
+		i = add_upvalue((struct upvalue) {
+			.is_open = 1,
+			.v.idx = idx,
+		});
+	}
+
+	cb_function_add_upvalue(&func.val.as_function->value.as_user, i);
+
+	PUSH(func);
+	DISPATCH();
+}
+
+DO_OP_BIND_UPVALUE: {
+	struct cb_value *self, func;
+	size_t upvalue_idx = READ_SIZE_T();
+
+	self = &stack[bp];
+	assert(CB_VALUE_IS_USER_FN(self));
+	func = POP();
+	if (!CB_VALUE_IS_USER_FN(&func)) {
+		ERROR("Can only bind upvalues to user functions\n");
+		return 1;
+	}
+
+	cb_function_add_upvalue(&func.val.as_function->value.as_user,
+		self->val.as_function->value.as_user.upvalues[upvalue_idx]);
+
+	PUSH(func);
+	DISPATCH();
+}
+
+DO_OP_LOAD_UPVALUE: {
+	struct cb_value *self;
+	struct upvalue uv;
+	size_t idx = READ_SIZE_T();
+
+	self = &stack[bp];
+	assert(CB_VALUE_IS_USER_FN(self));
+
+	uv = upvalues[self->val.as_function->value.as_user.upvalues[idx]];
+	if (uv.is_open)
+		PUSH(stack[uv.v.idx]);
+	else
+		PUSH(uv.v.value);
+
+	DISPATCH();
+}
+
+DO_OP_STORE_UPVALUE: {
+	struct cb_value *self;
+	struct upvalue *uv;
+	size_t idx = READ_SIZE_T();
+
+	self = &stack[bp];
+	assert(CB_VALUE_IS_USER_FN(self));
+
+	uv = &upvalues[self->val.as_function->value.as_user.upvalues[idx]];
+	if (uv->is_open)
+		stack[uv->v.idx] = POP();
+	else
+		uv->v.value = POP();
+
+	DISPATCH();
+}
 
 DO_OP_LOAD_FROM_MODULE: {
 	size_t mod_id, export_id, export_name;

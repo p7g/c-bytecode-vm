@@ -922,6 +922,7 @@ static int compile_let_statement(struct cstate *state, size_t *name_out,
 		binding_id = scope_add_binding(state->scope, name_id, 0);
 		APPEND(OP_STORE_LOCAL);
 		APPEND_SIZE_T(binding_id);
+		APPEND(OP_POP);
 	}
 
 	return 0;
@@ -1067,6 +1068,7 @@ static int compile_function_statement(struct cstate *state, size_t *name_out,
 		binding_id = scope_add_binding(state->scope, name, 0);
 		APPEND(OP_STORE_LOCAL);
 		APPEND_SIZE_T(binding_id);
+		APPEND(OP_POP);
 	}
 
 	return 0;
