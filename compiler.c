@@ -944,7 +944,9 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	EXPECT(TOK_FUNCTION);
 	if (MATCH_P(TOK_IDENT)) {
 		name = EXPECT(TOK_IDENT);
-		*name_out = name_id = intern_ident(state, &name);
+		name_id = intern_ident(state, &name);
+		if (name_out)
+			*name_out = name_id;
 	} else {
 		name_id = (size_t) -1;
 	}
