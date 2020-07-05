@@ -340,3 +340,33 @@ void cb_function_add_upvalue(struct cb_user_function *fn, size_t idx)
 	}
 	fn->upvalues[fn->upvalues_len++] = idx;
 }
+
+const char *cb_value_type_friendly_name(enum cb_value_type typ)
+{
+	switch (typ) {
+	case CB_VALUE_INT:
+		return "integer";
+	case CB_VALUE_DOUBLE:
+		return "double";
+	case CB_VALUE_BOOL:
+		return "boolean";
+	case CB_VALUE_NULL:
+		return "null";
+	case CB_VALUE_STRING:
+	case CB_VALUE_INTERNED_STRING:
+		return "string";
+	case CB_VALUE_CHAR:
+		return "char";
+	case CB_VALUE_ARRAY:
+		return "array";
+	case CB_VALUE_FUNCTION:
+		return "function";
+	}
+
+	return "";
+}
+
+inline const char *cb_value_type_of(struct cb_value *val)
+{
+	return cb_value_type_friendly_name(val->type);
+}

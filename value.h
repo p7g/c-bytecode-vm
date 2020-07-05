@@ -95,5 +95,7 @@ struct cb_string *cb_string_new(void);
 struct cb_array *cb_array_new(size_t len);
 
 const char *cb_value_type_name(enum cb_value_type type);
+const char *cb_value_type_of(struct cb_value *val);
+const char *cb_value_type_friendly_name(enum cb_value_type typ);
 
 #endif

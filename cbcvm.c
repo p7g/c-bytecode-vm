@@ -9,6 +9,7 @@
 #include "disassemble.h"
 #include "eval.h"
 #include "gc.h"
+#include "intrinsics.h"
 #include "string.h"
 #include "value.h"
 
@@ -27,6 +28,7 @@ int main(int argc, char **argv) {
 	if (!result)
 		result = cb_disassemble(bytecode);
 #endif
+	cb_intrinsics_set_argv(argc, argv);
 	if (!result)
 		result = cb_eval(bytecode);
 

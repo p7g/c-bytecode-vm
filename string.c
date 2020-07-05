@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -35,4 +36,10 @@ int cb_str_eq_cstr(cb_str s, const char *cstr, size_t len)
 void cb_str_free(cb_str s)
 {
 	free(s.chars);
+}
+
+inline uint32_t cb_str_at(cb_str s, size_t idx)
+{
+	/* FIXME: unicode */
+	return cb_strptr(s)[idx];
 }
