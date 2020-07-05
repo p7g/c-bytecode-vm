@@ -46,6 +46,7 @@ struct cb_user_function {
 	size_t address;
 	size_t *upvalues;
 	size_t upvalues_size, upvalues_len;
+	size_t module_id;
 };
 
 struct cb_function {

@@ -28,13 +28,13 @@ struct upvalue {
 struct frame {
 	size_t prev_pc,
 	       prev_bp,
-	       module_id,
 	       current_function;
+	struct cb_module *prev_module;
 };
 
 /* global vm state... this is fine, right?
  * These values are also used by the GC */
-size_t sp;
+size_t sp, bp;
 struct cb_value *stack;
 struct upvalue *upvalues;
 size_t upvalues_idx, upvalues_size;
@@ -331,6 +331,7 @@ DO_OP_CALL: {
 	} else {
 		frame.prev_bp = bp;
 		frame.prev_pc = pc;
+		frame.prev_module = current_module;
 		frame.current_function = call_stack_idx == 0 ? -1 : bp;
 		if (call_stack_idx >= call_stack_size) {
 			call_stack_size <<= 1;
@@ -339,6 +340,7 @@ DO_OP_CALL: {
 		}
 		call_stack[call_stack_idx++] = frame;
 		/* jump in */
+		current_module = &modules[func->value.as_user.module_id];
 		bp = sp - num_args - 1;
 		pc = func->value.as_user.address;
 	}
@@ -366,6 +368,7 @@ DO_OP_RETURN: {
 	sp = bp;
 	bp = frame.prev_bp;
 	pc = frame.prev_pc;
+	current_module = frame.prev_module;
 	PUSH(retval);
 
 	DISPATCH();
@@ -436,6 +439,9 @@ DO_OP_NEW_FUNCTION: {
 		.upvalues = NULL,
 		.upvalues_len = 0,
 		.upvalues_size = 0,
+		.module_id = current_module
+			? cb_modspec_id(current_module->spec)
+			: -1,
 	};
 
 	func_val.type = CB_VALUE_FUNCTION;

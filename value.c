@@ -334,7 +334,10 @@ void cb_function_add_upvalue(struct cb_user_function *fn, size_t idx)
 		/* FIXME: this could probably be pre-allocated; we know how many
 		 * upvalues a function has when compiling, so the information
 		 * just needs to be passed through the bytecode */
-		fn->upvalues_size <<= 1;
+		if (fn->upvalues_size == 0)
+			fn->upvalues_size = 4;
+		else
+			fn->upvalues_size <<= 1;
 		fn->upvalues = realloc(fn->upvalues,
 				fn->upvalues_size * sizeof(size_t));
 	}
