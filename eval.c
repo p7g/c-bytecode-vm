@@ -60,7 +60,9 @@ void print_stack_function(struct cb_value func)
 		fprintf(stderr, "%s.", cb_strptr(cb_agent_get_string(
 						cb_modspec_name(modspec))));
 	}
-	fprintf(stderr, "%s\n", cb_strptr(cb_agent_get_string(name)));
+	fprintf(stderr, "%s\n", name == -1
+			? "<anonymous>"
+			: cb_strptr(cb_agent_get_string(name)));
 }
 
 void print_stacktrace(struct frame *call_stack, size_t len)
@@ -129,8 +131,8 @@ int cb_eval(cb_bytecode *bytecode)
 						cb_modspec_name( \
 							current_module->spec))) \
 				: "script", \
-				bp == 0 ? " " : ".", \
-				bp == 0 ? "top" \
+				call_stack_idx == 0 ? " " : ".", \
+				call_stack_idx == 0 ? "top" \
 				: (_name = stack[bp].val.as_function->name) != -1 \
 				? cb_strptr(cb_agent_get_string(_name)) \
 				: "<anonymous>"); \
