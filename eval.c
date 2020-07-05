@@ -42,6 +42,35 @@ size_t upvalues_idx, upvalues_size;
 struct cb_module *modules;
 cb_hashmap *globals;
 
+void print_stack_function(struct cb_value func)
+{
+	struct cb_user_function current_function;
+	const cb_modspec *modspec;
+	size_t name;
+
+	name = func.val.as_function->name;
+	current_function = func.val.as_function->value.as_user;
+	modspec = cb_agent_get_modspec(current_function.module_id);
+	fprintf(stderr, "\tin %s.%s\n", cb_strptr(cb_agent_get_string(
+					cb_modspec_name(modspec))),
+			cb_strptr(cb_agent_get_string(name)));
+}
+
+void print_stacktrace(struct frame *call_stack, size_t len)
+{
+	struct frame frame;
+
+	if (bp != 0)
+		print_stack_function(stack[bp]);
+
+	while (--len) {
+		frame = call_stack[len];
+		if (frame.current_function != -1) {
+			print_stack_function(stack[frame.current_function]);
+		}
+	}
+}
+
 static size_t add_upvalue(struct upvalue uv)
 {
 	size_t ret;
@@ -56,7 +85,7 @@ static size_t add_upvalue(struct upvalue uv)
 
 int cb_eval(cb_bytecode *bytecode)
 {
-	size_t pc, bp;
+	size_t pc;
 	size_t stack_size;
 	struct frame *call_stack;
 	size_t call_stack_idx, call_stack_size;
@@ -102,6 +131,7 @@ int cb_eval(cb_bytecode *bytecode)
 
 #define ERROR(MSG, ...) ({ \
 		fprintf(stderr, (MSG), ##__VA_ARGS__); \
+		print_stacktrace(call_stack, call_stack_idx); \
 		return 1; \
 	})
 #define PUSH(V) ({ \
