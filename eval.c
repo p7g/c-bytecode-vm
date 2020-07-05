@@ -50,10 +50,13 @@ void print_stack_function(struct cb_value func)
 
 	name = func.val.as_function->name;
 	current_function = func.val.as_function->value.as_user;
-	modspec = cb_agent_get_modspec(current_function.module_id);
-	fprintf(stderr, "\tin %s.%s\n", cb_strptr(cb_agent_get_string(
-					cb_modspec_name(modspec))),
-			cb_strptr(cb_agent_get_string(name)));
+	fprintf(stderr, "\tin ");
+	if (current_function.module_id != -1) {
+		modspec = cb_agent_get_modspec(current_function.module_id);
+		fprintf(stderr, "%s.", cb_strptr(cb_agent_get_string(
+						cb_modspec_name(modspec))));
+	}
+	fprintf(stderr, "%s\n", cb_strptr(cb_agent_get_string(name)));
 }
 
 void print_stacktrace(struct frame *call_stack, size_t len)
