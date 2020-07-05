@@ -14,6 +14,10 @@
 #include "value.h"
 #include "string.h"
 
+#ifdef DEBUG_VM
+# include "disassemble.h"
+#endif
+
 #define STACK_MAX 30000
 #define STACK_INIT_SIZE 1024
 
@@ -117,9 +121,34 @@ int cb_eval(cb_bytecode *bytecode)
 #undef TABLE_ENTRY
 
 #define NEXT() (cb_bytecode_get(bytecode, pc++))
-#ifdef DEBUG_PC
+#ifdef DEBUG_VM
 # define DISPATCH() ({ \
-		printf("pc: %zu\n", pc); \
+		size_t _name; \
+		printf("%s%s%s\n", current_module \
+				? cb_strptr(cb_agent_get_string( \
+						cb_modspec_name( \
+							current_module->spec))) \
+				: "script", \
+				bp == 0 ? " " : ".", \
+				bp == 0 ? "top" \
+				: (_name = stack[bp].val.as_function->name) != -1 \
+				? cb_strptr(cb_agent_get_string(_name)) \
+				: "<anonymous>"); \
+		printf("pc: %zu, bp: %zu, sp: %zu\n", pc, bp, sp); \
+		cb_disassemble_one(bytecode, pc); \
+		printf("> %s", sp ? sp > 10 ? "... " : "" : "(empty)"); \
+		int _first = 1; \
+		for (int _i = 10 < sp ? 10 : sp; _i > 0; _i -= 1) { \
+			int _idx = sp - _i; \
+			if (_first) \
+				_first = 0; \
+			else \
+				printf(", "); \
+			char *_str = cb_value_to_string(&stack[_idx]); \
+			printf("%s", _str); \
+			free(_str); \
+		} \
+		printf("\n\n"); \
 		size_t _next = NEXT(); \
 		assert(_next >= 0 && _next < OP_MAX); \
 		goto *dispatch_table[_next]; \
