@@ -789,10 +789,12 @@ static struct token next(struct cstate *state, int *ok)
 /* Propagate errors */
 #define X(V) ({ if (V) return 1; })
 
-static int compile_module_header(struct cstate *state)
+static int compile_module_header(struct cstate *state, int *already_compiled)
 {
 	struct token name;
+	size_t name_id;
 
+	*already_compiled = 0;
 	if (!MATCH_P(TOK_MODULE))
 		return 0;
 
@@ -800,7 +802,12 @@ static int compile_module_header(struct cstate *state)
 	name = EXPECT(TOK_IDENT);
 	EXPECT(TOK_SEMICOLON);
 
-	state->modspec = cb_modspec_new(intern_ident(state, &name));
+	name_id = intern_ident(state, &name);
+	if (cb_agent_get_modspec_by_name(name_id)) {
+		*already_compiled = 1;
+		return 0;
+	}
+	state->modspec = cb_modspec_new(name_id);
 
 	APPEND(OP_INIT_MODULE);
 	APPEND_SIZE_T(cb_modspec_id(state->modspec));
@@ -827,9 +834,12 @@ static int compile_expression(struct cstate *);
 static int compile(struct cstate *state, int final)
 {
 	struct token *tok;
+	int already_compiled;
 
 	/* optional module header */
-	X(compile_module_header(state));
+	X(compile_module_header(state, &already_compiled));
+	if (already_compiled)
+		goto end;
 
 	while ((tok = PEEK()) && tok->type != TOK_EOF)
 		X(compile_statement(state));
@@ -842,6 +852,7 @@ static int compile(struct cstate *state, int final)
 		state->modspec = NULL;
 	}
 
+end:
 	if (final) {
 		APPEND(OP_HALT);
 		bytecode_finalize(state->bytecode);
@@ -1327,10 +1338,9 @@ static int compile_import_statement(struct cstate *state)
 	string = EXPECT(TOK_STRING);
 	EXPECT(TOK_SEMICOLON);
 
-
-	if (strlen(state->filename) == sizeof("<script>") && !strncmp(
+	if (strlen(state->filename) == sizeof("<script>") - 1 && !strncmp(
 				"<script>", state->filename,
-				sizeof("<script>"))) {
+				sizeof("<script>") - 1)) {
 		filename = malloc(tok_len(&string) - 1);
 		filename[tok_len(&string) - 1] = 0;
 		memcpy(filename, tok_start(state, &string) + 1,

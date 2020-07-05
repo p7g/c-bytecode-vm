@@ -1,21 +1,4 @@
-function test() {
-    let x = 0;
+import "other.rbcvm";
+import "other.rbcvm";
 
-    function get() { return x; }
-    function inc() { x = x + 1; }
-    function dec() { x = x - 1; }
-
-    return [get, inc, dec];
-}
-
-let fns = test();
-let get = fns[0];
-let inc = fns[1];
-let dec = fns[2];
-
-println(get());
-inc();
-inc();
-println(get());
-dec();
-println(get());
+println(argv());

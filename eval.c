@@ -549,6 +549,7 @@ DO_OP_LOAD_FROM_MODULE: {
 DO_OP_EXPORT:
 	/* FIXME: use export IDs rather than hashmap lookups */
 	READ_SIZE_T();
+	POP();
 	DISPATCH();
 
 DO_OP_NEW_ARRAY_WITH_VALUES: {
