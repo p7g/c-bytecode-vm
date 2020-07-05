@@ -370,7 +370,10 @@ DO_OP_CALL: {
 		}
 		call_stack[call_stack_idx++] = frame;
 		/* jump in */
-		current_module = &modules[func->value.as_user.module_id];
+		if (func->value.as_user.module_id != -1)
+			current_module = &modules[func->value.as_user.module_id];
+		else
+			current_module = NULL;
 		bp = sp - num_args - 1;
 		pc = func->value.as_user.address;
 	}
