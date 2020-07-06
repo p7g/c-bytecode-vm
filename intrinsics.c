@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "agent.h"
+#include "eval.h"
 #include "hashmap.h"
 #include "intrinsics.h"
 #include "value.h"
@@ -42,7 +43,8 @@
 	X(truncate32, 1) \
 	X(tofloat, 1) \
 	X(read_file, 1) \
-	X(argv, 0)
+	X(argv, 0) \
+	X(upvalues, 0)
 
 INTRINSIC_LIST(DECL);
 
@@ -76,15 +78,20 @@ static int print(size_t argc, struct cb_value *argv, struct cb_value *result)
 		free(as_string);
 	}
 
+	/* hack to flush only if this isn't called by println */
+	if (result != NULL)
+		fflush(stdout);
+
 	result->type = CB_VALUE_NULL;
 	return 0;
 }
 
 static int println(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	print(argc, argv, result);
-	printf("\n");
+	print(argc, argv, NULL);
+	putchar('\n');
 
+	result->type = CB_VALUE_NULL;
 	return 0;
 }
 
@@ -409,6 +416,23 @@ static int argv(size_t argc, struct cb_value *argv_, struct cb_value *result)
 			.chars = strdup(_argv[i]),
 		};
 	}
+
+	return 0;
+}
+
+static int upvalues(size_t argc, struct cb_value *argv, struct cb_value *result)
+{
+	struct cb_user_function *caller;
+	int i;
+
+	caller = cb_caller();
+	result->type = CB_VALUE_ARRAY;
+	result->val.as_array = cb_array_new(caller->upvalues_len);
+	result->val.as_array->len = caller->upvalues_len;
+
+	for (i = 0; i < caller->upvalues_len; i += 1)
+		result->val.as_array->values[i] = cb_get_upvalue(
+				caller->upvalues[i]);
 
 	return 0;
 }

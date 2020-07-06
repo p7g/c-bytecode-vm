@@ -92,6 +92,19 @@ static size_t add_upvalue(struct upvalue uv)
 	return ret;
 }
 
+inline struct cb_user_function *cb_caller(void)
+{
+	assert(CB_VALUE_IS_USER_FN(&stack[bp]));
+	return &stack[bp].val.as_function->value.as_user;
+}
+
+inline struct cb_value cb_get_upvalue(size_t idx)
+{
+	if (upvalues[idx].is_open)
+		return stack[upvalues[idx].v.idx];
+	return upvalues[idx].v.value;
+}
+
 int cb_eval(cb_bytecode *bytecode)
 {
 	size_t pc;
@@ -426,8 +439,9 @@ DO_OP_RETURN: {
 
 	/* close upvalues */
 	for (i = upvalues_idx - 1; i >= 0; i -= 1) {
+		/* FIXME: any way to avoid iterating through all upvalues? */
 		if (!upvalues[i].is_open || upvalues[i].v.idx <= bp)
-			break;
+			continue;
 		upvalues[i].is_open = 0;
 		upvalues[i].v.value = stack[upvalues[i].v.idx];
 	}
