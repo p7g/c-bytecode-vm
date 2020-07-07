@@ -328,7 +328,7 @@ int cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok)
 #undef OK
 }
 
-void cb_function_add_upvalue(struct cb_user_function *fn, size_t idx)
+void cb_function_add_upvalue(struct cb_user_function *fn, struct cb_upvalue *uv)
 {
 	if (fn->upvalues_len >= fn->upvalues_size) {
 		/* FIXME: this could probably be pre-allocated; we know how many
@@ -339,9 +339,9 @@ void cb_function_add_upvalue(struct cb_user_function *fn, size_t idx)
 		else
 			fn->upvalues_size <<= 1;
 		fn->upvalues = realloc(fn->upvalues,
-				fn->upvalues_size * sizeof(size_t));
+				fn->upvalues_size * sizeof(struct cb_upvalue *));
 	}
-	fn->upvalues[fn->upvalues_len++] = idx;
+	fn->upvalues[fn->upvalues_len++] = uv;
 }
 
 const char *cb_value_type_friendly_name(enum cb_value_type typ)

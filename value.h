@@ -26,6 +26,7 @@ enum cb_value_type {
 #undef COMMA
 };
 
+struct cb_upvalue;
 struct cb_value;
 
 struct cb_string {
@@ -44,7 +45,7 @@ typedef int (cb_native_function)(size_t argc, struct cb_value *argv,
 
 struct cb_user_function {
 	size_t address;
-	size_t *upvalues;
+	struct cb_upvalue **upvalues;
 	size_t upvalues_size, upvalues_len;
 	size_t module_id;
 };
@@ -86,7 +87,8 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b);
 int cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok);
 char *cb_value_to_string(struct cb_value *val);
 int cb_value_is_truthy(struct cb_value *val);
-void cb_function_add_upvalue(struct cb_user_function *fn, size_t idx);
+void cb_function_add_upvalue(struct cb_user_function *fn,
+		struct cb_upvalue *uv);
 
 void cb_value_mark(struct cb_value *val);
 void cb_value_incref(struct cb_value *val);

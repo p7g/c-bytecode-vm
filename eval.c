@@ -21,14 +21,6 @@
 #define STACK_MAX 30000
 #define STACK_INIT_SIZE 1024
 
-struct upvalue {
-	int is_open;
-	union {
-		size_t idx;
-		struct cb_value value;
-	} v;
-};
-
 struct frame {
 	size_t prev_pc,
 	       prev_bp,
@@ -40,7 +32,7 @@ struct frame {
  * These values are also used by the GC */
 size_t sp, bp;
 struct cb_value *stack;
-struct upvalue *upvalues;
+struct cb_upvalue **upvalues;
 size_t upvalues_idx, upvalues_size;
 /* size of this array is based on number of modspecs in agent */
 struct cb_module *modules;
@@ -74,22 +66,19 @@ void print_stacktrace(struct frame *call_stack, size_t len)
 
 	while (--len) {
 		frame = call_stack[len];
-		if (frame.current_function != -1) {
+		if (frame.current_function != -1)
 			print_stack_function(stack[frame.current_function]);
-		}
 	}
 }
 
-static size_t add_upvalue(struct upvalue uv)
+static void add_upvalue(struct cb_upvalue *uv)
 {
-	size_t ret;
 	if (upvalues_idx >= upvalues_size) {
 		upvalues_size <<= 1;
 		upvalues = realloc(upvalues, upvalues_size
-				* sizeof(struct upvalue));
+				* sizeof(struct cb_upvalue *));
 	}
-	upvalues[ret = upvalues_idx++] = uv;
-	return ret;
+	upvalues[upvalues_idx++] = uv;
 }
 
 inline struct cb_user_function *cb_caller(void)
@@ -98,11 +87,11 @@ inline struct cb_user_function *cb_caller(void)
 	return &stack[bp].val.as_function->value.as_user;
 }
 
-inline struct cb_value cb_get_upvalue(size_t idx)
+inline struct cb_value cb_get_upvalue(struct cb_upvalue *uv)
 {
-	if (upvalues[idx].is_open)
-		return stack[upvalues[idx].v.idx];
-	return upvalues[idx].v.value;
+	if (uv->is_open)
+		return stack[uv->v.idx];
+	return uv->v.value;
 }
 
 int cb_eval(cb_bytecode *bytecode)
@@ -120,7 +109,7 @@ int cb_eval(cb_bytecode *bytecode)
 	sp = 0;
 	bp = 0;
 	stack_size = STACK_INIT_SIZE;
-	upvalues = calloc(32, sizeof(struct upvalue));
+	upvalues = calloc(32, sizeof(struct cb_upvalue *));
 	upvalues_idx = 0;
 	upvalues_size = 32;
 	call_stack = malloc(sizeof(struct frame) * 256);
@@ -438,24 +427,21 @@ DO_OP_CALL: {
 }
 
 DO_OP_RETURN: {
-	int i;
 	struct cb_value retval;
 	struct frame frame;
+	struct cb_upvalue *uv;
 
 	retval = POP();
 	/* FIXME: bounds check */
 	frame = call_stack[--call_stack_idx];
 
 	/* close upvalues */
-	for (i = upvalues_idx - 1; i >= 0; i -= 1) {
-		/* FIXME: any way to avoid iterating through all upvalues? */
-		if (upvalues[i].is_open) {
-			if (upvalues[i].v.idx <= bp)
-				break;
-			upvalues[i].is_open = 0;
-			upvalues[i].v.value = stack[upvalues[i].v.idx];
-		}
+	while (upvalues_idx && (uv = upvalues[--upvalues_idx])->is_open
+			&& uv->v.idx > bp) {
+		uv->is_open = 0;
+		uv->v.value = stack[uv->v.idx];
 	}
+	upvalues_idx += 1;
 
 	sp = bp;
 	bp = frame.prev_bp;
@@ -542,8 +528,9 @@ DO_OP_NEW_FUNCTION: {
 }
 
 DO_OP_BIND_LOCAL: {
-	int i, found;
+	int i;
 	struct cb_value func;
+	struct cb_upvalue *uv;
 	size_t idx = LOCAL_IDX(READ_SIZE_T());
 
 	func = POP();
@@ -551,23 +538,23 @@ DO_OP_BIND_LOCAL: {
 			|| func.val.as_function->type != CB_FUNCTION_USER)
 		ERROR("Can only bind upvalues to user functions\n");
 
-	/* FIXME: binary search? */
-	found = 0;
-	for (i = upvalues_size - 1; i >= 0; i -= 1) {
-		if (upvalues[i].is_open && upvalues[i].v.idx == idx) {
-			found = 1;
+	uv = NULL;
+	for (i = upvalues_idx - 1; i >= 0; i -= 1) {
+		if (upvalues[i]->is_open && upvalues[i]->v.idx == idx) {
+			uv = upvalues[i];
 			break;
 		}
 	}
 
-	if (!found) {
-		i = add_upvalue((struct upvalue) {
-			.is_open = 1,
-			.v.idx = idx,
-		});
+	if (!uv) {
+		uv = malloc(sizeof(struct cb_upvalue));
+		uv->is_open = 1;
+		uv->v.idx = idx;
+
+		add_upvalue(uv);
 	}
 
-	cb_function_add_upvalue(&func.val.as_function->value.as_user, i);
+	cb_function_add_upvalue(&func.val.as_function->value.as_user, uv);
 
 	PUSH(func);
 	DISPATCH();
@@ -592,30 +579,30 @@ DO_OP_BIND_UPVALUE: {
 
 DO_OP_LOAD_UPVALUE: {
 	struct cb_value *self;
-	struct upvalue uv;
+	struct cb_upvalue *uv;
 	size_t idx = READ_SIZE_T();
 
 	self = &stack[bp];
 	assert(CB_VALUE_IS_USER_FN(self));
 
-	uv = upvalues[self->val.as_function->value.as_user.upvalues[idx]];
-	if (uv.is_open)
-		PUSH(stack[uv.v.idx]);
+	uv = self->val.as_function->value.as_user.upvalues[idx];
+	if (uv->is_open)
+		PUSH(stack[uv->v.idx]);
 	else
-		PUSH(uv.v.value);
+		PUSH(uv->v.value);
 
 	DISPATCH();
 }
 
 DO_OP_STORE_UPVALUE: {
 	struct cb_value *self;
-	struct upvalue *uv;
+	struct cb_upvalue *uv;
 	size_t idx = READ_SIZE_T();
 
 	self = &stack[bp];
 	assert(CB_VALUE_IS_USER_FN(self));
 
-	uv = &upvalues[self->val.as_function->value.as_user.upvalues[idx]];
+	uv = self->val.as_function->value.as_user.upvalues[idx];
 	if (uv->is_open)
 		stack[uv->v.idx] = TOP();
 	else
