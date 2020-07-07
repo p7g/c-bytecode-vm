@@ -162,6 +162,7 @@ static int string_chars(size_t argc, struct cb_value *argv,
 		str = cb_agent_get_string(str_val.val.as_interned_string);
 	} else {
 		EXPECT_TYPE("string_chars", CB_VALUE_STRING, str_val);
+		return 1;
 	}
 
 	len = cb_strlen(str);
@@ -225,6 +226,7 @@ static int string_bytes(size_t argc, struct cb_value *argv,
 		str = cb_agent_get_string(str_val.val.as_interned_string);
 	} else {
 		EXPECT_TYPE("string_bytes", CB_VALUE_STRING, str_val);
+		return 1;
 	}
 
 	len = cb_strlen(str);
@@ -356,6 +358,7 @@ static int read_file(size_t argc, struct cb_value *argv,
 		str = cb_agent_get_string(argv[0].val.as_interned_string);
 	} else {
 		EXPECT_TYPE("read_file", CB_VALUE_STRING, argv[0]);
+		return 1;
 	}
 
 	f = fopen(cb_strptr(str), "r");

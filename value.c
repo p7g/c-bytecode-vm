@@ -65,7 +65,7 @@ inline struct cb_array *cb_array_new(size_t len)
 
 static void deinit_string(void *s_ptr)
 {
-	struct cb_string *s = s;
+	struct cb_string *s = s_ptr;
 
 	cb_str_free(s->string);
 }
@@ -120,9 +120,9 @@ char *cb_value_to_string(struct cb_value *val)
 
 	switch (val->type) {
 	case CB_VALUE_INT:
-		len = snprintf(NULL, 0, "%" PRId64, val->val.as_int);
+		len = snprintf(NULL, 0, "%" PRIdPTR, val->val.as_int);
 		buf = malloc(len + 1);
-		snprintf(buf, len + 1, "%" PRId64, val->val.as_int);
+		snprintf(buf, len + 1, "%" PRIdPTR, val->val.as_int);
 		buf[len] = 0;
 		break;
 
