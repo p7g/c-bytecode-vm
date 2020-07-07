@@ -79,10 +79,11 @@ static int print(size_t argc, struct cb_value *argv, struct cb_value *result)
 	}
 
 	/* hack to flush only if this isn't called by println */
-	if (result != NULL)
+	if (result != NULL) {
 		fflush(stdout);
+		result->type = CB_VALUE_NULL;
+	}
 
-	result->type = CB_VALUE_NULL;
 	return 0;
 }
 
