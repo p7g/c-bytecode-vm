@@ -220,6 +220,11 @@ end: {
 			cb_module_free(modules[i]);
 	}
 	free(modules);
+
+	/* FIXME: will this conflict with cb_function_deinit? */
+	for (i = 0; i < upvalues_idx; i += 1)
+		free(upvalues[upvalues_idx]);
+
 	return retval;
 }
 
@@ -427,6 +432,7 @@ DO_OP_CALL: {
 }
 
 DO_OP_RETURN: {
+	int i;
 	struct cb_value retval;
 	struct frame frame;
 	struct cb_upvalue *uv;
@@ -436,12 +442,16 @@ DO_OP_RETURN: {
 	frame = call_stack[--call_stack_idx];
 
 	/* close upvalues */
-	while (upvalues_idx && (uv = upvalues[--upvalues_idx])->is_open
-			&& uv->v.idx > bp) {
-		uv->is_open = 0;
-		uv->v.value = stack[uv->v.idx];
+	if (upvalues_idx != 0) {
+		for (i = upvalues_idx - 1; i >= 0; i -= 1) {
+			uv = upvalues[i];
+			if (!uv->is_open)
+				continue;
+			uv->is_open = 0;
+			uv->v.value = stack[uv->v.idx];
+		}
+		upvalues_idx = i + 1;
 	}
-	upvalues_idx += 1;
 
 	sp = bp;
 	bp = frame.prev_bp;

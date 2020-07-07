@@ -43,13 +43,20 @@ inline void cb_value_decref(struct cb_value *value)
 
 static void cb_function_deinit(void *ptr)
 {
+	int i;
+	struct cb_user_function ufn;
 	struct cb_function *fn = ptr;
 
 	if (fn->type != CB_FUNCTION_USER)
 		return;
 
-	if (fn->value.as_user.upvalues)
-		free(fn->value.as_user.upvalues);
+	ufn = fn->value.as_user;
+
+	if (ufn.upvalues_len) {
+		for (i = 0; i < ufn.upvalues_len; i += 1)
+			free(ufn.upvalues[i]);
+		free(ufn.upvalues);
+	}
 }
 
 inline struct cb_function *cb_function_new(void)
