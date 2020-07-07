@@ -82,3 +82,14 @@ inline size_t cb_modspec_name(const struct modspec *spec)
 {
 	return spec->name;
 }
+
+int cb_module_is_zero(struct cb_module m)
+{
+	return m.global_scope == 0 && m.spec == 0;
+}
+
+void cb_module_free(struct cb_module module)
+{
+	/* modspec belongs to agent, we can't free it here */
+	cb_hashmap_free(module.global_scope);
+}

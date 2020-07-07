@@ -117,6 +117,17 @@ void cb_hashmap_set(cb_hashmap *m, size_t key, struct cb_value value)
 
 	cb_value_incref(&value);
 	idx = hash_size_t(key) % m->size;
+
+	entry = m->entries[idx];
+	while (entry != NULL) {
+		if (entry->key == key) {
+			cb_value_decref(&entry->value);
+			entry->value = value;
+			return;
+		}
+		entry = entry->next;
+	}
+
 	entry = malloc(sizeof(struct entry));
 	entry->key = key;
 	entry->value = value;

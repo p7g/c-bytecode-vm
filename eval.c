@@ -112,7 +112,9 @@ int cb_eval(cb_bytecode *bytecode)
 	struct frame *call_stack;
 	size_t call_stack_idx, call_stack_size;
 	struct cb_module *current_module;
+	int retval;
 
+	retval = 0;
 	pc = 0;
 	stack = malloc(STACK_INIT_SIZE * sizeof(struct cb_value));
 	sp = 0;
@@ -171,7 +173,7 @@ int cb_eval(cb_bytecode *bytecode)
 #else
 # define DISPATCH() ({ \
 		size_t _next = NEXT(); \
-		assert(_next >= 0 && _next < OP_MAX); \
+		assert(_next < OP_MAX); \
 		goto *dispatch_table[_next]; \
 	})
 #endif
@@ -179,7 +181,8 @@ int cb_eval(cb_bytecode *bytecode)
 #define ERROR(MSG, ...) ({ \
 		fprintf(stderr, (MSG), ##__VA_ARGS__); \
 		print_stacktrace(call_stack, call_stack_idx); \
-		return 1; \
+		retval = 1; \
+		goto end; \
 	})
 #define PUSH(V) ({ \
 		struct cb_value _v = (V); \
@@ -219,8 +222,17 @@ int cb_eval(cb_bytecode *bytecode)
 
 DO_OP_MAX:
 DO_OP_HALT:
+end: {
+	int i;
+	size_t num_modules = cb_agent_modspec_count();
+
+	for (i = 0; i < num_modules; i += 1) {
+		if (!cb_module_is_zero(modules[i]))
+			cb_module_free(modules[i]);
+	}
 	free(modules);
-	return 0;
+	return retval;
+}
 
 DO_OP_CONST_INT: {
 	size_t as_size_t = READ_SIZE_T();
@@ -301,7 +313,6 @@ DO_OP_CONST_NULL: {
 					OP b.val.as_int; \
 		} else { \
 			ERROR("Invalid operands for %s\n", #OP); \
-			return 1; \
 		} \
 		PUSH(result); \
 	})
@@ -326,10 +337,8 @@ DO_OP_MOD: {
 	struct cb_value a, b, result;
 	b = POP();
 	a = POP();
-	if (a.type != CB_VALUE_INT || b.type != CB_VALUE_INT) {
+	if (a.type != CB_VALUE_INT || b.type != CB_VALUE_INT)
 		ERROR("Operands to '%%' must be integers\n");
-		return 1;
-	}
 	result.type = CB_VALUE_INT;
 	result.val.as_int = a.val.as_int % b.val.as_int;
 	PUSH(result);
@@ -360,7 +369,8 @@ DO_OP_JUMP_IF_TRUE: {
 	struct cb_value pred;
 	size_t next = READ_SIZE_T();
 	pred = POP();
-	if (cb_value_is_truthy(&pred))
+	if ((pred.type == CB_VALUE_BOOL && pred.val.as_bool)
+			|| cb_value_is_truthy(&pred))
 		pc = next;
 	DISPATCH();
 }
@@ -369,7 +379,8 @@ DO_OP_JUMP_IF_FALSE: {
 	struct cb_value pred;
 	size_t next = READ_SIZE_T();
 	pred = POP();
-	if (!cb_value_is_truthy(&pred))
+	if ((pred.type == CB_VALUE_BOOL && !pred.val.as_bool)
+			|| !cb_value_is_truthy(&pred))
 		pc = next;
 	DISPATCH();
 }
@@ -383,25 +394,23 @@ DO_OP_CALL: {
 	num_args = READ_SIZE_T();
 	func_val = stack[sp - num_args - 1];
 
-	if (func_val.type != CB_VALUE_FUNCTION) {
+	if (func_val.type != CB_VALUE_FUNCTION)
 		ERROR("Value of type '%s' is not callable\n",
 				cb_value_type_friendly_name(func_val.type));
-		return 1;
-	}
 
 	func = func_val.val.as_function;
 	name = func->name;
-	if (func->arity > num_args) {
+	if (func->arity > num_args)
 		ERROR("Too few arguments to function '%s'\n",
 				func->name == (size_t) -1
 				? "<anonymous>"
 				: cb_strptr(cb_agent_get_string(name)));
-		return 1;
-	}
 	if (func->type == CB_FUNCTION_NATIVE) {
 		if (func->value.as_native(num_args, &stack[sp - num_args],
-					&result))
-			return 1;
+					&result)) {
+			retval = 1;
+			goto end;
+		}
 		assert(sp > num_args);
 		sp -= (num_args + 1);
 		PUSH(result);
@@ -440,10 +449,12 @@ DO_OP_RETURN: {
 	/* close upvalues */
 	for (i = upvalues_idx - 1; i >= 0; i -= 1) {
 		/* FIXME: any way to avoid iterating through all upvalues? */
-		if (!upvalues[i].is_open || upvalues[i].v.idx <= bp)
-			continue;
-		upvalues[i].is_open = 0;
-		upvalues[i].v.value = stack[upvalues[i].v.idx];
+		if (upvalues[i].is_open) {
+			if (upvalues[i].v.idx <= bp)
+				break;
+			upvalues[i].is_open = 0;
+			upvalues[i].v.value = stack[upvalues[i].v.idx];
+		}
 	}
 
 	sp = bp;
@@ -474,11 +485,9 @@ DO_OP_LOAD_GLOBAL: {
 	id = READ_SIZE_T();
 	value = cb_hashmap_get(GLOBALS(), id);
 
-	if (value == NULL) {
+	if (value == NULL)
 		ERROR("Unbound global '%s'\n",
 				cb_strptr(cb_agent_get_string(id)));
-		return 1;
-	}
 
 	PUSH(*value);
 	DISPATCH();
@@ -539,11 +548,10 @@ DO_OP_BIND_LOCAL: {
 
 	func = POP();
 	if (func.type != CB_VALUE_FUNCTION
-			|| func.val.as_function->type != CB_FUNCTION_USER) {
+			|| func.val.as_function->type != CB_FUNCTION_USER)
 		ERROR("Can only bind upvalues to user functions\n");
-		return 1;
-	}
 
+	/* FIXME: binary search? */
 	found = 0;
 	for (i = upvalues_size - 1; i >= 0; i -= 1) {
 		if (upvalues[i].is_open && upvalues[i].v.idx == idx) {
@@ -572,10 +580,8 @@ DO_OP_BIND_UPVALUE: {
 	self = &stack[bp];
 	assert(CB_VALUE_IS_USER_FN(self));
 	func = POP();
-	if (!CB_VALUE_IS_USER_FN(&func)) {
+	if (!CB_VALUE_IS_USER_FN(&func))
 		ERROR("Can only bind upvalues to user functions\n");
-		return 1;
-	}
 
 	cb_function_add_upvalue(&func.val.as_function->value.as_user,
 		self->val.as_function->value.as_user.upvalues[upvalue_idx]);
@@ -654,26 +660,20 @@ DO_OP_NEW_ARRAY_WITH_VALUES: {
 
 #define EXPECT_INT_INDEX(V) ({ \
 		struct cb_value v = (V); \
-		if (v.type != CB_VALUE_INT) { \
+		if (v.type != CB_VALUE_INT) \
 			ERROR("Array index must be integer, got %s\n", \
 					cb_value_type_friendly_name(v.type)); \
-			return 1; \
-		} \
 		v.val.as_int; \
 	})
 #define ARRAY_PTR(ARR, IDX) ({ \
 		struct cb_value _arr = (ARR); \
-		if (_arr.type != CB_VALUE_ARRAY) { \
+		if (_arr.type != CB_VALUE_ARRAY) \
 			ERROR("Can only index arrays, got %s\n", \
 					cb_value_type_friendly_name(_arr.type)); \
-			return 1; \
-		} \
 		size_t _idx = EXPECT_INT_INDEX(IDX); \
-		if (_idx >= _arr.val.as_array->len) { \
+		if (_idx >= _arr.val.as_array->len) \
 			ERROR("Index %zu greater than array length %zu\n", \
 					_idx, _arr.val.as_array->len); \
-			return 1; \
-		} \
 		&_arr.val.as_array->values[_idx]; \
 	})
 
@@ -722,12 +722,10 @@ DO_OP_NOT_EQUAL: {
 #define CMP(A, B) ({ \
 		int _ok; \
 		int _result = cb_value_cmp(&(A), &(B), &_ok); \
-		if (!_ok) { \
+		if (!_ok) \
 			ERROR("Cannot compare values of types %s and %s\n", \
 					cb_value_type_friendly_name((A).type), \
 					cb_value_type_friendly_name((B).type)); \
-			return 1; \
-		} \
 		_result; \
 	})
 
@@ -785,16 +783,12 @@ DO_OP_GREATER_THAN_EQUAL: {
 		struct cb_value a, b, result; \
 		b = POP(); \
 		a = POP(); \
-		if (a.type != CB_VALUE_INT) { \
+		if (a.type != CB_VALUE_INT) \
 			ERROR("Bitwise operands must be integers, got %s\n", \
 					cb_value_type_friendly_name(a.type)); \
-			return 1; \
-		} \
-		if (b.type != CB_VALUE_INT) { \
+		if (b.type != CB_VALUE_INT) \
 			ERROR("Bitwise operands must be integers, got %s\n", \
 					cb_value_type_friendly_name(b.type)); \
-			return 1; \
-		} \
 		result.type = CB_VALUE_INT; \
 		result.val.as_int = a.val.as_int OP b.val.as_int; \
 		PUSH(result); \
@@ -815,11 +809,9 @@ DO_OP_BITWISE_XOR:
 DO_OP_BITWISE_NOT: {
 	struct cb_value a;
 	a = POP();
-	if (a.type != CB_VALUE_INT) {
+	if (a.type != CB_VALUE_INT)
 		ERROR("Bitwise operands must be integers, got %s\n",
 				cb_value_type_friendly_name(a.type));
-		return 1;
-	}
 	a.val.as_int = ~a.val.as_int;
 	PUSH(a);
 	DISPATCH();
@@ -843,10 +835,9 @@ DO_OP_NEG: {
 		a.val.as_int = -a.val.as_int;
 	} else if (a.type == CB_VALUE_DOUBLE) {
 		a.val.as_double = -a.val.as_double;
-	} else{
+	} else {
 		ERROR("Operand for negation must be int or double, got %s\n",
 				cb_value_type_friendly_name(a.type));
-		return 1;
 	}
 	PUSH(a);
 	DISPATCH();

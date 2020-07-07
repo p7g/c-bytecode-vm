@@ -2,16 +2,21 @@ module Iter;
 
 import "arraylist.rbcvm";
 
+let idx = 0;
 
 export function from_array(array) {
   let index = 0;
   let len = Array.length(array);
-  return function() {
+  let i = idx;
+  idx = idx + 1;
+  # println("iter from array", i, array);
+  return function from_array_iterator() {
     if index == len {
       return null;
     }
     let item = array[index];
     index = index + 1;
+    # println("the upvalues", i, upvalues());
     return item;
   };
 }

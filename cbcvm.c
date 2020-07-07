@@ -13,6 +13,16 @@
 #include "string.h"
 #include "value.h"
 
+#ifdef PROFILE
+# include <signal.h>
+
+void sigint_handler(int signum)
+{
+	/* libc exit so gmon.out is saved */
+	exit(130);
+}
+#endif
+
 int main(int argc, char **argv) {
 	cb_bytecode *bytecode;
 
@@ -20,6 +30,16 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Expected filename arg\n");
 		return 1;
 	}
+
+#ifdef PROFILE
+	struct sigaction sigint_action;
+
+	sigint_action.sa_handler = sigint_handler;
+	sigemptyset(&sigint_action.sa_mask);
+	sigint_action.sa_flags = 0;
+
+	sigaction(SIGINT, &sigint_action, NULL);
+#endif
 
 	cb_agent_init();
 

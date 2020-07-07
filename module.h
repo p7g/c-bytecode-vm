@@ -20,4 +20,7 @@ size_t cb_modspec_get_export_name(const cb_modspec *spec, size_t id);
 size_t cb_modspec_get_export_id(const cb_modspec *spec, size_t name, int *ok);
 size_t cb_modspec_name(const cb_modspec *spec);
 
+void cb_module_free(struct cb_module module);
+int cb_module_is_zero(struct cb_module m);
+
 #endif
