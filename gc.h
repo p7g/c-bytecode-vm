@@ -3,18 +3,21 @@
 
 #include <stddef.h>
 
-#define CB_GC_MARK(V) (((cb_gc_header *)(V))->mark = 1)
-
 typedef void (cb_deinit_fn)(void *);
 
 typedef struct cb_gc_header {
 	struct cb_gc_header *next;
 	int refcount;
 	int mark;
+	size_t size;
 	cb_deinit_fn *deinit;
 } cb_gc_header;
 
-void cb_gc_collect();
-void cb_gc_register(cb_gc_header *obj, cb_deinit_fn *deinit_fn);
+void cb_gc_mark(cb_gc_header *obj);
+int cb_gc_is_marked(cb_gc_header *obj);
+void cb_gc_adjust_refcount(cb_gc_header *obj, int amount);
+void cb_gc_collect(void);
+int cb_gc_should_collect(void);
+void cb_gc_register(cb_gc_header *obj, size_t size, cb_deinit_fn *deinit_fn);
 
 #endif

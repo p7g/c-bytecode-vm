@@ -4,7 +4,7 @@ LDFLAGS+=-lm
 ifeq ($(TARGET),release)
 	CFLAGS+=-DNDEBUG -O3 -flto
 else ifeq ($(TARGET),debug)
-	CFLAGS+=-DDEBUG_DISASM -DDEBUG_VM -Og
+	CFLAGS+=-DDEBUG_DISASM -DDEBUG_VM -DDEBUG_GC
 else ifeq ($(TARGET),profile)
 	CFLAGS+=-DPROFILE -pg -Og --coverage
 endif

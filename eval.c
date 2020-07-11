@@ -176,8 +176,8 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct frame *frame)
 			? cb_strptr(cb_agent_get_string(
 					cb_modspec_name(frame->module->spec)))
 			: "script",
-			frame->is_function ? " " : ".",
-			frame->is_function ? "top"
+			!frame->is_function ? " " : ".",
+			!frame->is_function ? "top"
 			: (_name = cb_vm_state.stack[frame->bp]
 				.val.as_function->name) != -1
 			? cb_strptr(cb_agent_get_string(_name))
