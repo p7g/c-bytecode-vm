@@ -22,21 +22,48 @@
 #define STACK_INIT_SIZE 1024
 
 struct frame {
-	size_t prev_pc,
-	       prev_bp,
-	       current_function;
-	struct cb_module *prev_module;
+	struct frame *parent;
+	size_t bp, function;
+	struct cb_module *module;
 };
 
-/* global vm state... this is fine, right?
- * These values are also used by the GC */
-size_t sp, bp;
-struct cb_value *stack;
-struct cb_upvalue **upvalues;
-size_t upvalues_idx, upvalues_size;
-/* size of this array is based on number of modspecs in agent */
-struct cb_module *modules;
-cb_hashmap *globals;
+void cb_vm_init(cb_bytecode *bytecode)
+{
+	cb_vm_state.bytecode = bytecode;
+
+	cb_vm_state.sp = 0;
+	cb_vm_state.stack = malloc(STACK_INIT_SIZE * sizeof(struct cb_value));
+	cb_vm_state.stack_size = STACK_INIT_SIZE;
+
+	cb_vm_state.upvalues = calloc(32, sizeof(struct cb_upvalue *));
+	cb_vm_state.upvalues_idx = 0;
+	cb_vm_state.upvalues_size = 32;
+
+	cb_vm_state.modules = calloc(cb_agent_modspec_count(),
+			sizeof(struct cb_module));
+	cb_vm_state.globals = cb_hashmap_new();
+	make_intrinsics(cb_vm_state.globals);
+}
+
+void cb_vm_deinit(void)
+{
+	int i;
+	size_t num_modules = cb_agent_modspec_count();
+
+	for (i = 0; i < num_modules; i += 1) {
+		if (!cb_module_is_zero(cb_vm_state.modules[i]))
+			cb_module_free(cb_vm_state.modules[i]);
+	}
+	free(cb_vm_state.modules);
+
+	/* FIXME: will this conflict with cb_function_deinit? */
+	for (i = 0; i < cb_vm_state.upvalues_idx; i += 1)
+		free(cb_vm_state.upvalues[cb_vm_state.upvalues_idx]);
+
+	free(cb_vm_state.upvalues);
+	free(cb_vm_state.stack);
+	cb_hashmap_free(cb_vm_state.globals);
+}
 
 void print_stack_function(struct cb_value func)
 {
@@ -57,68 +84,84 @@ void print_stack_function(struct cb_value func)
 			: cb_strptr(cb_agent_get_string(name)));
 }
 
-void print_stacktrace(struct frame *call_stack, size_t len)
-{
-	struct frame frame;
-
-	if (bp != 0)
-		print_stack_function(stack[bp]);
-
-	while (--len) {
-		frame = call_stack[len];
-		if (frame.current_function != -1)
-			print_stack_function(stack[frame.current_function]);
-	}
-}
-
 static void add_upvalue(struct cb_upvalue *uv)
 {
-	if (upvalues_idx >= upvalues_size) {
-		upvalues_size <<= 1;
-		upvalues = realloc(upvalues, upvalues_size
+	if (cb_vm_state.upvalues_idx >= cb_vm_state.upvalues_size) {
+		cb_vm_state.upvalues_size <<= 1;
+		cb_vm_state.upvalues = realloc(cb_vm_state.upvalues,
+				cb_vm_state.upvalues_size
 				* sizeof(struct cb_upvalue *));
 	}
-	upvalues[upvalues_idx++] = uv;
+	cb_vm_state.upvalues[cb_vm_state.upvalues_idx++] = uv;
 }
 
 inline struct cb_user_function *cb_caller(void)
 {
-	assert(CB_VALUE_IS_USER_FN(&stack[bp]));
-	return &stack[bp].val.as_function->value.as_user;
+	assert(CB_VALUE_IS_USER_FN(&cb_vm_state.stack[cb_vm_state.frame->bp]));
+	return &cb_vm_state.stack[cb_vm_state.frame->bp]
+		.val.as_function->value.as_user;
 }
 
 inline struct cb_value cb_get_upvalue(struct cb_upvalue *uv)
 {
 	if (uv->is_open)
-		return stack[uv->v.idx];
+		return cb_vm_state.stack[uv->v.idx];
 	return uv->v.value;
 }
 
-int cb_eval(cb_bytecode *bytecode)
-{
-	size_t pc;
-	size_t stack_size;
-	struct frame *call_stack;
-	size_t call_stack_idx, call_stack_size;
-	struct cb_module *current_module;
-	int retval;
+static int cb_eval(cb_bytecode *bytecode, size_t pc, struct frame *frame);
 
-	retval = 0;
-	pc = 0;
-	stack = malloc(STACK_INIT_SIZE * sizeof(struct cb_value));
-	sp = 0;
-	bp = 0;
-	stack_size = STACK_INIT_SIZE;
-	upvalues = calloc(32, sizeof(struct cb_upvalue *));
-	upvalues_idx = 0;
-	upvalues_size = 32;
-	call_stack = malloc(sizeof(struct frame) * 256);
-	call_stack_idx = 0;
-	call_stack_size = 256;
-	modules = calloc(cb_agent_modspec_count(), sizeof(struct cb_module));
-	current_module = NULL;
-	globals = cb_hashmap_new();
-	make_intrinsics(globals);
+int cb_run(void)
+{
+	struct frame frame;
+
+	frame.parent = NULL;
+	frame.function = -1;
+	frame.module = NULL;
+	frame.bp = 0;
+
+	return cb_eval(cb_vm_state.bytecode, 0, &frame);
+}
+
+#ifdef DEBUG_VM
+static void debug_state(cb_bytecode *bytecode, size_t pc, struct frame *frame)
+{
+	size_t _name;
+	printf("%s%s%s\n", frame->module
+			? cb_strptr(cb_agent_get_string(
+					cb_modspec_name(frame->module->spec)))
+			: "script",
+			frame->function == -1 ? " " : ".",
+			frame->function == -1 ? "top"
+			: (_name = cb_vm_state.stack[frame->bp]
+				.val.as_function->name) != -1
+			? cb_strptr(cb_agent_get_string(_name))
+			: "<anonymous>");
+	printf("pc: %zu, bp: %zu, sp: %zu\n", pc, frame->bp, cb_vm_state.sp);
+	cb_disassemble_one(bytecode, pc);
+	printf("> %s", cb_vm_state.sp ? cb_vm_state.sp > 10
+			? "... "
+			: "" : "(empty)");
+	int _first = 1;
+	for (int _i = 10 < cb_vm_state.sp
+			? 10 : cb_vm_state.sp; _i > 0; _i -= 1) {
+		int _idx = cb_vm_state.sp - _i;
+		if (_first)
+			_first = 0;
+		else
+			printf(", ");
+		char *_str = cb_value_to_string(&cb_vm_state.stack[_idx]);
+		printf("%s", _str);
+		free(_str);
+	}
+	printf("\n\n");
+}
+#endif
+
+static int cb_eval(cb_bytecode *bytecode, size_t pc, struct frame *frame)
+{
+	int retval = 0;
+	cb_vm_state.frame = frame;
 
 #define TABLE_ENTRY(OP) &&DO_##OP,
 	static void *dispatch_table[] = {
@@ -129,32 +172,7 @@ int cb_eval(cb_bytecode *bytecode)
 #define NEXT() (cb_bytecode_get(bytecode, pc++))
 #ifdef DEBUG_VM
 # define DISPATCH() ({ \
-		size_t _name; \
-		printf("%s%s%s\n", current_module \
-				? cb_strptr(cb_agent_get_string( \
-						cb_modspec_name( \
-							current_module->spec))) \
-				: "script", \
-				call_stack_idx == 0 ? " " : ".", \
-				call_stack_idx == 0 ? "top" \
-				: (_name = stack[bp].val.as_function->name) != -1 \
-				? cb_strptr(cb_agent_get_string(_name)) \
-				: "<anonymous>"); \
-		printf("pc: %zu, bp: %zu, sp: %zu\n", pc, bp, sp); \
-		cb_disassemble_one(bytecode, pc); \
-		printf("> %s", sp ? sp > 10 ? "... " : "" : "(empty)"); \
-		int _first = 1; \
-		for (int _i = 10 < sp ? 10 : sp; _i > 0; _i -= 1) { \
-			int _idx = sp - _i; \
-			if (_first) \
-				_first = 0; \
-			else \
-				printf(", "); \
-			char *_str = cb_value_to_string(&stack[_idx]); \
-			printf("%s", _str); \
-			free(_str); \
-		} \
-		printf("\n\n"); \
+		debug_state(bytecode, pc, frame); \
 		size_t _next = NEXT(); \
 		assert(_next >= 0 && _next < OP_MAX); \
 		goto *dispatch_table[_next]; \
@@ -169,18 +187,21 @@ int cb_eval(cb_bytecode *bytecode)
 
 #define ERROR(MSG, ...) ({ \
 		fprintf(stderr, (MSG), ##__VA_ARGS__); \
-		print_stacktrace(call_stack, call_stack_idx); \
 		retval = 1; \
+		if (frame->function != -1) \
+			print_stack_function( \
+					cb_vm_state.stack[frame->function]); \
 		goto end; \
 	})
 #define PUSH(V) ({ \
 		struct cb_value _v = (V); \
-		if (sp >= stack_size) { \
-			stack_size <<= 1; \
-			stack = realloc(stack, stack_size \
+		if (cb_vm_state.sp >= cb_vm_state.stack_size) { \
+			cb_vm_state.stack_size <<= 1; \
+			cb_vm_state.stack = realloc(cb_vm_state.stack, \
+					cb_vm_state.stack_size \
 					* sizeof(struct cb_value)); \
 		} \
-		stack[sp++] = _v; \
+		cb_vm_state.stack[cb_vm_state.sp++] = _v; \
 	})
 #define READ_SIZE_T() ({ \
 		int _i = 0; \
@@ -190,43 +211,30 @@ int cb_eval(cb_bytecode *bytecode)
 		_val; \
 	})
 #define POP() ({ \
-		assert(sp > 0); \
-		struct cb_value _v = stack[--sp]; \
+		assert(cb_vm_state.sp > 0); \
+		struct cb_value _v = cb_vm_state.stack[--cb_vm_state.sp]; \
 		_v; \
 	})
-#define TOP() (stack[sp - 1])
-#define FRAME() (&call_stack[call_stack_idx - 1])
-#define LOCAL_IDX(N) (bp + 1 + (N))
+#define TOP() (cb_vm_state.stack[cb_vm_state.sp - 1])
+#define FRAME() (frame)
+#define LOCAL_IDX(N) (frame->bp + 1 + (N))
 #define LOCAL(N) ({ \
-		struct cb_value _v = stack[LOCAL_IDX(N)]; \
+		struct cb_value _v = cb_vm_state.stack[LOCAL_IDX(N)]; \
 		_v; \
 	})
 #define REPLACE(N, VAL) ({ \
 		struct cb_value _v = (VAL); \
-		stack[(N)] = _v; \
+		cb_vm_state.stack[(N)] = _v; \
 	})
-#define GLOBALS() (current_module ? current_module->global_scope : globals)
+#define GLOBALS() (frame->module ? frame->module->global_scope : cb_vm_state.globals)
 
 	DISPATCH();
 
 DO_OP_MAX:
 DO_OP_HALT:
-end: {
-	int i;
-	size_t num_modules = cb_agent_modspec_count();
-
-	for (i = 0; i < num_modules; i += 1) {
-		if (!cb_module_is_zero(modules[i]))
-			cb_module_free(modules[i]);
-	}
-	free(modules);
-
-	/* FIXME: will this conflict with cb_function_deinit? */
-	for (i = 0; i < upvalues_idx; i += 1)
-		free(upvalues[upvalues_idx]);
-
+end:
+	cb_vm_state.frame = cb_vm_state.frame->parent;
 	return retval;
-}
 
 DO_OP_CONST_INT: {
 	size_t as_size_t = READ_SIZE_T();
@@ -383,10 +391,10 @@ DO_OP_CALL: {
 	size_t num_args, name;
 	struct cb_value func_val, result;
 	struct cb_function *func;
-	struct frame frame;
+	struct frame next_frame;
 
 	num_args = READ_SIZE_T();
-	func_val = stack[sp - num_args - 1];
+	func_val = cb_vm_state.stack[cb_vm_state.sp - num_args - 1];
 
 	if (func_val.type != CB_VALUE_FUNCTION)
 		ERROR("Value of type '%s' is not callable\n",
@@ -400,32 +408,29 @@ DO_OP_CALL: {
 				? "<anonymous>"
 				: cb_strptr(cb_agent_get_string(name)));
 	if (func->type == CB_FUNCTION_NATIVE) {
-		if (func->value.as_native(num_args, &stack[sp - num_args],
+		if (func->value.as_native(num_args,
+					&cb_vm_state.stack[
+						cb_vm_state.sp - num_args],
 					&result)) {
 			retval = 1;
 			goto end;
 		}
-		assert(sp > num_args);
-		sp -= (num_args + 1);
+		assert(cb_vm_state.sp > num_args);
+		cb_vm_state.sp -= (num_args + 1);
 		PUSH(result);
 	} else {
-		frame.prev_bp = bp;
-		frame.prev_pc = pc;
-		frame.prev_module = current_module;
-		frame.current_function = call_stack_idx == 0 ? -1 : bp;
-		if (call_stack_idx >= call_stack_size) {
-			call_stack_size <<= 1;
-			call_stack = realloc(call_stack, call_stack_size
-					* sizeof(struct frame));
-		}
-		call_stack[call_stack_idx++] = frame;
-		/* jump in */
+		next_frame.parent = frame;
+		next_frame.bp = cb_vm_state.sp - num_args - 1;
 		if (func->value.as_user.module_id != -1)
-			current_module = &modules[func->value.as_user.module_id];
+			next_frame.module = &cb_vm_state.modules[
+				func->value.as_user.module_id];
 		else
-			current_module = NULL;
-		bp = sp - num_args - 1;
-		pc = func->value.as_user.address;
+			next_frame.module = NULL;
+		if (cb_eval(bytecode, func->value.as_user.address,
+					&next_frame)) {
+			print_stack_function(cb_vm_state.stack[frame->bp]);
+			goto end;
+		}
 	}
 
 	DISPATCH();
@@ -434,32 +439,25 @@ DO_OP_CALL: {
 DO_OP_RETURN: {
 	int i;
 	struct cb_value retval;
-	struct frame frame;
 	struct cb_upvalue *uv;
 
 	retval = POP();
-	/* FIXME: bounds check */
-	frame = call_stack[--call_stack_idx];
 
 	/* close upvalues */
-	if (upvalues_idx != 0) {
-		for (i = upvalues_idx - 1; i >= 0; i -= 1) {
-			uv = upvalues[i];
+	if (cb_vm_state.upvalues_idx != 0) {
+		for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
+			uv = cb_vm_state.upvalues[i];
 			if (!uv->is_open)
 				continue;
 			uv->is_open = 0;
-			uv->v.value = stack[uv->v.idx];
+			uv->v.value = cb_vm_state.stack[uv->v.idx];
 		}
-		upvalues_idx = i + 1;
+		cb_vm_state.upvalues_idx = i + 1;
 	}
 
-	sp = bp;
-	bp = frame.prev_bp;
-	pc = frame.prev_pc;
-	current_module = frame.prev_module;
+	cb_vm_state.sp = frame->bp;
 	PUSH(retval);
-
-	DISPATCH();
+	goto end;
 }
 
 DO_OP_POP:
@@ -525,8 +523,8 @@ DO_OP_NEW_FUNCTION: {
 		.upvalues = NULL,
 		.upvalues_len = 0,
 		.upvalues_size = 0,
-		.module_id = current_module
-			? cb_modspec_id(current_module->spec)
+		.module_id = frame->module
+			? cb_modspec_id(frame->module->spec)
 			: -1,
 	};
 
@@ -549,9 +547,10 @@ DO_OP_BIND_LOCAL: {
 		ERROR("Can only bind upvalues to user functions\n");
 
 	uv = NULL;
-	for (i = upvalues_idx - 1; i >= 0; i -= 1) {
-		if (upvalues[i]->is_open && upvalues[i]->v.idx == idx) {
-			uv = upvalues[i];
+	for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
+		if (cb_vm_state.upvalues[i]->is_open
+				&& cb_vm_state.upvalues[i]->v.idx == idx) {
+			uv = cb_vm_state.upvalues[i];
 			break;
 		}
 	}
@@ -574,7 +573,7 @@ DO_OP_BIND_UPVALUE: {
 	struct cb_value *self, func;
 	size_t upvalue_idx = READ_SIZE_T();
 
-	self = &stack[bp];
+	self = &cb_vm_state.stack[frame->bp];
 	assert(CB_VALUE_IS_USER_FN(self));
 	func = POP();
 	if (!CB_VALUE_IS_USER_FN(&func))
@@ -592,12 +591,12 @@ DO_OP_LOAD_UPVALUE: {
 	struct cb_upvalue *uv;
 	size_t idx = READ_SIZE_T();
 
-	self = &stack[bp];
+	self = &cb_vm_state.stack[frame->bp];
 	assert(CB_VALUE_IS_USER_FN(self));
 
 	uv = self->val.as_function->value.as_user.upvalues[idx];
 	if (uv->is_open)
-		PUSH(stack[uv->v.idx]);
+		PUSH(cb_vm_state.stack[uv->v.idx]);
 	else
 		PUSH(uv->v.value);
 
@@ -609,12 +608,12 @@ DO_OP_STORE_UPVALUE: {
 	struct cb_upvalue *uv;
 	size_t idx = READ_SIZE_T();
 
-	self = &stack[bp];
+	self = &cb_vm_state.stack[frame->bp];
 	assert(CB_VALUE_IS_USER_FN(self));
 
 	uv = self->val.as_function->value.as_user.upvalues[idx];
 	if (uv->is_open)
-		stack[uv->v.idx] = TOP();
+		cb_vm_state.stack[uv->v.idx] = TOP();
 	else
 		uv->v.value = TOP();
 
@@ -628,7 +627,7 @@ DO_OP_LOAD_FROM_MODULE: {
 	
 	mod_id = READ_SIZE_T();
 	export_id = READ_SIZE_T();
-	mod = &modules[mod_id];
+	mod = &cb_vm_state.modules[mod_id];
 	export_name = cb_modspec_get_export_name(mod->spec, export_id);
 	val = cb_hashmap_get(mod->global_scope, export_name);
 	assert(val != NULL);
@@ -851,20 +850,20 @@ DO_OP_INIT_MODULE: {
 	mod.spec = spec;
 	mod.global_scope = cb_hashmap_new();
 	make_intrinsics(mod.global_scope);
-	modules[module_id] = mod;
-	current_module = &modules[module_id];
+	cb_vm_state.modules[module_id] = mod;
+	frame->module = &cb_vm_state.modules[module_id];
 
 	DISPATCH();
 }
 
 DO_OP_ENTER_MODULE:
-	current_module = &modules[READ_SIZE_T()];
+	frame->module = &cb_vm_state.modules[READ_SIZE_T()];
 	DISPATCH();
 
 
 DO_OP_END_MODULE:
 DO_OP_EXIT_MODULE:
-	current_module = NULL;
+	frame->module = NULL;
 	DISPATCH();
 
 DO_OP_DUP: {

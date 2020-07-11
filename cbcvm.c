@@ -48,10 +48,12 @@ int main(int argc, char **argv) {
 	if (!result)
 		result = cb_disassemble(bytecode);
 #endif
-	cb_intrinsics_set_argv(argc, argv);
-	if (!result)
-		result = cb_eval(bytecode);
 
+	cb_intrinsics_set_argv(argc, argv);
+	cb_vm_init(bytecode);
+	if (!result)
+		result = cb_run();
+	cb_vm_deinit();
 	cb_bytecode_free(bytecode);
 
 	cb_agent_deinit();
