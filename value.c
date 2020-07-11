@@ -61,8 +61,12 @@ static void cb_function_deinit(void *ptr)
 	ufn = fn->value.as_user;
 
 	if (ufn.upvalues_len) {
-		for (i = 0; i < ufn.upvalues_len; i += 1)
-			free(ufn.upvalues[i]);
+		for (i = 0; i < ufn.upvalues_len; i += 1) {
+			if (ufn.upvalues[i]->refcount != 0)
+				ufn.upvalues[i]->refcount -= 1;
+			if (ufn.upvalues[i]->refcount == 0)
+				free(ufn.upvalues[i]);
+		}
 		free(ufn.upvalues);
 	}
 }
@@ -356,6 +360,7 @@ void cb_function_add_upvalue(struct cb_user_function *fn, struct cb_upvalue *uv)
 		fn->upvalues = realloc(fn->upvalues,
 				fn->upvalues_size * sizeof(struct cb_upvalue *));
 	}
+	uv->refcount += 1;
 	fn->upvalues[fn->upvalues_len++] = uv;
 }
 

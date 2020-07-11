@@ -13,7 +13,7 @@
 		struct cb_function *_func; \
 		struct cb_value _func_val; \
 		size_t _name; \
-		_name = cb_agent_intern_string(strdup(#FN), sizeof(#FN) - 1); \
+		_name = cb_agent_intern_string(#FN, sizeof(#FN) - 1); \
 		_func = cb_function_new(); \
 		_func->arity = (ARITY); \
 		_func->name = _name; \

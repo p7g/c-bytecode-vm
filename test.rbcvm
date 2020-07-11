@@ -150,7 +150,7 @@ Pointer :   ^
 <-]<-]<-]<-]<-]++++++++++
 ";
 
-    bf_run(bf_parse(prog));
+    bf_run(bf_parse(hello));
 }());
 
 # import "lib/json.rbcvm";

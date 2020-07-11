@@ -57,13 +57,14 @@ void cb_vm_deinit(void)
 	}
 	free(cb_vm_state.modules);
 
-	/* FIXME: will this conflict with cb_function_deinit? */
 	for (i = 0; i < cb_vm_state.upvalues_idx; i += 1)
 		free(cb_vm_state.upvalues[cb_vm_state.upvalues_idx]);
 
 	free(cb_vm_state.upvalues);
 	free(cb_vm_state.stack);
 	cb_hashmap_free(cb_vm_state.globals);
+	cb_vm_state.sp = 0;
+	cb_gc_collect();
 }
 
 void print_stack_function(struct cb_value func)
@@ -587,6 +588,7 @@ DO_OP_BIND_LOCAL: {
 
 	if (!uv) {
 		uv = malloc(sizeof(struct cb_upvalue));
+		uv->refcount = 0;
 		uv->is_open = 1;
 		uv->v.idx = idx;
 

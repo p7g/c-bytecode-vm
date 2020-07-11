@@ -58,10 +58,12 @@ void cb_hashmap_free(cb_hashmap *m)
 		while (entry) {
 			tmp = entry;
 			entry = entry->next;
+			cb_value_decref(&tmp->value);
 			free(tmp);
 		}
 	}
 
+	free(m->entries);
 	free(m);
 }
 

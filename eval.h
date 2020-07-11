@@ -4,10 +4,12 @@
 #include <stddef.h>
 
 #include "compiler.h"
+#include "gc.h"
 #include "hashmap.h"
 #include "value.h"
 
 struct cb_upvalue {
+	size_t refcount;
 	int is_open;
 	union {
 		size_t idx;

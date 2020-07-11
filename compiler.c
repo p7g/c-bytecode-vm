@@ -1066,6 +1066,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 		}
 	}
 
+	free(fstate.free_variables);
 	scope_free(inner_scope);
 	state->scope = old_scope;
 	state->is_global = old_is_global;
@@ -1357,6 +1358,7 @@ static int compile_import_statement(struct cstate *state)
 		memcpy(filename + strlen(dir_name) + 1,
 				tok_start(state, &string) + 1,
 				tok_len(&string) - 2);
+		free(real_path);
 	}
 
 	if (state->modspec)
@@ -1581,6 +1583,7 @@ static int compile_double_expression(struct cstate *state)
 	buf[len] = 0;
 
 	doub = strtod(buf, NULL);
+	free(buf);
 
 	APPEND(OP_CONST_DOUBLE);
 	APPEND_SIZE_T((size_t) doub);
