@@ -12,7 +12,15 @@ endif
 cbcvm: *.c *.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o cbcvm *.c
 
+# Generate a release binary using profile-guided optimization
+profile-opt:
+	CFLAGS='-fprofile-generate' $(MAKE) TARGET=release
+	./cbcvm bf.rbcvm bench.b
+	$(MAKE) clean
+	CFLAGS='-fprofile-use -fprofile-correction' $(MAKE) TARGET=release
+	find . -name '*.gcda' -delete
+
 clean:
 	rm cbcvm
 
-.PHONY: clean
+.PHONY: clean profile-opt

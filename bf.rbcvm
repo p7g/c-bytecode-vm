@@ -1,0 +1,100 @@
+import "lib/array.rbcvm";
+import "lib/arraylist.rbcvm";
+import "lib/hash.rbcvm";
+import "lib/hashmap.rbcvm";
+import "lib/iter.rbcvm";
+import "lib/result.rbcvm";
+import "lib/string.rbcvm";
+
+(function main() {
+    function tape_new() {
+        return [0, ArrayList.from_array(1, [0])];
+    }
+
+    function tape_get(tape) {
+        return ArrayList.get(tape[1], tape[0]);
+    }
+
+    function tape_inc(tape, amount) {
+        let reel = tape[1];
+        let idx = tape[0];
+        ArrayList.set(reel, idx, amount + ArrayList.get(reel, idx));
+    }
+
+    function tape_move(tape, amount) {
+        tape[0] = tape[0] + amount;
+        while ArrayList.length(tape[1]) <= tape[0] {
+            ArrayList.push(tape[1], 0);
+        }
+    }
+
+    let OP_INC = 0;
+    let OP_MOVE = 1;
+    let OP_LOOP = 2;
+    let OP_PRINT = 3;
+
+    function op(type, value) {
+        return [type, value];
+    }
+
+    function _bf_parse(next_char) {
+        let code = ArrayList.new();
+
+        for let c; (c = next_char()) != null; {
+            if c == '+' {
+                ArrayList.push(code, op(OP_INC, 1));
+            } else if c == '-' {
+                ArrayList.push(code, op(OP_INC, -1));
+            } else if c == '>' {
+                ArrayList.push(code, op(OP_MOVE, 1));
+            } else if c == '<' {
+                ArrayList.push(code, op(OP_MOVE, -1));
+            } else if c == '.' {
+                ArrayList.push(code, op(OP_PRINT, null));
+            } else if c == '[' {
+                ArrayList.push(code, op(OP_LOOP, _bf_parse(next_char)));
+            } else if c == ']' {
+                break;
+            }
+        }
+
+        return ArrayList.to_array(code);
+    }
+
+    function bf_parse(program) {
+        return _bf_parse(Iter.from_array(String.chars(program)));
+    }
+
+    function _bf_run(ops, tape) {
+        function iterate_ops(op) {
+            let type = op[0];
+            let value = op[1];
+
+            if type == OP_INC {
+                tape_inc(tape, value);
+            } else if type == OP_MOVE {
+                tape_move(tape, value);
+            } else if type == OP_PRINT {
+                print(chr(tape_get(tape)));
+            } else if type == OP_LOOP {
+                while tape_get(tape) != 0 {
+                    _bf_run(Iter.from_array(value), tape);
+                }
+            }
+        }
+
+        Iter.foreach(ops, iterate_ops);
+    }
+
+    function bf_run(ops) {
+        _bf_run(Iter.from_array(ops), tape_new());
+    }
+
+    let args = argv();
+    if Array.length(args) != 3 {
+        println("Usage: ./cbcvm bf.rbcvm <program>");
+        return;
+    }
+
+    bf_run(bf_parse(read_file(args[2])));
+}());
