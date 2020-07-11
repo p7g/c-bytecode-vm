@@ -533,7 +533,7 @@ static void bytecode_push(struct bytecode *bc, uint8_t byte)
 	if (bc->size <= bc->len) {
 		bc->size = bc->size == 0
 			? INITIAL_BYTECODE_SIZE
-			: bc->size << 1;
+			: bc->size << 2;
 		bc->code = realloc(bc->code, bc->size);
 	}
 
