@@ -23,8 +23,9 @@
 
 struct frame {
 	struct frame *parent;
-	size_t bp, function;
+	size_t bp;
 	struct cb_module *module;
+	int is_function;
 };
 
 void cb_vm_init(cb_bytecode *bytecode)
@@ -109,18 +110,62 @@ inline struct cb_value cb_get_upvalue(struct cb_upvalue *uv)
 	return uv->v.value;
 }
 
-static int cb_eval(cb_bytecode *bytecode, size_t pc, struct frame *frame);
+static int cb_eval(size_t pc, struct frame *frame);
 
 int cb_run(void)
 {
 	struct frame frame;
 
 	frame.parent = NULL;
-	frame.function = -1;
 	frame.module = NULL;
 	frame.bp = 0;
+	frame.is_function = 0;
 
-	return cb_eval(cb_vm_state.bytecode, 0, &frame);
+	return cb_eval(0, &frame);
+}
+
+#define PUSH(V) ({ \
+		struct cb_value _v = (V); \
+		if (cb_vm_state.sp >= cb_vm_state.stack_size) { \
+			cb_vm_state.stack_size <<= 1; \
+			cb_vm_state.stack = realloc(cb_vm_state.stack, \
+					cb_vm_state.stack_size \
+					* sizeof(struct cb_value)); \
+		} \
+		cb_vm_state.stack[cb_vm_state.sp++] = _v; \
+	})
+#define POP() ({ \
+		assert(cb_vm_state.sp > 0); \
+		struct cb_value _v = cb_vm_state.stack[--cb_vm_state.sp]; \
+		_v; \
+	})
+
+int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
+		size_t args_len, struct cb_value *result)
+{
+	int i, ret;
+	struct frame frame;
+	struct cb_user_function *func;
+
+	assert(CB_VALUE_IS_USER_FN(&fn));
+	func = &fn.val.as_function->value.as_user;
+
+	frame.parent = cb_vm_state.frame;
+	frame.is_function = 1;
+	frame.bp = cb_vm_state.sp;
+	PUSH(fn);
+
+	for (i = 0; i < args_len; i += 1)
+		PUSH(args[i]);
+
+	if (func->module_id != -1)
+		frame.module = &cb_vm_state.modules[func->module_id];
+	else
+		frame.module = NULL;
+
+	ret = cb_eval(func->address, &frame);
+	*result = POP();
+	return ret;
 }
 
 #ifdef DEBUG_VM
@@ -131,8 +176,8 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct frame *frame)
 			? cb_strptr(cb_agent_get_string(
 					cb_modspec_name(frame->module->spec)))
 			: "script",
-			frame->function == -1 ? " " : ".",
-			frame->function == -1 ? "top"
+			frame->is_function ? " " : ".",
+			frame->is_function ? "top"
 			: (_name = cb_vm_state.stack[frame->bp]
 				.val.as_function->name) != -1
 			? cb_strptr(cb_agent_get_string(_name))
@@ -158,7 +203,7 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct frame *frame)
 }
 #endif
 
-static int cb_eval(cb_bytecode *bytecode, size_t pc, struct frame *frame)
+static int cb_eval(size_t pc, struct frame *frame)
 {
 	int retval = 0;
 	cb_vm_state.frame = frame;
@@ -169,10 +214,10 @@ static int cb_eval(cb_bytecode *bytecode, size_t pc, struct frame *frame)
 	};
 #undef TABLE_ENTRY
 
-#define NEXT() (cb_bytecode_get(bytecode, pc++))
+#define NEXT() (cb_bytecode_get(cb_vm_state.bytecode, pc++))
 #ifdef DEBUG_VM
 # define DISPATCH() ({ \
-		debug_state(bytecode, pc, frame); \
+		debug_state(cb_vm_state.bytecode, pc, frame); \
 		size_t _next = NEXT(); \
 		assert(_next >= 0 && _next < OP_MAX); \
 		goto *dispatch_table[_next]; \
@@ -188,20 +233,10 @@ static int cb_eval(cb_bytecode *bytecode, size_t pc, struct frame *frame)
 #define ERROR(MSG, ...) ({ \
 		fprintf(stderr, (MSG), ##__VA_ARGS__); \
 		retval = 1; \
-		if (frame->function != -1) \
+		if (frame->is_function) \
 			print_stack_function( \
-					cb_vm_state.stack[frame->function]); \
+					cb_vm_state.stack[frame->bp]); \
 		goto end; \
-	})
-#define PUSH(V) ({ \
-		struct cb_value _v = (V); \
-		if (cb_vm_state.sp >= cb_vm_state.stack_size) { \
-			cb_vm_state.stack_size <<= 1; \
-			cb_vm_state.stack = realloc(cb_vm_state.stack, \
-					cb_vm_state.stack_size \
-					* sizeof(struct cb_value)); \
-		} \
-		cb_vm_state.stack[cb_vm_state.sp++] = _v; \
 	})
 #define READ_SIZE_T() ({ \
 		int _i = 0; \
@@ -209,11 +244,6 @@ static int cb_eval(cb_bytecode *bytecode, size_t pc, struct frame *frame)
 		for (_i = 0; _i < sizeof(size_t); _i += 1) \
 			_val += ((size_t) NEXT()) << (_i * 8); \
 		_val; \
-	})
-#define POP() ({ \
-		assert(cb_vm_state.sp > 0); \
-		struct cb_value _v = cb_vm_state.stack[--cb_vm_state.sp]; \
-		_v; \
 	})
 #define TOP() (cb_vm_state.stack[cb_vm_state.sp - 1])
 #define FRAME() (frame)
@@ -420,14 +450,14 @@ DO_OP_CALL: {
 		PUSH(result);
 	} else {
 		next_frame.parent = frame;
+		next_frame.is_function = 1;
 		next_frame.bp = cb_vm_state.sp - num_args - 1;
 		if (func->value.as_user.module_id != -1)
 			next_frame.module = &cb_vm_state.modules[
 				func->value.as_user.module_id];
 		else
 			next_frame.module = NULL;
-		if (cb_eval(bytecode, func->value.as_user.address,
-					&next_frame)) {
+		if (cb_eval(func->value.as_user.address, &next_frame)) {
 			print_stack_function(cb_vm_state.stack[frame->bp]);
 			goto end;
 		}
@@ -888,10 +918,8 @@ DO_OP_ALLOCATE_LOCALS: {
 
 #undef NEXT
 #undef DISPATCH
-#undef PUSH
 #undef ERROR
 #undef READ_SIZE_T
-#undef POP
 #undef TOP
 #undef FRAME
 #undef LOCAL_IDX
@@ -899,3 +927,6 @@ DO_OP_ALLOCATE_LOCALS: {
 #undef REPLACE
 #undef GLOBALS
 }
+
+#undef PUSH
+#undef POP

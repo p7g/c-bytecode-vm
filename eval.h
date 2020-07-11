@@ -39,6 +39,8 @@ void cb_vm_deinit(void);
 
 int cb_run(void);
 struct cb_user_function *cb_caller(void);
+int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
+		size_t args_len, struct cb_value *result);
 struct cb_value cb_get_upvalue(struct cb_upvalue *uv);
 
 #endif

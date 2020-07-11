@@ -6,6 +6,7 @@
 
 #include "agent.h"
 #include "alloc.h"
+#include "eval.h"
 #include "string.h"
 #include "value.h"
 
@@ -379,4 +380,23 @@ const char *cb_value_type_friendly_name(enum cb_value_type typ)
 inline const char *cb_value_type_of(struct cb_value *val)
 {
 	return cb_value_type_friendly_name(val->type);
+}
+
+int cb_value_call(struct cb_value fn, struct cb_value *args, size_t args_len,
+		struct cb_value *result)
+{
+	struct cb_function *func;
+
+	if (fn.type != CB_VALUE_FUNCTION) {
+		fprintf(stderr, "Value of type %s is not callable\n",
+				cb_value_type_of(&fn));
+		return 1;
+	}
+
+	func = fn.val.as_function;
+
+	if (func->type == CB_FUNCTION_NATIVE)
+		return func->value.as_native(args_len, args, result);
+	else
+		return cb_vm_call_user_func(fn, args, args_len, result);
 }

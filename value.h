@@ -89,6 +89,8 @@ char *cb_value_to_string(struct cb_value *val);
 int cb_value_is_truthy(struct cb_value *val);
 void cb_function_add_upvalue(struct cb_user_function *fn,
 		struct cb_upvalue *uv);
+int cb_value_call(struct cb_value fn, struct cb_value *args, size_t args_len,
+		struct cb_value *result);
 
 void cb_value_mark(struct cb_value *val);
 void cb_value_incref(struct cb_value *val);

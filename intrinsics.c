@@ -44,7 +44,8 @@
 	X(tofloat, 1) \
 	X(read_file, 1) \
 	X(argv, 0) \
-	X(upvalues, 0)
+	X(upvalues, 0) \
+	X(apply, 2)
 
 INTRINSIC_LIST(DECL);
 
@@ -439,4 +440,16 @@ static int upvalues(size_t argc, struct cb_value *argv, struct cb_value *result)
 				caller->upvalues[i]);
 
 	return 0;
+}
+
+static int apply(size_t argc, struct cb_value *argv, struct cb_value *result)
+{
+	struct cb_array *arr;
+
+	EXPECT_TYPE("apply", CB_VALUE_FUNCTION, argv[0]);
+	EXPECT_TYPE("apply", CB_VALUE_ARRAY, argv[1]);
+
+	arr = argv[1].val.as_array;
+
+	return cb_value_call(argv[0], arr->values, arr->len, result);
 }
