@@ -1586,7 +1586,7 @@ static int compile_double_expression(struct cstate *state)
 	free(buf);
 
 	APPEND(OP_CONST_DOUBLE);
-	APPEND_SIZE_T((size_t) doub);
+	APPEND_SIZE_T(*(size_t *) &doub); /* 😨 */
 
 	return 0;
 }

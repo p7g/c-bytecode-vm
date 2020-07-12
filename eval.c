@@ -277,8 +277,9 @@ DO_OP_CONST_INT: {
 
 DO_OP_CONST_DOUBLE: {
 	struct cb_value val;
+	size_t bytes = READ_SIZE_T();
 	val.type = CB_VALUE_DOUBLE;
-	val.val.as_double = (double) READ_SIZE_T();
+	val.val.as_double = *(double *) &bytes; /* 😨 */
 	PUSH(val);
 	DISPATCH();
 }
@@ -750,7 +751,7 @@ DO_OP_NOT_EQUAL: {
 
 #define CMP(A, B) ({ \
 		int _ok; \
-		int _result = cb_value_cmp(&(A), &(B), &_ok); \
+		double _result = cb_value_cmp(&(A), &(B), &_ok); \
 		if (!_ok) \
 			ERROR("Cannot compare values of types %s and %s\n", \
 					cb_value_type_friendly_name((A).type), \
@@ -759,7 +760,7 @@ DO_OP_NOT_EQUAL: {
 	})
 
 DO_OP_LESS_THAN: {
-	int diff;
+	double diff;
 	struct cb_value result, a, b;
 	b = POP();
 	a = POP();
@@ -771,7 +772,7 @@ DO_OP_LESS_THAN: {
 }
 
 DO_OP_LESS_THAN_EQUAL: {
-	int diff;
+	double diff;
 	struct cb_value result, a, b;
 	b = POP();
 	a = POP();
@@ -783,7 +784,7 @@ DO_OP_LESS_THAN_EQUAL: {
 }
 
 DO_OP_GREATER_THAN: {
-	int diff;
+	double diff;
 	struct cb_value result, a, b;
 	b = POP();
 	a = POP();
@@ -795,7 +796,7 @@ DO_OP_GREATER_THAN: {
 }
 
 DO_OP_GREATER_THAN_EQUAL: {
-	int diff;
+	double diff;
 	struct cb_value result, a, b;
 	b = POP();
 	a = POP();

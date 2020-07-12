@@ -146,9 +146,9 @@ char *cb_value_to_string(struct cb_value *val)
 		break;
 
 	case CB_VALUE_DOUBLE:
-		len = snprintf(NULL, 0, "%f", val->val.as_double);
+		len = snprintf(NULL, 0, "%g", val->val.as_double);
 		buf = malloc(len + 1);
-		snprintf(buf, len + 1, "%f", val->val.as_double);
+		snprintf(buf, len + 1, "%g", val->val.as_double);
 		buf[len] = 0;
 		break;
 
@@ -309,7 +309,7 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
  * the reverse is true. Otherwise, if the result is zero, the values are equal
  * (or the ordering is undefined).
  */
-int cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok)
+double cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok)
 {
 #define UNDEFINED() ({ \
 		if (ok != NULL) \
