@@ -277,9 +277,18 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		return a->val.as_char == b->val.as_char;
 	case CB_VALUE_NULL:
 		return 1;
-	case CB_VALUE_ARRAY:
-		fprintf(stderr, "Checking eq of array");
-		abort();
+	case CB_VALUE_ARRAY: {
+		if (a->val.as_array->len != b->val.as_array->len)
+			return 0;
+		struct cb_array *left, *right;
+		left = a->val.as_array;
+		right = b->val.as_array;
+		for (int i = 0; i < left->len; i += 1) {
+			if (!cb_value_eq(&left->values[i], &right->values[i]))
+				return 0;
+		}
+		return 1;
+	}
 	case CB_VALUE_STRING:
 		return !strcmp(cb_strptr(a->val.as_string->string),
 				cb_strptr(b->val.as_string->string));
