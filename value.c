@@ -51,7 +51,7 @@ inline void cb_value_decref(struct cb_value *value)
 
 static void cb_function_deinit(void *ptr)
 {
-	int i;
+	int i, j;
 	struct cb_user_function ufn;
 	struct cb_function *fn = ptr;
 
@@ -66,6 +66,10 @@ static void cb_function_deinit(void *ptr)
 				ufn.upvalues[i]->refcount -= 1;
 			if (ufn.upvalues[i]->refcount == 0)
 				free(ufn.upvalues[i]);
+			if (cb_vm_state.upvalues != NULL) {
+				for (j = 0; j < cb_vm_state.upvalues_idx; j += 1)
+					cb_vm_state.upvalues[j] = NULL;
+			}
 		}
 		free(ufn.upvalues);
 	}
