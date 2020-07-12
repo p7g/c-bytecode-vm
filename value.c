@@ -67,8 +67,13 @@ static void cb_function_deinit(void *ptr)
 			if (ufn.upvalues[i]->refcount == 0)
 				free(ufn.upvalues[i]);
 			if (cb_vm_state.upvalues != NULL) {
-				for (j = 0; j < cb_vm_state.upvalues_idx; j += 1)
-					cb_vm_state.upvalues[j] = NULL;
+				for (j = 0; j < cb_vm_state.upvalues_idx; j += 1) {
+					if (cb_vm_state.upvalues[j]
+							== ufn.upvalues[i]) {
+						cb_vm_state.upvalues[j] = NULL;
+						break;
+					}
+				}
 			}
 		}
 		free(ufn.upvalues);
