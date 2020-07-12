@@ -460,6 +460,7 @@ DO_OP_CALL: {
 			next_frame.module = NULL;
 		if (cb_eval(func->value.as_user.address, &next_frame)) {
 			print_stack_function(cb_vm_state.stack[frame->bp]);
+			retval = 1;
 			goto end;
 		}
 	}
