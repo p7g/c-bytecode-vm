@@ -8,17 +8,5 @@ export function abs(n) {
 }
 
 export function sqrt(n) {
-    if n == 0 {
-        return 0;
-    }
-
-    let tolerance = 10 ** -6;
-    let x = abs(n);
-    while true {
-        let new_x = 0.5 * (x + n / x);
-        if abs(x - new_x) < tolerance {
-            return new_x;
-        }
-        x = new_x;
-    }
+    return n ** 0.5;
 }
