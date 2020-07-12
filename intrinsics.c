@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
+#include <time.h>
 
 #include "agent.h"
 #include "eval.h"
@@ -45,7 +46,8 @@
 	X(read_file, 1) \
 	X(argv, 0) \
 	X(upvalues, 0) \
-	X(apply, 2)
+	X(apply, 2) \
+	X(now, 0)
 
 INTRINSIC_LIST(DECL);
 
@@ -452,4 +454,16 @@ static int apply(size_t argc, struct cb_value *argv, struct cb_value *result)
 	arr = argv[1].val.as_array;
 
 	return cb_value_call(argv[0], arr->values, arr->len, result);
+}
+
+static int now(size_t argc, struct cb_value *argv, struct cb_value *result)
+{
+	struct timespec t;
+
+	clock_gettime(CLOCK_MONOTONIC, &t);
+
+	result->type = CB_VALUE_DOUBLE;
+	result->val.as_double = t.tv_sec + 1e-9 * t.tv_nsec;
+
+	return 0;
 }
