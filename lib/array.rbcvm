@@ -68,7 +68,7 @@ export function reverse(self) {
   let half = len / 2;
 
   let tmp;
-  for let i = 0; i <= half; i = i + 1 {
+  for let i = 0; i < half; i = i + 1 {
     tmp = self[i];
     self[i] = self[len - i - 1];
     self[len - i - 1] = tmp;
