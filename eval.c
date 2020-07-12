@@ -480,8 +480,8 @@ DO_OP_RETURN: {
 	if (cb_vm_state.upvalues_idx != 0) {
 		for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
 			uv = cb_vm_state.upvalues[i];
-			if (!uv->is_open)
-				continue;
+			if (!uv->is_open || uv->v.idx < frame->bp)
+				break;
 			uv->is_open = 0;
 			uv->v.value = cb_vm_state.stack[uv->v.idx];
 		}
@@ -581,8 +581,10 @@ DO_OP_BIND_LOCAL: {
 
 	uv = NULL;
 	for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
-		if (cb_vm_state.upvalues[i]->is_open
-				&& cb_vm_state.upvalues[i]->v.idx == idx) {
+		if (!cb_vm_state.upvalues[i]->is_open
+				|| cb_vm_state.upvalues[i]->v.idx < frame->bp)
+			break;
+		if (cb_vm_state.upvalues[i]->v.idx == idx) {
 			uv = cb_vm_state.upvalues[i];
 			break;
 		}

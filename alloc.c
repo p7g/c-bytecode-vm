@@ -12,7 +12,7 @@ void *cb_malloc(size_t bytes, cb_deinit_fn deinit_fn)
 {
 	void *ptr;
 
-#ifdef DEBUG_GC
+#ifdef STRESS_GC
 	if (1) {
 #else
 	if (cb_gc_should_collect()) {

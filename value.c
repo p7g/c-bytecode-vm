@@ -477,8 +477,8 @@ void cb_value_mark(struct cb_value *val)
 		if (fn->type == CB_FUNCTION_USER) {
 			for (i = 0; i < fn->value.as_user.upvalues_len; i += 1) {
 				uv = fn->value.as_user.upvalues[i];
-				assert(!uv->is_open);
-				cb_value_mark(&uv->v.value);
+				if (!uv->is_open)
+					cb_value_mark(&uv->v.value);
 			}
 		}
 		break;
