@@ -126,7 +126,7 @@ int cb_run(void)
 #define PUSH(V) ({ \
 		struct cb_value _v = (V); \
 		if (cb_vm_state.sp >= cb_vm_state.stack_size) { \
-			cb_vm_state.stack_size <<= 1; \
+			cb_vm_state.stack_size <<= 2; \
 			cb_vm_state.stack = realloc(cb_vm_state.stack, \
 					cb_vm_state.stack_size \
 					* sizeof(struct cb_value)); \
