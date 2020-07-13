@@ -430,7 +430,7 @@ struct pending_address {
 };
 
 struct bytecode {
-	uint8_t *code;
+	cb_instruction *code;
 	size_t size, len;
 
 	ssize_t *label_addresses;
@@ -454,7 +454,7 @@ static struct bytecode *bytecode_new()
 	return bc;
 }
 
-inline uint8_t cb_bytecode_get(struct bytecode *bc, size_t idx)
+inline cb_instruction cb_bytecode_get(struct bytecode *bc, size_t idx)
 {
 	return bc->code[idx];
 }
@@ -499,8 +499,9 @@ static void bytecode_update_size_t(struct bytecode *bc, size_t idx,
 {
 	size_t i;
 
-	for (i = 0; i < sizeof(size_t); i += 1)
-		bc->code[idx + i] = (value >> (i * 8)) & 0xFF;
+	for (i = 0; i < sizeof(size_t) / sizeof(cb_instruction); i += 1)
+		bc->code[idx + i] = (value >> (i * 8 * sizeof(cb_instruction)))
+			& (((size_t) 1 << (sizeof(cb_instruction) * 8)) - 1);
 }
 
 static void bytecode_mark_label(struct bytecode *bc, size_t label)
@@ -526,7 +527,7 @@ static void bytecode_mark_label(struct bytecode *bc, size_t label)
 	}
 }
 
-static void bytecode_push(struct bytecode *bc, uint8_t byte)
+static void bytecode_push(struct bytecode *bc, cb_instruction byte)
 {
 	assert(bc != NULL);
 
@@ -534,7 +535,7 @@ static void bytecode_push(struct bytecode *bc, uint8_t byte)
 		bc->size = bc->size == 0
 			? INITIAL_BYTECODE_SIZE
 			: bc->size << 2;
-		bc->code = realloc(bc->code, bc->size);
+		bc->code = realloc(bc->code, bc->size * sizeof(cb_instruction));
 	}
 
 	bc->code[bc->len++] = byte;
@@ -543,12 +544,12 @@ static void bytecode_push(struct bytecode *bc, uint8_t byte)
 static void bytecode_push_size_t(struct bytecode *bc, size_t value)
 {
 	int i;
-	uint8_t byte;
+	uint32_t byte;
 
-	for (i = 0; i < sizeof(size_t); i += 1) {
-		byte = value & 0xFF;
+	for (i = 0; i < sizeof(size_t) / sizeof(cb_instruction); i += 1) {
+		byte = value & (((size_t) 1 << (8 * sizeof(cb_instruction))) - 1);
 		bytecode_push(bc, byte);
-		value >>= 8;
+		value >>= 8 * sizeof(cb_instruction);
 	}
 }
 
@@ -585,7 +586,7 @@ static int bytecode_finalize(struct bytecode *bc)
 		free(bc->label_addresses);
 		bc->label_addresses = NULL;
 	}
-	bc->code = realloc(bc->code, bc->size);
+	bc->code = realloc(bc->code, bc->size * sizeof(cb_instruction));
 
 	return 0;
 }

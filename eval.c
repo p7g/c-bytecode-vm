@@ -240,8 +240,8 @@ static int cb_eval(size_t pc, struct frame *frame)
 #define READ_SIZE_T() ({ \
 		int _i = 0; \
 		size_t _val = 0; \
-		for (_i = 0; _i < sizeof(size_t); _i += 1) \
-			_val += ((size_t) NEXT()) << (_i * 8); \
+		for (_i = 0; _i < sizeof(size_t) / sizeof(cb_instruction); _i += 1) \
+			_val += ((size_t) NEXT()) << (_i * 8 * sizeof(cb_instruction)); \
 		_val; \
 	})
 #define TOP() (cb_vm_state.stack[cb_vm_state.sp - 1])

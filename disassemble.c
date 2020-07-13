@@ -28,7 +28,7 @@ int cb_disassemble(cb_bytecode *bytecode)
 
 int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 {
-	uint8_t op;
+	cb_instruction op;
 	size_t len = cb_bytecode_len(bytecode);
 	size_t offset = 0;
 
@@ -41,8 +41,8 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	})
 #define NEXT_USIZE() ({ \
 		size_t result = 0; \
-		for (int _i = 0; _i < sizeof(size_t); _i += 1) \
-			result += NEXT() << (_i * 8); \
+		for (int _i = 0; _i < sizeof(size_t) / sizeof(cb_instruction); _i += 1) \
+			result += NEXT() << (_i * 8 * sizeof(cb_instruction)); \
 		result; \
 	})
 #define WITH_ARGS(NARGS) (1 + sizeof(size_t) * (NARGS))
