@@ -56,11 +56,11 @@ void make_intrinsics(cb_hashmap *scope)
 	INTRINSIC_LIST(FUNC);
 }
 
-#define EXPECT_TYPE(NAME, TYPE, VAL) ({ \
+#define EXPECT_TYPE(TYPE, VAL) ({ \
 		struct cb_value _val = (VAL); \
 		if (_val.type != (TYPE)) { \
-			fprintf(stderr, NAME \
-					": expected %s argument, got %s\n", \
+			fprintf(stderr, "%s: expected %s argument, got %s\n", \
+					__func__, \
 					cb_value_type_friendly_name(TYPE), \
 					cb_value_type_of(&_val)); \
 			return 1; \
@@ -139,7 +139,7 @@ static int array_new(size_t argc, struct cb_value *argv,
 	size_t len;
 	len_val = argv[0];
 
-	EXPECT_TYPE("array_new", CB_VALUE_INT, len_val);
+	EXPECT_TYPE(CB_VALUE_INT, len_val);
 	len = len_val.val.as_int;
 
 	result->type = CB_VALUE_ARRAY;
@@ -165,7 +165,7 @@ static int string_chars(size_t argc, struct cb_value *argv,
 	} else if (str_val.type == CB_VALUE_INTERNED_STRING) {
 		str = cb_agent_get_string(str_val.val.as_interned_string);
 	} else {
-		EXPECT_TYPE("string_chars", CB_VALUE_STRING, str_val);
+		EXPECT_TYPE(CB_VALUE_STRING, str_val);
 		return 1;
 	}
 
@@ -192,7 +192,7 @@ static int string_from_chars(size_t argc, struct cb_value *argv,
 	size_t len;
 
 	arr = argv[0];
-	EXPECT_TYPE("string_from_chars", CB_VALUE_ARRAY, arr);
+	EXPECT_TYPE(CB_VALUE_ARRAY, arr);
 
 	len = arr.val.as_array->len;
 	str = malloc(len + 1);
@@ -229,7 +229,7 @@ static int string_bytes(size_t argc, struct cb_value *argv,
 	} else if (str_val.type == CB_VALUE_INTERNED_STRING) {
 		str = cb_agent_get_string(str_val.val.as_interned_string);
 	} else {
-		EXPECT_TYPE("string_bytes", CB_VALUE_STRING, str_val);
+		EXPECT_TYPE(CB_VALUE_STRING, str_val);
 		return 1;
 	}
 
@@ -263,7 +263,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 			str = cb_agent_get_string(
 					argv[i].val.as_interned_string);
 		} else {
-			EXPECT_TYPE("string_concat", CB_VALUE_STRING, argv[i]);
+			EXPECT_TYPE(CB_VALUE_STRING, argv[i]);
 		}
 
 		len += cb_strlen(str);
@@ -297,7 +297,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 
 static int ord(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	EXPECT_TYPE("ord", CB_VALUE_CHAR, argv[0]);
+	EXPECT_TYPE(CB_VALUE_CHAR, argv[0]);
 
 	result->type = CB_VALUE_INT;
 	result->val.as_int = argv[0].val.as_char;
@@ -307,7 +307,7 @@ static int ord(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 static int chr(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	EXPECT_TYPE("chr", CB_VALUE_INT, argv[0]);
+	EXPECT_TYPE(CB_VALUE_INT, argv[0]);
 
 	result->type = CB_VALUE_CHAR;
 	result->val.as_char = argv[0].val.as_int & 0xFF;
@@ -318,7 +318,7 @@ static int chr(size_t argc, struct cb_value *argv, struct cb_value *result)
 static int array_length(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
-	EXPECT_TYPE("array_length", CB_VALUE_ARRAY, argv[0]);
+	EXPECT_TYPE(CB_VALUE_ARRAY, argv[0]);
 
 	result->type = CB_VALUE_INT;
 	result->val.as_int = argv[0].val.as_array->len;
@@ -329,7 +329,7 @@ static int array_length(size_t argc, struct cb_value *argv,
 static int truncate32(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
-	EXPECT_TYPE("truncate32", CB_VALUE_INT, argv[0]);
+	EXPECT_TYPE(CB_VALUE_INT, argv[0]);
 
 	*result = argv[0];
 	result->val.as_int = result->val.as_int & 0xFFFFFFFF;
@@ -340,7 +340,7 @@ static int truncate32(size_t argc, struct cb_value *argv,
 static int tofloat(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
-	EXPECT_TYPE("tofloat", CB_VALUE_INT, argv[0]);
+	EXPECT_TYPE(CB_VALUE_INT, argv[0]);
 
 	result->type = CB_VALUE_DOUBLE;
 	result->val.as_double = (double) argv[0].val.as_int;
@@ -361,7 +361,7 @@ static int read_file(size_t argc, struct cb_value *argv,
 	} else if (argv[0].type == CB_VALUE_INTERNED_STRING) {
 		str = cb_agent_get_string(argv[0].val.as_interned_string);
 	} else {
-		EXPECT_TYPE("read_file", CB_VALUE_STRING, argv[0]);
+		EXPECT_TYPE(CB_VALUE_STRING, argv[0]);
 		return 1;
 	}
 
@@ -448,8 +448,8 @@ static int apply(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	struct cb_array *arr;
 
-	EXPECT_TYPE("apply", CB_VALUE_FUNCTION, argv[0]);
-	EXPECT_TYPE("apply", CB_VALUE_ARRAY, argv[1]);
+	EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
+	EXPECT_TYPE(CB_VALUE_ARRAY, argv[1]);
 
 	arr = argv[1].val.as_array;
 
