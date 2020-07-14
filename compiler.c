@@ -221,6 +221,13 @@ static int next_token(lex_state *state, const char *input, struct token *dest)
 		case '!': OR2('=', TOK_BANG, TOK_BANG_EQUAL);
 
 		case '0' ... '9':
+			if (PEEK() == 'x') {
+				NEXT();
+				while ((c = PEEK()) && isxdigit(c))
+					NEXT();
+				TOKEN(TOK_INT);
+			}
+
 			is_double = 0;
 			while ((c = PEEK())) {
 				if (c == '.' && !is_double) {
@@ -1481,7 +1488,10 @@ static int compile_int_expression(struct cstate *state)
 	memcpy(buf, tok_start(state, &tok), len);
 	buf[len] = 0;
 
-	scanned = sscanf(buf, "%zd%c", &num, &c);
+	if (len > 1 && buf[1] == 'x')
+		scanned = sscanf(buf, "0x%zx%c", &num, &c);
+	else
+		scanned = sscanf(buf, "%zd%c", &num, &c);
 	free(buf);
 	if (scanned == 1) {
 		APPEND(OP_CONST_INT);
