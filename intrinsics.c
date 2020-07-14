@@ -47,7 +47,8 @@
 	X(argv, 0) \
 	X(upvalues, 0) \
 	X(apply, 2) \
-	X(now, 0)
+	X(now, 0) \
+	X(read_file_bytes, 1)
 
 INTRINSIC_LIST(DECL);
 
@@ -384,6 +385,7 @@ static int read_file(size_t argc, struct cb_value *argv,
 
 	buf = malloc(len + 1);
 	fread(buf, sizeof(char), len, f);
+	fclose(f);
 
 #undef X
 
@@ -394,6 +396,62 @@ static int read_file(size_t argc, struct cb_value *argv,
 		.chars = buf,
 	};
 
+	return 0;
+}
+
+static int read_file_bytes(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	cb_str str;
+	FILE *f;
+	size_t len;
+	char *buf;
+	int i;
+
+	if (argv[0].type == CB_VALUE_STRING) {
+		str = argv[0].val.as_string->string;
+	} else if (argv[0].type == CB_VALUE_INTERNED_STRING) {
+		str = cb_agent_get_string(argv[0].val.as_interned_string);
+	} else {
+		EXPECT_TYPE(CB_VALUE_STRING, argv[0]);
+		return 1;
+	}
+
+	f = fopen(cb_strptr(str), "r");
+	if (!f) {
+		perror("fopen");
+		return 1;
+	}
+
+#define X(EXPR) ({ \
+		if (EXPR) { \
+			perror("fopen"); \
+			return 1; \
+		} \
+	})
+
+	X(fseek(f, 0, SEEK_END));
+	len = ftell(f);
+	X(fseek(f, 0, SEEK_SET));
+
+	buf = malloc(len + 1);
+	fread(buf, sizeof(char), len, f);
+	fclose(f);
+
+#undef X
+
+	result->type = CB_VALUE_ARRAY;
+	result->val.as_array = cb_array_new(len);
+	result->val.as_array->len = len;
+
+	for (i = 0; i < len; i += 1) {
+		result->val.as_array->values[i] = (struct cb_value) {
+			.type = CB_VALUE_INT,
+			.val.as_int = buf[i],
+		};
+	}
+
+	free(buf);
 	return 0;
 }
 
