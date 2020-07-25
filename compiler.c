@@ -1620,6 +1620,28 @@ static int compile_double_expression(struct cstate *state)
 	return 0;
 }
 
+#define TRANSLATE_ESCAPE(C) ({ \
+		char _c; \
+		switch (C) { \
+		case 'n': \
+			_c = '\n'; \
+			break; \
+		case 'r': \
+			_c = '\r'; \
+			break; \
+		case 't': \
+			_c = '\t'; \
+			break; \
+		case '"': \
+			_c = '"'; \
+			break; \
+		case '\'': \
+			_c = '\''; \
+			break; \
+		} \
+		_c; \
+	})
+
 static int compile_string_expression(struct cstate *state)
 {
 	struct token tok;
@@ -1627,7 +1649,6 @@ static int compile_string_expression(struct cstate *state)
 	char *str, *ptr, c;
 
 	tok = EXPECT(TOK_STRING);
-	/* FIXME: support excape sequences (also in char expressions) */
 	id = cb_agent_intern_string(tok_start(state, &tok) + 1,
 			tok_len(&tok) - 2);
 
@@ -1637,23 +1658,7 @@ static int compile_string_expression(struct cstate *state)
 			*ptr++ = c;
 			continue;
 		}
-		switch (*str++) {
-		case 'n':
-			*ptr++ = '\n';
-			break;
-		case 'r':
-			*ptr++ = '\r';
-			break;
-		case 't':
-			*ptr++ = '\t';
-			break;
-		case '"':
-			*ptr++ = '"';
-			break;
-		case '\'':
-			*ptr++ = '\'';
-			break;
-		}
+		*ptr++ = TRANSLATE_ESCAPE(*str++);
 	}
 	*ptr = 0;
 
@@ -1671,6 +1676,8 @@ static int compile_char_expression(struct cstate *state)
 	tok = EXPECT(TOK_CHAR);
 	/* FIXME: support unicode */
 	c = tok_start(state, &tok)[1];
+	if (c == '\\')
+		c = TRANSLATE_ESCAPE(tok_start(state, &tok)[2]);
 
 	APPEND(OP_CONST_CHAR);
 	APPEND_SIZE_T(c);
