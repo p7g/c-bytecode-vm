@@ -12,6 +12,7 @@
 
 #include "agent.h"
 #include "compiler.h"
+#include "hashmap.h"
 #include "module.h"
 #include "opcode.h"
 
@@ -639,6 +640,8 @@ struct cstate {
 
 	struct function_state *function_state;
 	struct loop_state *loop_state;
+
+	cb_hashmap *imported;
 };
 
 static struct cstate cstate_default(int with_bytecode)
@@ -654,6 +657,7 @@ static struct cstate cstate_default(int with_bytecode)
 		.scope = NULL,
 		.function_state = NULL,
 		.loop_state = NULL,
+		.imported = cb_hashmap_new(),
 	};
 }
 
@@ -662,6 +666,7 @@ void cstate_free(struct cstate state)
 {
 	if (state.modspec)
 		cb_modspec_free(state.modspec);
+	cb_hashmap_free(state.imported);
 }
 
 static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
@@ -839,7 +844,7 @@ static int compile_expression_statement(struct cstate *);
 
 static int compile_expression(struct cstate *);
 
-static int compile(struct cstate *state, int final)
+static int compile(struct cstate *state, int final, size_t *modname_out)
 {
 	struct token *tok;
 	int already_compiled;
@@ -853,6 +858,13 @@ static int compile(struct cstate *state, int final)
 		X(compile_statement(state));
 
 	EXPECT(TOK_EOF);
+
+	if (modname_out) {
+		if (state->modspec)
+			*modname_out = cb_modspec_name(state->modspec);
+		else
+			*modname_out = -1;
+	}
 
 	if (state->modspec) {
 		APPEND(OP_END_MODULE);
@@ -1332,12 +1344,14 @@ static int compile_export_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_file(struct cstate *state, const char *name, int final);
+static int compile_file(struct cstate *state, const char *name, int final,
+		size_t *modname_out);
 
 static int compile_import_statement(struct cstate *state)
 {
 	struct token tok, string;
 	char *filename;
+	size_t modname;
 
 	tok = EXPECT(TOK_IMPORT);
 	if (!state->is_global) {
@@ -1348,6 +1362,7 @@ static int compile_import_statement(struct cstate *state)
 	string = EXPECT(TOK_STRING);
 	EXPECT(TOK_SEMICOLON);
 
+	/* FIXME: this sucks */
 	if (strlen(state->filename) == sizeof("<script>") - 1 && !strncmp(
 				"<script>", state->filename,
 				sizeof("<script>") - 1)) {
@@ -1371,12 +1386,15 @@ static int compile_import_statement(struct cstate *state)
 
 	if (state->modspec)
 		APPEND(OP_EXIT_MODULE);
-	X(compile_file(state, filename, 0));
+	X(compile_file(state, filename, 0, &modname));
 	if (state->modspec) {
 		APPEND(OP_ENTER_MODULE);
 		APPEND_SIZE_T(cb_modspec_id(state->modspec));
 	}
 
+	if (modname != -1)
+		cb_hashmap_set(state->imported, modname,
+				(struct cb_value) { .type = CB_VALUE_NULL });
 	free(filename);
 
 	return 0;
@@ -1520,7 +1538,7 @@ static int compile_identifier_expression(struct cstate *state)
 		export = EXPECT(TOK_IDENT);
 		APPEND(OP_LOAD_FROM_MODULE);
 		module = cb_agent_get_modspec_by_name(name);
-		if (!module) {
+		if (!module || !cb_hashmap_get(state->imported, name)) {
 			ERROR_AT(tok, "No such module %s\n",
 					cb_strptr(cb_agent_get_string(
 							intern_ident(state,
@@ -1961,7 +1979,7 @@ int cb_compile(const char *input, struct bytecode **bc_out)
 	struct cstate state = cstate_default(1);
 	state.input = input;
 
-	result = compile(&state, 1);
+	result = compile(&state, 1, NULL);
 
 	cstate_free(state);
 	*bc_out = state.bytecode;
@@ -2012,7 +2030,8 @@ epilogue:
 	return result;
 }
 
-static int compile_file(struct cstate *state, const char *name, int final)
+static int compile_file(struct cstate *state, const char *name, int final,
+		size_t *modname_out)
 {
 	int result;
 	char *input;
@@ -2029,7 +2048,7 @@ static int compile_file(struct cstate *state, const char *name, int final)
 	new_state.lex_state = lex_state_new(name);
 	new_state.filename = name;
 
-	result = compile(&new_state, final);
+	result = compile(&new_state, final, modname_out);
 
 	free(input);
 	cstate_free(new_state);
@@ -2041,7 +2060,7 @@ int cb_compile_file(const char *name, struct bytecode **bc_out)
 	int result;
 	struct cstate state = cstate_default(1);
 
-	result = compile_file(&state, name, 1);
+	result = compile_file(&state, name, 1, NULL);
 
 	cstate_free(state);
 	*bc_out = state.bytecode;
