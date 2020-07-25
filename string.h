@@ -2,6 +2,7 @@
 #define cb_string_h
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct cb_str {
 	size_t len;

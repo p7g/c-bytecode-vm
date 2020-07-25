@@ -1624,11 +1624,38 @@ static int compile_string_expression(struct cstate *state)
 {
 	struct token tok;
 	size_t id;
+	char *str, *ptr, c;
 
 	tok = EXPECT(TOK_STRING);
 	/* FIXME: support excape sequences (also in char expressions) */
 	id = cb_agent_intern_string(tok_start(state, &tok) + 1,
 			tok_len(&tok) - 2);
+
+	ptr = str = cb_agent_get_string(id).chars;
+	while ((c = *str++)) {
+		if (c != '\\') {
+			*ptr++ = c;
+			continue;
+		}
+		switch (*str++) {
+		case 'n':
+			*ptr++ = '\n';
+			break;
+		case 'r':
+			*ptr++ = '\r';
+			break;
+		case 't':
+			*ptr++ = '\t';
+			break;
+		case '"':
+			*ptr++ = '"';
+			break;
+		case '\'':
+			*ptr++ = '\'';
+			break;
+		}
+	}
+	*ptr = 0;
 
 	APPEND(OP_CONST_STRING);
 	APPEND_SIZE_T(id);
