@@ -816,7 +816,7 @@ static int compile_module_header(struct cstate *state, int *already_compiled)
 	EXPECT(TOK_SEMICOLON);
 
 	name_id = intern_ident(state, &name);
-	if (cb_agent_get_modspec_by_name(name_id)) {
+	if ((state->modspec = cb_agent_get_modspec_by_name(name_id))) {
 		*already_compiled = 1;
 		return 0;
 	}
@@ -851,13 +851,6 @@ static int compile(struct cstate *state, int final, size_t *modname_out)
 
 	/* optional module header */
 	X(compile_module_header(state, &already_compiled));
-	if (already_compiled)
-		goto end;
-
-	while ((tok = PEEK()) && tok->type != TOK_EOF)
-		X(compile_statement(state));
-
-	EXPECT(TOK_EOF);
 
 	if (modname_out) {
 		if (state->modspec)
@@ -865,6 +858,16 @@ static int compile(struct cstate *state, int final, size_t *modname_out)
 		else
 			*modname_out = -1;
 	}
+
+	if (already_compiled) {
+		state->modspec = NULL;
+		goto end;
+	}
+
+	while ((tok = PEEK()) && tok->type != TOK_EOF)
+		X(compile_statement(state));
+
+	EXPECT(TOK_EOF);
 
 	if (state->modspec) {
 		APPEND(OP_END_MODULE);
@@ -1538,8 +1541,14 @@ static int compile_identifier_expression(struct cstate *state)
 		export = EXPECT(TOK_IDENT);
 		APPEND(OP_LOAD_FROM_MODULE);
 		module = cb_agent_get_modspec_by_name(name);
-		if (!module || !cb_hashmap_get(state->imported, name)) {
+		if (!module) {
 			ERROR_AT(tok, "No such module %s\n",
+					cb_strptr(cb_agent_get_string(
+							intern_ident(state,
+								&tok))));
+			return 1;
+		} else if (!cb_hashmap_get(state->imported, name)) {
+			ERROR_AT(tok, "Missing import for module %s\n",
 					cb_strptr(cb_agent_get_string(
 							intern_ident(state,
 								&tok))));

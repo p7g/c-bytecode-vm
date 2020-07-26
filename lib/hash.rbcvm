@@ -1,5 +1,7 @@
 module Hash;
 
+import "array.rbcvm";
+
 let FNV_OFFSET_BASIS_32 = 2166136261;
 let FNV_PRIME_32 = 16777619;
 
