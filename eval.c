@@ -202,10 +202,31 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct frame *frame)
 }
 #endif
 
+struct args_start {
+	struct args_start *next;
+	size_t sp;
+};
+
 static int cb_eval(size_t pc, struct frame *frame)
 {
+	struct args_start *args_start = NULL;
 	int retval = 0;
 	cb_vm_state.frame = frame;
+
+#define PUSH_ARGS_START(N) do { \
+		struct args_start *_node = malloc(sizeof(struct args_start)); \
+		_node->next = args_start; \
+		_node->sp = (N); \
+		args_start = _node; \
+	} while (0)
+
+#define POP_ARGS_START() ({ \
+		struct args_start *_node = args_start; \
+		args_start = _node->next; \
+		size_t _val = _node->sp; \
+		free(_node); \
+		_val; \
+	})
 
 #define TABLE_ENTRY(OP) &&DO_##OP,
 	static void *dispatch_table[] = {
@@ -417,13 +438,17 @@ DO_OP_JUMP_IF_FALSE: {
 	DISPATCH();
 }
 
+DO_OP_PREP_FOR_CALL:
+	PUSH_ARGS_START(cb_vm_state.sp);
+	DISPATCH();
+
 DO_OP_CALL: {
 	size_t num_args, name;
 	struct cb_value func_val, result;
 	struct cb_function *func;
 	struct frame next_frame;
 
-	num_args = READ_SIZE_T();
+	num_args = cb_vm_state.sp - POP_ARGS_START();
 	func_val = cb_vm_state.stack[cb_vm_state.sp - num_args - 1];
 
 	if (func_val.type != CB_VALUE_FUNCTION)

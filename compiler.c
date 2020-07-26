@@ -1885,11 +1885,10 @@ static int compile_right_assoc_binary(struct cstate *state)
 
 static int compile_call_expression(struct cstate *state)
 {
-	size_t num_args;
 	int first_arg;
 
 	EXPECT(TOK_LEFT_PAREN);
-	num_args = 0;
+	APPEND(OP_PREP_FOR_CALL);
 
 	first_arg = 1;
 	while (!MATCH_P(TOK_RIGHT_PAREN)) {
@@ -1901,13 +1900,11 @@ static int compile_call_expression(struct cstate *state)
 				break;
 		}
 
-		num_args += 1;
 		X(compile_expression(state));
 	}
 	EXPECT(TOK_RIGHT_PAREN);
 
 	APPEND(OP_CALL);
-	APPEND_SIZE_T(num_args);
 
 	return 0;
 }

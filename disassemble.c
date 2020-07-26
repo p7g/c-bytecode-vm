@@ -79,6 +79,8 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	case OP_DUP:
 	case OP_RETURN:
 	case OP_EXIT_MODULE:
+	case OP_PREP_FOR_CALL:
+	case OP_CALL:
 		printf("%s\n", cb_opcode_name(op));
 		return WITH_ARGS(0);
 
@@ -101,7 +103,6 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	case OP_EXPORT:
 	case OP_ENTER_MODULE:
 	case OP_NEW_ARRAY_WITH_VALUES:
-	case OP_CALL:
 		printf("%s(%zu)\n", cb_opcode_name(op), NEXT_USIZE());
 		return WITH_ARGS(1);
 
