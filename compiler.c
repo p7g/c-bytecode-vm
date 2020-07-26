@@ -604,6 +604,7 @@ struct function_state {
 	size_t end_label;
 	size_t *free_variables;
 	size_t free_var_len, free_var_size;
+	size_t num_returned;
 };
 
 void fstate_add_freevar(struct function_state *fstate, size_t free_var)
@@ -829,7 +830,7 @@ static int compile_module_header(struct cstate *state, int *already_compiled)
 }
 
 static int compile_statement(struct cstate *);
-static int compile_let_statement(struct cstate *, size_t *name_out, int leave);
+static int compile_let_statement(struct cstate *, int export);
 static int compile_function_statement(struct cstate *, size_t *name_out,
 		int leave);
 static int compile_if_statement(struct cstate *);
@@ -842,7 +843,7 @@ static int compile_export_statement(struct cstate *);
 static int compile_import_statement(struct cstate *);
 static int compile_expression_statement(struct cstate *);
 
-static int compile_expression(struct cstate *);
+static int compile_expression(struct cstate *, size_t stack_effect);
 
 static int compile(struct cstate *state, int final, size_t *modname_out)
 {
@@ -888,7 +889,7 @@ static int compile_statement(struct cstate *state)
 {
 	switch (PEEK()->type) {
 	case TOK_LET:
-		X(compile_let_statement(state, NULL, 0));
+		X(compile_let_statement(state, 0));
 		break;
 	case TOK_FUNCTION:
 		X(compile_function_statement(state, NULL, 0));
@@ -925,38 +926,52 @@ static int compile_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_let_statement(struct cstate *state, size_t *name_out,
-		int leave)
+static int compile_let_statement(struct cstate *state, int export)
 {
 	struct token name;
-	size_t name_id, binding_id;
+	size_t binding_id;
+	size_t num_assignments = 0;
+	size_t assigned_names[32];
+	int i;
 
 	EXPECT(TOK_LET);
-	name = EXPECT(TOK_IDENT);
-	name_id = intern_ident(state, &name);
-	if (name_out)
-		*name_out = name_id;
+
+	do {
+		if (num_assignments > 0)
+			EXPECT(TOK_COMMA);
+		name = EXPECT(TOK_IDENT);
+		assigned_names[num_assignments++] = intern_ident(state, &name);
+	} while (!MATCH_P(TOK_EQUAL));
+
 	if (MATCH_P(TOK_EQUAL)) {
 		EXPECT(TOK_EQUAL);
-		X(compile_expression(state));
+		X(compile_expression(state, num_assignments));
 	} else {
-		APPEND(OP_CONST_NULL);
+		for (i = 0; i < num_assignments; i += 1)
+			APPEND(OP_CONST_NULL);
 	}
 	EXPECT(TOK_SEMICOLON);
 
-	if (state->is_global) {
-		APPEND(OP_DECLARE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-		APPEND(OP_STORE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-		if (!leave)
+	for (i = num_assignments - 1; i >= 0; i -= 1) {
+		if (state->is_global) {
+			APPEND(OP_DECLARE_GLOBAL);
+			APPEND_SIZE_T(assigned_names[i]);
+			APPEND(OP_STORE_GLOBAL);
+			APPEND_SIZE_T(assigned_names[i]);
+			if (export) {
+				APPEND(OP_EXPORT);
+				APPEND_SIZE_T(assigned_names[i]);
+			} else {
+				APPEND(OP_POP);
+			}
+		} else {
+			assert(state->scope != NULL);
+			binding_id = scope_add_binding(state->scope,
+					assigned_names[i], 0);
+			APPEND(OP_STORE_LOCAL);
+			APPEND_SIZE_T(binding_id);
 			APPEND(OP_POP);
-	} else {
-		assert(state->scope != NULL);
-		binding_id = scope_add_binding(state->scope, name_id, 0);
-		APPEND(OP_STORE_LOCAL);
-		APPEND_SIZE_T(binding_id);
-		APPEND(OP_POP);
+		}
 	}
 
 	return 0;
@@ -974,6 +989,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	struct binding *binding;
 	int i, j;
 	size_t start_label, end_label;
+	size_t num_returned;
 
 	EXPECT(TOK_FUNCTION);
 	if (MATCH_P(TOK_IDENT)) {
@@ -1047,6 +1063,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 		.free_variables = NULL,
 		.free_var_len = 0,
 		.free_var_size = 0,
+		.num_returned = -1,
 	};
 	old_fstate = state->function_state;
 	state->function_state = &fstate;
@@ -1055,8 +1072,12 @@ static int compile_function(struct cstate *state, size_t *name_out)
 		X(compile_statement(state));
 
 	/* potentially an extra return, but better safe than sorry */
-	APPEND(OP_CONST_NULL);
+	num_returned = fstate.num_returned != -1 ? fstate.num_returned : 1;
+	for (i = 0; i < num_returned; i += 1) {
+		APPEND(OP_CONST_NULL);
+	}
 	APPEND(OP_RETURN);
+	APPEND_SIZE_T(num_returned);
 
 	MARK(end_label);
 
@@ -1122,7 +1143,7 @@ static int compile_if_statement(struct cstate *state)
 	end_label = LABEL();
 
 	/* predicate */
-	X(compile_expression(state));
+	X(compile_expression(state, 1));
 
 	APPEND(OP_JUMP_IF_FALSE);
 	ADDR_OF(else_label);
@@ -1188,7 +1209,7 @@ static int compile_for_statement(struct cstate *state)
 
 	/* if there is a predicate */
 	if (!MATCH_P(TOK_SEMICOLON)) {
-		X(compile_expression(state));
+		X(compile_expression(state, -1));
 		APPEND(OP_JUMP_IF_FALSE);
 		ADDR_OF(end_label);
 	}
@@ -1201,7 +1222,7 @@ static int compile_for_statement(struct cstate *state)
 
 	/* if there is an increment */
 	if (!MATCH_P(TOK_LEFT_BRACE)) {
-		X(compile_expression(state));
+		X(compile_expression(state, 1));
 		APPEND(OP_POP);
 	}
 	EXPECT(TOK_LEFT_BRACE);
@@ -1240,7 +1261,7 @@ static int compile_while_statement(struct cstate *state)
 	EXPECT(TOK_WHILE);
 
 	MARK(start_label);
-	X(compile_expression(state));
+	X(compile_expression(state, 1));
 	APPEND(OP_JUMP_IF_FALSE);
 	ADDR_OF(end_label);
 
@@ -1298,6 +1319,8 @@ static int compile_continue_statement(struct cstate *state)
 static int compile_return_statement(struct cstate *state)
 {
 	struct token tok;
+	size_t num_returned = 0;
+	struct function_state *fstate;
 
 	tok = EXPECT(TOK_RETURN);
 	if (!state->function_state) {
@@ -1305,13 +1328,30 @@ static int compile_return_statement(struct cstate *state)
 		return 1;
 	}
 
-	if (!MATCH_P(TOK_SEMICOLON))
-		X(compile_expression(state));
-	else
+	if (!MATCH_P(TOK_SEMICOLON)) {
+		num_returned = 1;
+		X(compile_expression(state, 1));
+		while (MATCH_P(TOK_COMMA)) {
+			NEXT();
+			num_returned += 1;
+			X(compile_expression(state, 1));
+		}
+	} else {
 		APPEND(OP_CONST_NULL);
+	}
 	EXPECT(TOK_SEMICOLON);
 
 	APPEND(OP_RETURN);
+	APPEND_SIZE_T(num_returned);
+
+	fstate = state->function_state;
+	if (fstate->num_returned != -1
+			&& num_returned != fstate->num_returned) {
+		ERROR_AT(tok, "Incorrect number of returned values (expected %zu but got %zu)",
+				fstate->num_returned, num_returned);
+	} else {
+		fstate->num_returned = num_returned;
+	}
 
 	return 0;
 }
@@ -1333,16 +1373,16 @@ static int compile_export_statement(struct cstate *state)
 	}
 
 	if (MATCH_P(TOK_LET)) {
-		X(compile_let_statement(state, &name, 1));
+		/* Export happens within compile_let_statement */
+		X(compile_let_statement(state, 1));
 	} else if (MATCH_P(TOK_FUNCTION)) {
 		X(compile_function_statement(state, &name, 1));
+		APPEND(OP_EXPORT);
+		APPEND_SIZE_T(cb_modspec_add_export(state->modspec, name));
 	} else {
 		ERROR_AT_P(PEEK(), "Can only export function and let declarations");
 		return 1;
 	}
-
-	APPEND(OP_EXPORT);
-	APPEND_SIZE_T(cb_modspec_add_export(state->modspec, name));
 
 	return 0;
 }
@@ -1405,7 +1445,7 @@ static int compile_import_statement(struct cstate *state)
 
 static int compile_expression_statement(struct cstate *state)
 {
-	X(compile_expression(state));
+	X(compile_expression(state, -1));
 	EXPECT(TOK_SEMICOLON);
 	APPEND(OP_POP);
 
@@ -1572,7 +1612,8 @@ static int compile_identifier_expression(struct cstate *state)
 
 	if (MATCH_P(TOK_EQUAL)) {
 		NEXT();
-		X(compile_expression(state));
+		/* FIXME: assign multiple return values to multiple targets */
+		X(compile_expression(state, 1));
 		if (!resolve_binding(state, name, &binding)) {
 			APPEND(OP_STORE_GLOBAL);
 			APPEND_SIZE_T(name);
@@ -1697,7 +1738,7 @@ static int compile_char_expression(struct cstate *state)
 static int compile_parenthesized_expression(struct cstate *state)
 {
 	EXPECT(TOK_LEFT_PAREN);
-	X(compile_expression(state));
+	X(compile_expression(state, 1));
 	EXPECT(TOK_RIGHT_PAREN);
 
 	return 0;
@@ -1721,7 +1762,7 @@ static int compile_array_expression(struct cstate *state)
 				break;
 		}
 		num_elements += 1;
-		X(compile_expression(state));
+		X(compile_expression(state, 1));
 	}
 	EXPECT(TOK_RIGHT_BRACKET);
 
@@ -1731,14 +1772,15 @@ static int compile_array_expression(struct cstate *state)
 	return 0;
 }
 
-static int compile_expression_inner(struct cstate *, int rbp);
+static int compile_expression_inner(struct cstate *, int rbp,
+		size_t stack_effect);
 
 static int compile_unary_expression(struct cstate *state)
 {
 	struct token tok;
 
 	tok = NEXT();
-	X(compile_expression_inner(state, rbp(tok.type)));
+	X(compile_expression_inner(state, rbp(tok.type), 1));
 
 	switch (tok.type) {
 	case TOK_MINUS:
@@ -1816,7 +1858,7 @@ static int compile_left_assoc_binary(struct cstate *state)
 	struct token tok;
 
 	tok = NEXT();
-	X(compile_expression_inner(state, lbp(tok.type)));
+	X(compile_expression_inner(state, lbp(tok.type), 1));
 
 	switch (tok.type) {
 	case TOK_PLUS:
@@ -1875,7 +1917,7 @@ static int compile_right_assoc_binary(struct cstate *state)
 	struct token tok;
 
 	tok = NEXT();
-	X(compile_expression_inner(state, lbp(tok.type) - 1));
+	X(compile_expression_inner(state, lbp(tok.type) - 1, 1));
 
 	if (tok.type == TOK_STAR_STAR)
 		APPEND(OP_EXP);
@@ -1883,7 +1925,7 @@ static int compile_right_assoc_binary(struct cstate *state)
 	return 0;
 }
 
-static int compile_call_expression(struct cstate *state)
+static int compile_call_expression(struct cstate *state, size_t stack_effect)
 {
 	int first_arg;
 
@@ -1900,11 +1942,12 @@ static int compile_call_expression(struct cstate *state)
 				break;
 		}
 
-		X(compile_expression(state));
+		X(compile_expression(state, -1));
 	}
 	EXPECT(TOK_RIGHT_PAREN);
 
 	APPEND(OP_CALL);
+	APPEND_SIZE_T(stack_effect);
 
 	return 0;
 }
@@ -1912,12 +1955,12 @@ static int compile_call_expression(struct cstate *state)
 static int compile_index_expression(struct cstate *state)
 {
 	EXPECT(TOK_LEFT_BRACKET);
-	X(compile_expression(state));
+	X(compile_expression(state, 1));
 	EXPECT(TOK_RIGHT_BRACKET);
 
 	if (MATCH_P(TOK_EQUAL)) {
 		EXPECT(TOK_EQUAL);
-		X(compile_expression(state));
+		X(compile_expression(state, 1));
 		APPEND(OP_ARRAY_SET);
 	} else {
 		APPEND(OP_ARRAY_GET);
@@ -1946,15 +1989,17 @@ static int compile_short_circuit_binary(struct cstate *state)
 	}
 
 	ADDR_OF(end_label);
-	X(compile_expression_inner(state, lbp(tok.type)));
+	X(compile_expression_inner(state, lbp(tok.type), 1));
 	MARK(end_label);
 
 	return 0;
 }
 
-static int led(struct cstate *state)
+static int led(struct cstate *state, size_t stack_effect)
 {
-	switch (PEEK()->type) {
+	enum token_type typ;
+
+	switch ((typ = PEEK()->type)) {
 	case TOK_PLUS:
 	case TOK_MINUS:
 	case TOK_STAR:
@@ -1983,7 +2028,7 @@ static int led(struct cstate *state)
 		break;
 
 	case TOK_LEFT_PAREN:
-		X(compile_call_expression(state));
+		X(compile_call_expression(state, stack_effect));
 		break;
 
 	case TOK_LEFT_BRACKET:
@@ -1995,22 +2040,28 @@ static int led(struct cstate *state)
 		return 1;
 	}
 
+	if (typ != TOK_LEFT_PAREN && stack_effect != 1) {
+		ERROR_AT_P(PEEK(), "Expression produces incorrect number of values");
+		return 1;
+	}
+
 	return 0;
 }
 
-static int compile_expression_inner(struct cstate *state, int rbp)
+static int compile_expression_inner(struct cstate *state, int rbp,
+		size_t stack_effect)
 {
 	X(nud(state));
 
 	while (PEEK() && PEEK()->type != TOK_EOF && rbp < lbp(PEEK()->type))
-		X(led(state));
+		X(led(state, stack_effect));
 
 	return 0;
 }
 
-static int compile_expression(struct cstate *state)
+static int compile_expression(struct cstate *state, size_t stack_effect)
 {
-	return compile_expression_inner(state, 0);
+	return compile_expression_inner(state, 0, stack_effect);
 }
 
 int cb_compile(const char *input, struct bytecode **bc_out)

@@ -443,11 +443,13 @@ DO_OP_PREP_FOR_CALL:
 	DISPATCH();
 
 DO_OP_CALL: {
-	size_t num_args, name;
+	size_t num_args, name, expected_stack_effect, actual_stack_effect;
+	int stack_diff;
 	struct cb_value func_val, result;
 	struct cb_function *func;
 	struct frame next_frame;
 
+	expected_stack_effect = READ_SIZE_T();
 	num_args = cb_vm_state.sp - POP_ARGS_START();
 	func_val = cb_vm_state.stack[cb_vm_state.sp - num_args - 1];
 
@@ -487,6 +489,18 @@ DO_OP_CALL: {
 			retval = 1;
 			goto end;
 		}
+		actual_stack_effect = cb_vm_state.sp - next_frame.bp;
+		if (actual_stack_effect < expected_stack_effect) {
+			ERROR("Function '%s' returned too few values\n",
+					func->name == -1
+					? "<anonymous>"
+					: cb_strptr(cb_agent_get_string(name)));
+			retval = 1;
+			goto end;
+		}
+		stack_diff = actual_stack_effect - expected_stack_effect;
+		while (stack_diff--)
+			POP();
 	}
 
 	DISPATCH();
@@ -494,10 +508,15 @@ DO_OP_CALL: {
 
 DO_OP_RETURN: {
 	int i;
-	struct cb_value retval;
 	struct cb_upvalue *uv;
+	size_t num_returned;
 
-	retval = POP();
+	/* move returned value(s) to after the base pointer */
+	num_returned = READ_SIZE_T();
+	for (i = 0; i < num_returned; i += 1)
+		cb_vm_state.stack[frame->bp + i] =
+			cb_vm_state.stack[cb_vm_state.sp - num_returned + i];
+	cb_vm_state.sp = frame->bp + num_returned;
 
 	/* close upvalues */
 	if (cb_vm_state.upvalues_idx != 0) {
@@ -511,8 +530,6 @@ DO_OP_RETURN: {
 		cb_vm_state.upvalues_idx = i + 1;
 	}
 
-	cb_vm_state.sp = frame->bp;
-	PUSH(retval);
 	goto end;
 }
 
