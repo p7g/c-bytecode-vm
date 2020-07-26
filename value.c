@@ -204,16 +204,17 @@ char *cb_value_to_string(struct cb_value *val)
 		if (name != (size_t) -1) {
 			s = cb_agent_get_string(name);
 			len = cb_strlen(s);
-			len += sizeof("function "); /* includes NUL byte */
+			len += sizeof("<function >"); /* includes NUL byte */
 			buf = malloc(len);
-			sprintf(buf, "function ");
-			memcpy(buf + sizeof("function ") - 1, cb_strptr(s),
+			sprintf(buf, "<function ");
+			memcpy(buf + sizeof("<function ") - 1, cb_strptr(s),
 					cb_strlen(s));
+			buf[len - 2] = '>';
 			buf[len - 1] = 0;
 		} else {
-			len = sizeof("function <anonymous>") - 1;
+			len = sizeof("<function <anonymous>>") - 1;
 			buf = malloc(len + 1);
-			sprintf(buf, "function <anonymous>");
+			sprintf(buf, "<function <anonymous>>");
 			buf[len] = 0;
 		}
 		break;
