@@ -499,7 +499,7 @@ DO_OP_CALL: {
 			goto end;
 		}
 		stack_diff = actual_stack_effect - expected_stack_effect;
-		while (stack_diff--)
+		while (stack_diff > 0 && --stack_diff)
 			POP();
 	}
 

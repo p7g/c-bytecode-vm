@@ -42,7 +42,7 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 #define NEXT_USIZE() ({ \
 		size_t result = 0; \
 		for (int _i = 0; _i < sizeof(size_t) / sizeof(cb_instruction); _i += 1) \
-			result += NEXT() << (_i * 8 * sizeof(cb_instruction)); \
+			result += ((size_t) NEXT()) << (_i * 8 * sizeof(cb_instruction)); \
 		result; \
 	})
 #define WITH_ARGS(NARGS) (1 + sizeof(size_t) / sizeof(cb_instruction) * (NARGS))
@@ -120,7 +120,7 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 		arg2 = NEXT_USIZE();
 		arg3 = NEXT_USIZE();
 		printf("%s(\"%s\", %zu, %zu)\n", cb_opcode_name(op),
-				(arg1 == (size_t) -1 - 1)
+				arg1 == -1
 				? "<anonymous>"
 				: cb_strptr(cb_agent_get_string(arg1)),
 				arg2, arg3);

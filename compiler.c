@@ -19,6 +19,7 @@
 #define INITIAL_BYTECODE_SIZE 32
 #define LENGTH(ARR) (sizeof(ARR) / sizeof(ARR[0]))
 #define VALID_ESCAPES "nrt\"'"
+#define MAX_STACK_EFFECT 32
 
 #define TOKEN_TYPE_LIST(X) \
 	X(TOK_IDENT) \
@@ -931,7 +932,7 @@ static int compile_let_statement(struct cstate *state, int export)
 	struct token name;
 	size_t binding_id;
 	size_t num_assignments = 0;
-	size_t assigned_names[32];
+	size_t assigned_names[MAX_STACK_EFFECT];
 	int i;
 
 	EXPECT(TOK_LET);
@@ -940,6 +941,10 @@ static int compile_let_statement(struct cstate *state, int export)
 		if (num_assignments > 0)
 			EXPECT(TOK_COMMA);
 		name = EXPECT(TOK_IDENT);
+		if (num_assignments >= MAX_STACK_EFFECT) {
+			ERROR_AT(name, "Too many declarations in let statement");
+			return 1;
+		}
 		assigned_names[num_assignments++] = intern_ident(state, &name);
 	} while (!MATCH_P(TOK_EQUAL));
 
@@ -1349,6 +1354,7 @@ static int compile_return_statement(struct cstate *state)
 			&& num_returned != fstate->num_returned) {
 		ERROR_AT(tok, "Incorrect number of returned values (expected %zu but got %zu)",
 				fstate->num_returned, num_returned);
+		return 1;
 	} else {
 		fstate->num_returned = num_returned;
 	}
@@ -1735,10 +1741,11 @@ static int compile_char_expression(struct cstate *state)
 	return 0;
 }
 
-static int compile_parenthesized_expression(struct cstate *state)
+static int compile_parenthesized_expression(struct cstate *state,
+		size_t stack_effect)
 {
 	EXPECT(TOK_LEFT_PAREN);
-	X(compile_expression(state, 1));
+	X(compile_expression(state, stack_effect));
 	EXPECT(TOK_RIGHT_PAREN);
 
 	return 0;
@@ -1800,11 +1807,13 @@ static int compile_unary_expression(struct cstate *state)
 	return 0;
 }
 
-static int nud(struct cstate *state)
+static int nud(struct cstate *state, size_t stack_effect)
 {
-	switch (PEEK()->type) {
+	struct token *tok;
+
+	switch ((tok = PEEK())->type) {
 	case TOK_IDENT:
-		X(compile_identifier_expression(state));
+		X(compile_identifier_expression(state, stack_effect));
 		break;
 	case TOK_INT:
 		X(compile_int_expression(state));
@@ -1831,7 +1840,7 @@ static int nud(struct cstate *state)
 		APPEND(OP_CONST_FALSE);
 		break;
 	case TOK_LEFT_PAREN:
-		X(compile_parenthesized_expression(state));
+		X(compile_parenthesized_expression(state, stack_effect));
 		break;
 	case TOK_LEFT_BRACKET:
 		X(compile_array_expression(state));
@@ -1847,6 +1856,13 @@ static int nud(struct cstate *state)
 
 	default:
 		ERROR_AT_P(PEEK(), "Expected expression");
+		return 1;
+	}
+
+	if (stack_effect != -1 && stack_effect != 1 &&
+			tok->type != TOK_IDENT && tok->type != TOK_LEFT_PAREN) {
+		ERROR_AT_P(tok, "Expression results in too few values, need %zu\n",
+				stack_effect);
 		return 1;
 	}
 
@@ -1947,7 +1963,10 @@ static int compile_call_expression(struct cstate *state, size_t stack_effect)
 	EXPECT(TOK_RIGHT_PAREN);
 
 	APPEND(OP_CALL);
-	APPEND_SIZE_T(stack_effect);
+	if (stack_effect == -1)
+		APPEND_SIZE_T(0);
+	else
+		APPEND_SIZE_T(stack_effect);
 
 	return 0;
 }
@@ -2051,7 +2070,7 @@ static int led(struct cstate *state, size_t stack_effect)
 static int compile_expression_inner(struct cstate *state, int rbp,
 		size_t stack_effect)
 {
-	X(nud(state));
+	X(nud(state, stack_effect));
 
 	while (PEEK() && PEEK()->type != TOK_EOF && rbp < lbp(PEEK()->type))
 		X(led(state, stack_effect));
