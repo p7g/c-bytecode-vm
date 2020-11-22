@@ -5,7 +5,7 @@ import "assoclist.rbcvm";
 import "hash.rbcvm";
 import "string.rbcvm";
 
-let INITIAL_CAPACITY = 2 ** 3;
+let INITIAL_CAPACITY = toint(1 ** 3);
 let LOAD_FACTOR = 0.7;
 
 # hashmap

@@ -43,6 +43,7 @@
 	X(array_length, 1) \
 	X(truncate32, 1) \
 	X(tofloat, 1) \
+	X(toint, 1) \
 	X(read_file, 1) \
 	X(argv, 0) \
 	X(upvalues, 0) \
@@ -334,6 +335,16 @@ static int truncate32(size_t argc, struct cb_value *argv,
 
 	*result = argv[0];
 	result->val.as_int = result->val.as_int & 0xFFFFFFFF;
+
+	return 0;
+}
+
+static int toint(size_t argc, struct cb_value *argv, struct cb_value *result)
+{
+	EXPECT_TYPE(CB_VALUE_DOUBLE, argv[0]);
+
+	result->type = CB_VALUE_INT;
+	result->val.as_int = (uint64_t) argv[0].val.as_double;
 
 	return 0;
 }
