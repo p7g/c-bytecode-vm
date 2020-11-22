@@ -55,6 +55,7 @@
 	X(OP_ALLOCATE_LOCALS) \
 	X(OP_ENTER_MODULE) \
 	X(OP_EXIT_MODULE) \
+	X(OP_PREP_FOR_CALL) \
 	X(OP_MAX)
 
 enum cb_opcode {

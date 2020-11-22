@@ -202,10 +202,31 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct frame *frame)
 }
 #endif
 
+struct args_start {
+	struct args_start *next;
+	size_t sp;
+};
+
 static int cb_eval(size_t pc, struct frame *frame)
 {
+	struct args_start *args_start = NULL;
 	int retval = 0;
 	cb_vm_state.frame = frame;
+
+#define PUSH_ARGS_START(N) do { \
+		struct args_start *_node = malloc(sizeof(struct args_start)); \
+		_node->next = args_start; \
+		_node->sp = (N); \
+		args_start = _node; \
+	} while (0)
+
+#define POP_ARGS_START() ({ \
+		struct args_start *_node = args_start; \
+		args_start = _node->next; \
+		size_t _val = _node->sp; \
+		free(_node); \
+		_val; \
+	})
 
 #define TABLE_ENTRY(OP) &&DO_##OP,
 	static void *dispatch_table[] = {
@@ -417,13 +438,19 @@ DO_OP_JUMP_IF_FALSE: {
 	DISPATCH();
 }
 
+DO_OP_PREP_FOR_CALL:
+	PUSH_ARGS_START(cb_vm_state.sp);
+	DISPATCH();
+
 DO_OP_CALL: {
-	size_t num_args, name;
+	size_t num_args, name, expected_stack_effect, actual_stack_effect;
+	int stack_diff;
 	struct cb_value func_val, result;
 	struct cb_function *func;
 	struct frame next_frame;
 
-	num_args = READ_SIZE_T();
+	expected_stack_effect = READ_SIZE_T();
+	num_args = cb_vm_state.sp - POP_ARGS_START();
 	func_val = cb_vm_state.stack[cb_vm_state.sp - num_args - 1];
 
 	if (func_val.type != CB_VALUE_FUNCTION)
@@ -462,6 +489,18 @@ DO_OP_CALL: {
 			retval = 1;
 			goto end;
 		}
+		actual_stack_effect = cb_vm_state.sp - next_frame.bp;
+		if (actual_stack_effect < expected_stack_effect) {
+			ERROR("Function '%s' returned too few values\n",
+					func->name == -1
+					? "<anonymous>"
+					: cb_strptr(cb_agent_get_string(name)));
+			retval = 1;
+			goto end;
+		}
+		stack_diff = actual_stack_effect - expected_stack_effect;
+		while (stack_diff > 0 && --stack_diff)
+			POP();
 	}
 
 	DISPATCH();
@@ -469,10 +508,15 @@ DO_OP_CALL: {
 
 DO_OP_RETURN: {
 	int i;
-	struct cb_value retval;
 	struct cb_upvalue *uv;
+	size_t num_returned;
 
-	retval = POP();
+	/* move returned value(s) to after the base pointer */
+	num_returned = READ_SIZE_T();
+	for (i = 0; i < num_returned; i += 1)
+		cb_vm_state.stack[frame->bp + i] =
+			cb_vm_state.stack[cb_vm_state.sp - num_returned + i];
+	cb_vm_state.sp = frame->bp + num_returned;
 
 	/* close upvalues */
 	if (cb_vm_state.upvalues_idx != 0) {
@@ -486,8 +530,6 @@ DO_OP_RETURN: {
 		cb_vm_state.upvalues_idx = i + 1;
 	}
 
-	cb_vm_state.sp = frame->bp;
-	PUSH(retval);
 	goto end;
 }
 
