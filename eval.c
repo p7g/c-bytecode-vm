@@ -72,12 +72,16 @@ void print_stack_function(struct cb_value func)
 	size_t name;
 
 	name = func.val.as_function->name;
-	current_function = func.val.as_function->value.as_user;
 	fprintf(stderr, "\tin ");
-	if (current_function.module_id != -1) {
-		modspec = cb_agent_get_modspec(current_function.module_id);
-		fprintf(stderr, "%s.", cb_strptr(cb_agent_get_string(
-						cb_modspec_name(modspec))));
+	if (func.val.as_function->type == CB_FUNCTION_USER) {
+		current_function = func.val.as_function->value.as_user;
+		if (current_function.module_id != -1) {
+			modspec = cb_agent_get_modspec(
+					current_function.module_id);
+			fprintf(stderr, "%s.", cb_strptr(cb_agent_get_string(
+							cb_modspec_name(
+								modspec))));
+		}
 	}
 	fprintf(stderr, "%s\n", name == -1
 			? "<anonymous>"
