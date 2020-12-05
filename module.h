@@ -4,7 +4,6 @@
 #include <stddef.h>
 
 #include "hashmap.h"
-#include "struct.h"
 
 typedef struct modspec cb_modspec;
 
