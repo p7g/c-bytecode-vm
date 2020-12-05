@@ -62,7 +62,7 @@ export function get(self, key) {
   let hashed = do_hash(self, key);
   let bucket = self[BUCKETS][hashed];
 
-  if bucket == null {
+  if (bucket == null) {
     return null;
   }
 
@@ -73,7 +73,7 @@ export function set(self, key, value) {
   let hashed = do_hash(self, key);
   let bucket = self[BUCKETS][hashed];
 
-  if bucket == null {
+  if (bucket == null) {
     bucket = AssocList.new();
     self[LOAD] = self[LOAD] + 1;
     self[BUCKETS][hashed] = bucket;
@@ -81,7 +81,7 @@ export function set(self, key, value) {
 
   AssocList.set(bucket, key, value);
 
-  if self[LOAD] / self[CAP] < LOAD_FACTOR {
+  if (self[LOAD] / self[CAP] < LOAD_FACTOR) {
     grow(self);
   }
 }
@@ -89,12 +89,12 @@ export function set(self, key, value) {
 export function delete(self, key) {
   let hashed = do_hash(self, key);
   let bucket = self[BUCKETS][hashed];
-  if !bucket {
+  if (!bucket) {
     return false;
   }
 
-  if AssocList.delete(bucket, key) {
-    if AssocList.is_empty(bucket) {
+  if (AssocList.delete(bucket, key)) {
+    if (AssocList.is_empty(bucket)) {
       self[BUCKETS][hashed] = null;
       self[LOAD] = self[LOAD] - 1;
     }

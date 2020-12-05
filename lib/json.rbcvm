@@ -37,69 +37,69 @@ function tokenize(input) {
   let len = Array.length(chars);
   let i = 0;
 
-  while i < len {
+  while (i < len) {
     let char = chars[i];
     let token;
 
-    if char == ' '
+    if (char == ' '
         || char == '\n'
         || char == '\r'
-        || char == '\t' {
+        || char == '\t') {
       i = i + 1;
       continue;
-    } else if char == '{' {
+    } else if (char == '{') {
       token = token_new(T_LEFT_BRACE, "{");
       i = i + 1;
-    } else if char == '}' {
+    } else if (char == '}') {
       token = token_new(T_RIGHT_BRACE, "}");
       i = i + 1;
-    } else if char == '[' {
+    } else if (char == '[') {
       token = token_new(T_LEFT_BRACKET, "[");
       i = i + 1;
-    } else if char == ']' {
+    } else if (char == ']') {
       token = token_new(T_RIGHT_BRACKET, "]");
       i = i + 1;
-    } else if char == ':' {
+    } else if (char == ':') {
       token = token_new(T_COLON, ":");
       i = i + 1;
-    } else if char == ',' {
+    } else if (char == ',') {
       token = token_new(T_COMMA, ",");
       i = i + 1;
-    } else if char == 't'
+    } else if (char == 't'
         && chars[i + 1] == 'r'
         && chars[i + 2] == 'u'
-        && chars[i + 3] == 'e' {
+        && chars[i + 3] == 'e') {
       token = token_new(T_TRUE, "true");
       i = i + 4;
-    } else if char == 'f'
+    } else if (char == 'f'
         && chars[i + 1] == 'a'
         && chars[i + 2] == 'l'
         && chars[i + 3] == 's'
-        && chars[i + 4] == 'e' {
+        && chars[i + 4] == 'e') {
       token = token_new(T_FALSE, "false");
       i = i + 5;
-    } else if char == 'n'
+    } else if (char == 'n'
         && chars[i + 1] == 'u'
         && chars[i + 2] == 'l'
-        && chars[i + 3] == 'l' {
+        && chars[i + 3] == 'l') {
       token = token_new(T_NULL, "null");
       i = i + 4;
-    } else if char == '"' {
+    } else if (char == '"') {
       let str = "";
       i = i + 1;
 
-      while i < len && chars[i] != '"' {
+      while (i < len && chars[i] != '"') {
         str = string_concat(str, tostring(chars[i]));
         i = i + 1;
       }
 
       i = i + 1;
       token = token_new(T_STRING, str);
-    } else if Char.is_digit(char) || char == '-' {
+    } else if (Char.is_digit(char) || char == '-') {
       let is_float = false;
       let c;
       let str;
-      if char == '-' {
+      if (char == '-') {
         i = i + 1;
         c = chars[i];
         str = tostring(char);
@@ -107,26 +107,26 @@ function tokenize(input) {
         c = char;
         str = "";
       }
-      if c == '0' {
+      if (c == '0') {
         is_float = true;
         i = i + 1;
         str = string_concat(str, "0");
-      } else if Char.is_digit(c) && c != '0' {
+      } else if (Char.is_digit(c) && c != '0') {
         str = string_concat(str, tostring(c));
         i = i + 1;
       } else {
         return Result.error(E_UNEXPECTED_TOKEN, c);
       }
 
-      if chars[i] == '.' {
+      if (chars[i] == '.') {
         is_float = true;
         i = i + 1;
         str = string_concat(str, ".");
-      } else if is_float {
+      } else if (is_float) {
         return Result.error(E_UNEXPECTED_TOKEN, chars[i]);
       }
 
-      while i < len && Char.is_digit(chars[i]) {
+      while (i < len && Char.is_digit(chars[i])) {
         str = string_concat(str, tostring(chars[i]));
         i = i + 1;
       }
@@ -148,24 +148,24 @@ function parse_value(next, peek) {
   let value = token[TOK_VALUE];
 
   let ret;
-  if type == T_NUMBER {
+  if (type == T_NUMBER) {
     ret = String.parse_float(value, 10);
-  } else if type == T_STRING {
+  } else if (type == T_STRING) {
     ret = value;
-  } else if type == T_TRUE {
+  } else if (type == T_TRUE) {
     ret = true;
-  } else if type == T_FALSE {
+  } else if (type == T_FALSE) {
     ret = false;
-  } else if type == T_NULL {
+  } else if (type == T_NULL) {
     ret = null;
-  } else if type == T_LEFT_BRACE {
+  } else if (type == T_LEFT_BRACE) {
     let values = HashMap.new();
     let is_first = true;
 
-    while peek()[TOK_TYPE] != T_RIGHT_BRACE {
-      if !is_first {
+    while (peek()[TOK_TYPE] != T_RIGHT_BRACE) {
+      if (!is_first) {
         let comma = next();
-        if comma[TOK_TYPE] != T_COMMA {
+        if (comma[TOK_TYPE] != T_COMMA) {
           return Result.error(
             E_UNEXPECTED_TOKEN,
             string_concat("Expected comma, found '", comma[TOK_VALUE], "'"),
@@ -177,9 +177,9 @@ function parse_value(next, peek) {
 
       let key = parse_value(next, peek);
 
-      if Result.is_ok(key) {
+      if (Result.is_ok(key)) {
         key = Result.data(key);
-      } else if type_of(Result.data(key)) != "string" {
+      } else if (type_of(Result.data(key)) != "string") {
         return Result.error(
           E_UNEXPECTED_TOKEN,
           string_concat("Expected string, found ", key),
@@ -189,7 +189,7 @@ function parse_value(next, peek) {
       }
 
       let colon = next();
-      if colon[TOK_TYPE] != T_COLON {
+      if (colon[TOK_TYPE] != T_COLON) {
         return Result.error(
           E_UNEXPECTED_TOKEN,
           string_concat("Expected colon, found '", comma[TOK_VALUE], "'"),
@@ -198,7 +198,7 @@ function parse_value(next, peek) {
 
       let map_value = parse_value(next, peek);
 
-      if Result.is_ok(map_value) {
+      if (Result.is_ok(map_value)) {
         HashMap.set(values, key, Result.data(map_value));
       } else {
         return map_value;
@@ -208,14 +208,14 @@ function parse_value(next, peek) {
     next();  # consume right brace
 
     ret = values;
-  } else if type == T_LEFT_BRACKET {
+  } else if (type == T_LEFT_BRACKET) {
     let values = ArrayList.new();
 
     let is_first = true;
-    while peek()[TOK_TYPE] != T_RIGHT_BRACKET {
-      if !is_first {
+    while (peek()[TOK_TYPE] != T_RIGHT_BRACKET) {
+      if (!is_first) {
         let comma = next();
-        if comma[TOK_TYPE] != T_COMMA {
+        if (comma[TOK_TYPE] != T_COMMA) {
           return Result.error(
             E_UNEXPECTED_TOKEN,
             string_concat("Expected comma, found '", comma[TOK_VALUE], "'"),
@@ -227,7 +227,7 @@ function parse_value(next, peek) {
 
       let result = parse_value(next, peek);
 
-      if Result.is_ok(result) {
+      if (Result.is_ok(result)) {
         ArrayList.push(values, Result.data(result));
       } else {
         return result;
@@ -251,7 +251,7 @@ export function parse(input) {
   let tokens = tokenize(input);
   let i = 0;
 
-  if Result.is_error(tokens) {
+  if (Result.is_error(tokens)) {
     return tokens;
   }
   tokens = Result.data(tokens);
@@ -269,11 +269,11 @@ export function parse(input) {
 
   let data = parse_value(next, peek);
 
-  if Result.is_error(data) {
+  if (Result.is_error(data)) {
     return data;
   }
 
-  if i != len {
+  if (i != len) {
     return Result.error(
       E_INVALID_JSON,
       string_concat("Expected EOF, found ", tostring(tokens[i - 1][TOK_VALUE])),

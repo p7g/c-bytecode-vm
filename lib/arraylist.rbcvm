@@ -35,7 +35,7 @@ export function set(self, idx, value) {
 export function delete(self, index) {
   let len = length(self);
 
-  for let i = index + 1; i < len; i = i + 1 {
+  for (let i = index + 1; i < len; i = i + 1) {
     set(self, i - 1, get(self, i));
   }
 }
@@ -55,9 +55,9 @@ export function push(self, value) {
   let array = self[1];
   let len = Array.length(array);
 
-  if next_idx >= len {
+  if (next_idx >= len) {
     let new_array = Array.new(2 * len);
-    for let i = 0; i < next_idx; i = i + 1 {
+    for (let i = 0; i < next_idx; i = i + 1) {
       new_array[i] = array[i];
     }
     self[1] = array = new_array;
@@ -80,7 +80,7 @@ export function foreach(self, func) {
   let len = self[0];
   let array = self[1];
 
-  for let i = 0; i < len; i = i + 1 {
+  for (let i = 0; i < len; i = i + 1) {
     func(array[i], i, self);
   }
 }
@@ -89,8 +89,8 @@ export function find_index(self, func) {
   let len = length(self);
   let array = self[1];
 
-  for let i = 0; i < len; i = i + 1 {
-    if func(array[i], i, self) {
+  for (let i = 0; i < len; i = i + 1) {
+    if (func(array[i], i, self)) {
       return i;
     }
   }
@@ -113,7 +113,7 @@ export function map(self, func) {
 export function find(self, func) {
   let index = find_index(self, func);
 
-  if index < 0 {
+  if (index < 0) {
     return null;
   }
 

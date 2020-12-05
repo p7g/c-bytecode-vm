@@ -29,14 +29,14 @@ export function data(result) {
 }
 
 export function map(result, fn) {
-  if is_ok(result) {
+  if (is_ok(result)) {
     return fn(result);
   }
   return result;
 }
 
 export function map_error(result, fn) {
-  if is_error(result) {
+  if (is_error(result)) {
     return fn(result);
   }
   return result;

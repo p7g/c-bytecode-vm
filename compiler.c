@@ -1130,6 +1130,7 @@ static int compile_if_statement(struct cstate *state)
 	size_t else_label, end_label;
 
 	EXPECT(TOK_IF);
+	EXPECT(TOK_LEFT_PAREN);
 
 	else_label = LABEL();
 	end_label = LABEL();
@@ -1140,6 +1141,7 @@ static int compile_if_statement(struct cstate *state)
 	APPEND(OP_JUMP_IF_FALSE);
 	ADDR_OF(else_label);
 
+	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
 
 	while (!MATCH_P(TOK_RIGHT_BRACE))
@@ -1187,6 +1189,7 @@ static int compile_for_statement(struct cstate *state)
 	lstate.break_label = end_label;
 
 	EXPECT(TOK_FOR);
+	EXPECT(TOK_LEFT_PAREN);
 	
 	/* if there is an initializer */
 	if (!MATCH_P(TOK_SEMICOLON)) {
@@ -1213,10 +1216,11 @@ static int compile_for_statement(struct cstate *state)
 	MARK(increment_label);
 
 	/* if there is an increment */
-	if (!MATCH_P(TOK_LEFT_BRACE)) {
+	if (!MATCH_P(TOK_RIGHT_PAREN)) {
 		X(compile_expression(state));
 		APPEND(OP_POP);
 	}
+	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
 
 	APPEND(OP_JUMP);
@@ -1251,6 +1255,7 @@ static int compile_while_statement(struct cstate *state)
 	lstate.continue_label = start_label;
 
 	EXPECT(TOK_WHILE);
+	EXPECT(TOK_LEFT_PAREN);
 
 	MARK(start_label);
 	X(compile_expression(state));
@@ -1260,6 +1265,7 @@ static int compile_while_statement(struct cstate *state)
 	old_lstate = state->loop_state;
 	state->loop_state = &lstate;
 
+	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
 	while (!MATCH_P(TOK_RIGHT_BRACE))
 		X(compile_statement(state));

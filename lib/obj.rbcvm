@@ -37,16 +37,16 @@ export function getsuper(cls) {
 function resolve_method(cls, name) {
   let meth = null;
 
-  while null == (meth = HashMap.get(methods(cls), name))
-    && null != (cls = getsuper(cls)) {}
+  while (null == (meth = HashMap.get(methods(cls), name))
+    && null != (cls = getsuper(cls))) {}
   return meth;
 }
 
 export function _send(cls, obj, msg, args) {
   let meth = resolve_method(cls, msg);
-  if meth == null {
+  if (meth == null) {
     meth = resolve_method(cls, "method_missing");
-    if meth == null {
+    if (meth == null) {
         return Result.error(E_NO_SUCH_METHOD, msg);
     }
     let args_len = Array.length(args);

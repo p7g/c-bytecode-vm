@@ -11,7 +11,7 @@ export function length(self) {
   let current = Box.get(self);
   let len = 0;
 
-  while current {
+  while (current) {
     len = len + 1;
     current = current[1];
   }
@@ -27,12 +27,12 @@ export function prepend(self, value) {
 export function append(self, value) {
   let current = Box.get(self);
   let prev = null;
-  if current == null {
+  if (current == null) {
     Box.set(self, [value, null]);
     return;
   }
 
-  while current {
+  while (current) {
     prev = current;
     current = current[1];
   }
@@ -43,7 +43,7 @@ export function append(self, value) {
 export function foreach(self, func) {
   let current = Box.get(self);
 
-  for let i = 0; current; i = i + 1 {
+  for (let i = 0; current; i = i + 1) {
     func(current[0], i, self);
     current = current[1];
   }
@@ -52,8 +52,8 @@ export function foreach(self, func) {
 export function find(self, func) {
   let current = Box.get(self);
 
-  for let i = 0; current; i = i + 1 {
-    if func(current[0], i, self) {
+  for (let i = 0; current; i = i + 1) {
+    if (func(current[0], i, self)) {
       return current;
     }
   }
