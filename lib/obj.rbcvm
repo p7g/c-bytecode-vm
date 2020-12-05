@@ -46,18 +46,27 @@ export function _send(cls, obj, msg, args) {
   let meth = resolve_method(cls, msg);
   if meth == null {
     meth = resolve_method(cls, "method_missing");
+    if meth == null {
+        return Result.error(E_NO_SUCH_METHOD, msg);
+    }
+    let args_len = Array.length(args);
+    let new_args = Array.new(args_len + 2);
+    new_args[0] = obj;
+    new_args[1] = msg;
+    Array.foreach(args, function(v, i) {
+      new_args[i + 1] = v;
+    });
+    args = new_args;
+  } else {
     let args_len = Array.length(args);
     let new_args = Array.new(args_len + 1);
-    new_args[0] = msg;
+    new_args[0] = obj;
     Array.foreach(args, function(v, i) {
       new_args[i + 1] = v;
     });
     args = new_args;
   }
-  if meth == null {
-    return Result.error(E_NO_SUCH_METHOD, msg);
-  }
-  return meth(obj, args);
+  return apply(meth, args);
 }
 
 export function send(obj, msg, args) {
