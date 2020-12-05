@@ -260,8 +260,17 @@ char *cb_value_to_string(struct cb_value *val)
 		size_t struct_len = s->spec->nfields;
 		size_t element_lens[struct_len];
 		char *elements[struct_len];
-		cb_str name = cb_agent_get_string(s->spec->name);
-		len = cb_strlen(name) + 2;
+		const char *name;
+		size_t name_len;
+		if (s->spec->name == -1) {
+			name = "<anonymous>";
+			name_len = sizeof("<anonymous>") - 1;
+		} else {
+			cb_str n = cb_agent_get_string(s->spec->name);
+			name = cb_strptr(n);
+			name_len = cb_strlen(n);
+		}
+		len = name_len + 2;
 
 		for (int i = 0; i < struct_len; i += 1) {
 			elements[i] = cb_value_to_string(&s->fields[i]);
@@ -275,8 +284,8 @@ char *cb_value_to_string(struct cb_value *val)
 
 		ptr = buf = malloc(len + 1);
 		buf[len] = 0;
-		memcpy(buf, cb_strptr(name), cb_strlen(name));
-		ptr += cb_strlen(name);
+		memcpy(buf, name, name_len);
+		ptr += name_len;
 		*ptr++ = '{';
 		for (int i = 0; i < struct_len; i += 1) {
 			cb_str fname = cb_agent_get_string(
@@ -301,14 +310,23 @@ char *cb_value_to_string(struct cb_value *val)
 	case CB_VALUE_STRUCT_SPEC: {
 		size_t name_id = val->val.as_struct_spec->name;
 		char *ptr;
-		cb_str name = cb_agent_get_string(name_id);
-		len = cb_strlen(name) + sizeof("<struct >") - 1;
+		const char *name;
+		size_t name_len;
+		if (name_id == -1) {
+			name = "<anonymous>";
+			name_len = sizeof("<anonymous>") - 1;
+		} else {
+			cb_str n = cb_agent_get_string(name_id);
+			name = cb_strptr(n);
+			name_len = cb_strlen(n);
+		}
+		len = name_len + sizeof("<struct >") - 1;
 		ptr = buf = malloc(len + 1);
 		buf[len] = 0;
 		memcpy(ptr, "<struct ", 8);
 		ptr += 8;
-		memcpy(ptr, cb_strptr(name), cb_strlen(name));
-		ptr += cb_strlen(name);
+		memcpy(ptr, name, name_len);
+		ptr += name_len;
 		*ptr++ = '>';
 		assert(ptr == buf + len);
 		break;

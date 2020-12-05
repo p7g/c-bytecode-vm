@@ -1424,8 +1424,7 @@ static int compile_import_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_struct_statement(struct cstate *state, size_t *name_out,
-		int leave)
+static int compile_struct_decl(struct cstate *state, size_t *name_out)
 {
 	struct token name, field;
 	struct cb_struct_spec spec;
@@ -1433,10 +1432,14 @@ static int compile_struct_statement(struct cstate *state, size_t *name_out,
 	int first_field;
 
 	EXPECT(TOK_STRUCT);
-	name = EXPECT(TOK_IDENT);
-	name_id = intern_ident(state, &name);
-	if (name_out)
-		*name_out = name_id;
+	if (MATCH_P(TOK_IDENT)) {
+		name = EXPECT(TOK_IDENT);
+		name_id = intern_ident(state, &name);
+		if (name_out)
+			*name_out = name_id;
+	} else {
+		name_id = (size_t) -1;
+	}
 
 	num_fields = 0;
 	first_field = 1;
@@ -1462,19 +1465,31 @@ static int compile_struct_statement(struct cstate *state, size_t *name_out,
 	APPEND(OP_NEW_STRUCT_SPEC);
 	APPEND_SIZE_T(spec_id);
 
-	if (state->is_global) {
+	if (state->is_global && name_id != -1) {
 		APPEND(OP_DECLARE_GLOBAL);
 		APPEND_SIZE_T(name_id);
 		APPEND(OP_STORE_GLOBAL);
 		APPEND_SIZE_T(name_id);
-	} else {
+	} else if (name_id != -1) {
 		assert(state->scope != NULL);
 		binding_id = scope_add_binding(state->scope, name_id, 0);
 		APPEND(OP_STORE_LOCAL);
 		APPEND_SIZE_T(binding_id);
 	}
 
-	if (!leave)
+	return 0;
+}
+
+static int compile_struct_statement(struct cstate *state, size_t *name_out,
+		int leave)
+{
+	size_t name_id;
+
+	X(compile_struct_decl(state, &name_id));
+
+	if (name_out)
+		*name_out = name_id;
+	if (!leave || !state->is_global)
 		APPEND(OP_POP);
 
 	return 0;
@@ -1879,6 +1894,9 @@ static int nud(struct cstate *state)
 		break;
 	case TOK_FUNCTION:
 		X(compile_function(state, NULL));
+		break;
+	case TOK_STRUCT:
+		X(compile_struct_decl(state, NULL));
 		break;
 
 	default:
