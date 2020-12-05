@@ -48,7 +48,8 @@
 	X(upvalues, 0) \
 	X(apply, 2) \
 	X(now, 0) \
-	X(read_file_bytes, 1)
+	X(read_file_bytes, 1) \
+	X(toint, 1)
 
 INTRINSIC_LIST(DECL);
 
@@ -522,6 +523,28 @@ static int now(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 	result->type = CB_VALUE_DOUBLE;
 	result->val.as_double = t.tv_sec + 1e-9 * t.tv_nsec;
+
+	return 0;
+}
+
+static int toint(size_t argc, struct cb_value *argv, struct cb_value *result)
+{
+	struct cb_value arg;
+
+	arg = argv[0];
+	result->type = CB_VALUE_INT;
+
+	if (arg.type == CB_VALUE_INT)
+		result->val.as_int = arg.val.as_int;
+	else if (arg.type == CB_VALUE_DOUBLE)
+		result->val.as_int = (intptr_t) arg.val.as_double;
+	else if (arg.type == CB_VALUE_CHAR)
+		result->val.as_int = (intptr_t) arg.val.as_char;
+	else {
+		fprintf(stderr, "int: Cannot convert value of type %s to int\n",
+				cb_value_type_friendly_name(arg.type));
+		return 1;
+	}
 
 	return 0;
 }

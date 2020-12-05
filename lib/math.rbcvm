@@ -10,3 +10,11 @@ export function abs(n) {
 export function sqrt(n) {
     return n ** 0.5;
 }
+
+export function shift_left(a, b) {
+    return toint(a * 2 ** b);
+}
+
+export function shift_right(a, b) {
+    return toint(a / 2 ** b);
+}
