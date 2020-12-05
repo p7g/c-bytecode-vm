@@ -5,6 +5,7 @@
 
 #include "module.h"
 #include "string.h"
+#include "struct.h"
 
 void cb_agent_init(void);
 void cb_agent_deinit(void);
@@ -16,5 +17,11 @@ size_t cb_agent_reserve_modspec_id();
 const cb_modspec *cb_agent_get_modspec(size_t id);
 cb_modspec *cb_agent_get_modspec_by_name(size_t name);
 size_t cb_agent_modspec_count(void);
+size_t cb_agent_add_struct_spec(struct cb_struct_spec spec);
+const struct cb_struct_spec *cb_agent_get_struct_spec(size_t id);
+
+#ifdef DEBUG_VM
+void cb_agent_set_finished_compiling();
+#endif
 
 #endif

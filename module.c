@@ -4,6 +4,7 @@
 
 #include "agent.h"
 #include "module.h"
+#include "struct.h"
 
 struct modspec {
 	size_t id;
