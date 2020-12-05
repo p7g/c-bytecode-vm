@@ -10,27 +10,26 @@ let LOAD_FACTOR = 0.7;
 
 # hashmap
 
-# members
+struct HashMap {
+  cap, load, hash_fn, buckets
+}
 
-let CAP = 0;
-let LOAD = 1;
-let HASH_FN = 2;
-let BUCKETS = 3;
+# members
 
 function hash_string(str) {
   return Hash.fnv1a(string_bytes(str));
 }
 
 function do_hash(self, key) {
-  return self[HASH_FN](key) & self[CAP] - 1;
+  return self:hash_fn(key) & self:cap - 1;
 }
 
 function grow(self) {
-  let cap = self[CAP] = self[CAP] * 2;
+  let cap = self:cap = self:cap * 2;
 
-  let old_buckets = self[BUCKETS];
-  self[BUCKETS] = Array.new(cap);
-  self[LOAD] = 0;
+  let old_buckets = self:buckets;
+  self:buckets = Array.new(cap);
+  self:load = 0;
 
   Array.foreach(oldbuckets, function(bucket) {
     Array.foreach(AssocList.entries(bucket), function(entry) {
@@ -42,12 +41,12 @@ function grow(self) {
 # public
 
 export function with_capacity(capacity) {
-  return [
-    capacity,
-    0,
-    hash_string,
-    Array.new(capacity),
-  ];
+  return HashMap{
+    cap=capacity,
+    load=0,
+    hash_fn=hash_string,
+    buckets=Array.new(capacity),
+  };
 }
 
 export function new() {
@@ -55,12 +54,12 @@ export function new() {
 }
 
 export function set_hash_function(self, func) {
-  self[HASH_FN] = func;
+  self:hash_fn = func;
 }
 
 export function get(self, key) {
   let hashed = do_hash(self, key);
-  let bucket = self[BUCKETS][hashed];
+  let bucket = self:buckets[hashed];
 
   if (bucket == null) {
     return null;
@@ -71,32 +70,32 @@ export function get(self, key) {
 
 export function set(self, key, value) {
   let hashed = do_hash(self, key);
-  let bucket = self[BUCKETS][hashed];
+  let bucket = self:buckets[hashed];
 
   if (bucket == null) {
     bucket = AssocList.new();
-    self[LOAD] = self[LOAD] + 1;
-    self[BUCKETS][hashed] = bucket;
+    self:load = self:load + 1;
+    self:buckets[hashed] = bucket;
   }
 
   AssocList.set(bucket, key, value);
 
-  if (self[LOAD] / self[CAP] < LOAD_FACTOR) {
+  if (self:load / self:cap < LOAD_FACTOR) {
     grow(self);
   }
 }
 
 export function delete(self, key) {
   let hashed = do_hash(self, key);
-  let bucket = self[BUCKETS][hashed];
+  let bucket = self:buckets[hashed];
   if (!bucket) {
     return false;
   }
 
   if (AssocList.delete(bucket, key)) {
     if (AssocList.is_empty(bucket)) {
-      self[BUCKETS][hashed] = null;
-      self[LOAD] = self[LOAD] - 1;
+      self:buckets[hashed] = null;
+      self:load = self:load - 1;
     }
     return true;
   }

@@ -24,11 +24,8 @@ let T_NULL = 10;
 export let E_UNEXPECTED_TOKEN = 0;
 export let E_INVALID_JSON = 1;
 
-let TOK_TYPE = 0;
-let TOK_VALUE = 1;
-
-function token_new(type, value) {
-  return [type, value];
+struct Token {
+  type, value
 }
 
 function tokenize(input) {
@@ -48,41 +45,41 @@ function tokenize(input) {
       i = i + 1;
       continue;
     } else if (char == '{') {
-      token = token_new(T_LEFT_BRACE, "{");
+      token = Token{type=T_LEFT_BRACE, value="{"};
       i = i + 1;
     } else if (char == '}') {
-      token = token_new(T_RIGHT_BRACE, "}");
+      token = Token{type=T_RIGHT_BRACE, value="}"};
       i = i + 1;
     } else if (char == '[') {
-      token = token_new(T_LEFT_BRACKET, "[");
+      token = Token{type=T_LEFT_BRACKET, value="["};
       i = i + 1;
     } else if (char == ']') {
-      token = token_new(T_RIGHT_BRACKET, "]");
+      token = Token{type=T_RIGHT_BRACKET, value="]"};
       i = i + 1;
     } else if (char == ':') {
-      token = token_new(T_COLON, ":");
+      token = Token{type=T_COLON, value=":"};
       i = i + 1;
     } else if (char == ',') {
-      token = token_new(T_COMMA, ",");
+      token = Token{type=T_COMMA, value=","};
       i = i + 1;
     } else if (char == 't'
         && chars[i + 1] == 'r'
         && chars[i + 2] == 'u'
         && chars[i + 3] == 'e') {
-      token = token_new(T_TRUE, "true");
+      token = Token{type=T_TRUE, value="true"};
       i = i + 4;
     } else if (char == 'f'
         && chars[i + 1] == 'a'
         && chars[i + 2] == 'l'
         && chars[i + 3] == 's'
         && chars[i + 4] == 'e') {
-      token = token_new(T_FALSE, "false");
+      token = Token{type=T_FALSE, value="false"};
       i = i + 5;
     } else if (char == 'n'
         && chars[i + 1] == 'u'
         && chars[i + 2] == 'l'
         && chars[i + 3] == 'l') {
-      token = token_new(T_NULL, "null");
+      token = Token{type=T_NULL, value="null"};
       i = i + 4;
     } else if (char == '"') {
       let str = "";
@@ -94,7 +91,7 @@ function tokenize(input) {
       }
 
       i = i + 1;
-      token = token_new(T_STRING, str);
+      token = Token{type=T_STRING, value=str};
     } else if (Char.is_digit(char) || char == '-') {
       let is_float = false;
       let c;
@@ -131,7 +128,7 @@ function tokenize(input) {
         i = i + 1;
       }
 
-      token = token_new(T_NUMBER, str);
+      token = Token{type=T_NUMBER, value=str};
     } else {
       return Result.error(E_UNEXPECTED_TOKEN, char);
     }
@@ -144,8 +141,8 @@ function tokenize(input) {
 
 function parse_value(next, peek) {
   let token = next();
-  let type = token[TOK_TYPE];
-  let value = token[TOK_VALUE];
+  let type = token:type;
+  let value = token:value;
 
   let ret;
   if (type == T_NUMBER) {
@@ -162,13 +159,13 @@ function parse_value(next, peek) {
     let values = HashMap.new();
     let is_first = true;
 
-    while (peek()[TOK_TYPE] != T_RIGHT_BRACE) {
+    while (peek():type != T_RIGHT_BRACE) {
       if (!is_first) {
         let comma = next();
-        if (comma[TOK_TYPE] != T_COMMA) {
+        if (comma:type != T_COMMA) {
           return Result.error(
             E_UNEXPECTED_TOKEN,
-            string_concat("Expected comma, found '", comma[TOK_VALUE], "'"),
+            string_concat("Expected comma, found '", comma:value, "'"),
           );
         }
       } else {
@@ -189,10 +186,10 @@ function parse_value(next, peek) {
       }
 
       let colon = next();
-      if (colon[TOK_TYPE] != T_COLON) {
+      if (colon:type != T_COLON) {
         return Result.error(
           E_UNEXPECTED_TOKEN,
-          string_concat("Expected colon, found '", comma[TOK_VALUE], "'"),
+          string_concat("Expected colon, found '", comma:value, "'"),
         );
       }
 
@@ -212,13 +209,13 @@ function parse_value(next, peek) {
     let values = ArrayList.new();
 
     let is_first = true;
-    while (peek()[TOK_TYPE] != T_RIGHT_BRACKET) {
+    while (peek():type != T_RIGHT_BRACKET) {
       if (!is_first) {
         let comma = next();
-        if (comma[TOK_TYPE] != T_COMMA) {
+        if (comma:type != T_COMMA) {
           return Result.error(
             E_UNEXPECTED_TOKEN,
-            string_concat("Expected comma, found '", comma[TOK_VALUE], "'"),
+            string_concat("Expected comma, found '", comma:value, "'"),
           );
         }
       } else {
@@ -276,7 +273,7 @@ export function parse(input) {
   if (i != len) {
     return Result.error(
       E_INVALID_JSON,
-      string_concat("Expected EOF, found ", tostring(tokens[i - 1][TOK_VALUE])),
+      string_concat("Expected EOF, found ", tostring(tokens[i - 1]:value)),
     );
   }
 

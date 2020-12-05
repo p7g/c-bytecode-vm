@@ -4,41 +4,34 @@ import "fn.rbcvm";
 import "op.rbcvm";
 import "result.rbcvm";
 
-let OBJ_CLASS = 0;
-let OBJ_DICT = 1;
-let CLS_SUPER = 0;
-let CLS_METHODS = 1;
-
 export let E_NO_SUCH_METHOD = -1;
 
+struct Class { super, methods }
+struct Object { class, dict }
 
 export function class(super, methods) {
-  return [super, methods];
+  return Class{super=super, methods=methods};
 }
 
 export function new(class, args) {
-  let obj = [class, HashMap.new()];
+  let obj = Object{class=class, dict=HashMap.new()};
   send(obj, "init", args);
   return obj;
 }
 
 export function getclass(obj) {
-  return obj[OBJ_CLASS];
-}
-
-function methods(cls) {
-  return cls[CLS_METHODS];
+  return obj:class;
 }
 
 export function getsuper(cls) {
-  return cls[CLS_SUPER];
+  return cls:super;
 }
 
 function resolve_method(cls, name) {
   let meth = null;
 
-  while (null == (meth = HashMap.get(methods(cls), name))
-    && null != (cls = getsuper(cls))) {}
+  while (null == (meth = HashMap.get(cls:methods, name))
+    && null != (cls = cls:super)) {}
   return meth;
 }
 
@@ -70,17 +63,17 @@ export function _send(cls, obj, msg, args) {
 }
 
 export function send(obj, msg, args) {
-  return _send(getclass(obj), obj, msg, args);
+  return _send(obj:class, obj, msg, args);
 }
 
 export function super(obj, msg, args) {
-  return _send(getsuper(getclass(obj)), obj, msg, args);
+  return _send(obj:class:super, obj, msg, args);
 }
 
 export function getattr(obj, name) {
-  return HashMap.get(obj[OBJ_DICT], name);
+  return HashMap.get(obj:dict, name);
 }
 
 export function setattr(obj, name, value) {
-  HashMap.set(obj[OBJ_DICT], name, value);
+  HashMap.set(obj:dict, name, value);
 }

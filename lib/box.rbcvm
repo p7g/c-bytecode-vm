@@ -1,13 +1,15 @@
 module Box;
 
+struct Box { inner }
+
 export function new(value) {
-  return [value];
+  return Box{inner=value};
 }
 
 export function set(self, value) {
-  self[0] = value;
+  self:inner = value;
 }
 
 export function get(self, value) {
-  return self[0];
+  return self:inner;
 }

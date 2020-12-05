@@ -3,6 +3,10 @@ module List;
 import "array.rbcvm";
 import "box.rbcvm";
 
+struct Node {
+  car, cdr
+}
+
 export function new() {
   return Box.new(null);
 }
@@ -13,7 +17,7 @@ export function length(self) {
 
   while (current) {
     len = len + 1;
-    current = current[1];
+    current = current:cdr;
   }
 
   return len;
@@ -21,31 +25,31 @@ export function length(self) {
 
 export function prepend(self, value) {
   let current = Box.get(self);
-  Box.set(self, [value, current]);
+  Box.set(self, Node{car=value, cdr=current});
 }
 
 export function append(self, value) {
   let current = Box.get(self);
   let prev = null;
   if (current == null) {
-    Box.set(self, [value, null]);
+    Box.set(self, Node{car=value, cdr=null});
     return;
   }
 
   while (current) {
     prev = current;
-    current = current[1];
+    current = current:cdr;
   }
 
-  prev[1] = [value, null];
+  prev:cdr = [value, null];
 }
 
 export function foreach(self, func) {
   let current = Box.get(self);
 
   for (let i = 0; current; i = i + 1) {
-    func(current[0], i, self);
-    current = current[1];
+    func(current:car, i, self);
+    current = current:cdr;
   }
 }
 
@@ -53,8 +57,8 @@ export function find(self, func) {
   let current = Box.get(self);
 
   for (let i = 0; current; i = i + 1) {
-    if (func(current[0], i, self)) {
-      return current;
+    if (func(current:car, i, self)) {
+      return current:car;
     }
   }
 
