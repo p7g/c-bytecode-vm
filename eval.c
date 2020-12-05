@@ -21,13 +21,6 @@
 #define STACK_MAX 30000
 #define STACK_INIT_SIZE 1024
 
-struct frame {
-	struct frame *parent;
-	size_t bp;
-	struct cb_module *module;
-	int is_function;
-};
-
 void cb_vm_init(cb_bytecode *bytecode)
 {
 	cb_vm_state.bytecode = bytecode;
@@ -113,11 +106,11 @@ inline struct cb_value cb_get_upvalue(struct cb_upvalue *uv)
 	return uv->v.value;
 }
 
-static int cb_eval(size_t pc, struct frame *frame);
+static int cb_eval(size_t pc, struct cb_frame *frame);
 
 int cb_run(void)
 {
-	struct frame frame;
+	struct cb_frame frame;
 
 	frame.parent = NULL;
 	frame.module = NULL;
@@ -147,7 +140,7 @@ int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 		size_t args_len, struct cb_value *result)
 {
 	int i, ret;
-	struct frame frame;
+	struct cb_frame frame;
 	struct cb_user_function *func;
 
 	assert(CB_VALUE_IS_USER_FN(&fn));
@@ -206,7 +199,7 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct frame *frame)
 }
 #endif
 
-static int cb_eval(size_t pc, struct frame *frame)
+static int cb_eval(size_t pc, struct cb_frame *frame)
 {
 	int retval = 0;
 	cb_vm_state.frame = frame;
@@ -425,7 +418,7 @@ DO_OP_CALL: {
 	size_t num_args, name;
 	struct cb_value func_val, result;
 	struct cb_function *func;
-	struct frame next_frame;
+	struct cb_frame next_frame;
 
 	num_args = READ_SIZE_T();
 	func_val = cb_vm_state.stack[cb_vm_state.sp - num_args - 1];

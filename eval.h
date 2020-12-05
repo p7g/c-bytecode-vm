@@ -17,7 +17,12 @@ struct cb_upvalue {
 	} v;
 };
 
-struct frame;
+struct cb_frame {
+	struct cb_frame *parent;
+	size_t bp;
+	struct cb_module *module;
+	int is_function;
+};
 
 struct {
 	cb_bytecode *bytecode;
@@ -25,7 +30,7 @@ struct {
 	struct cb_value *stack;
 	size_t sp, stack_size;
 
-	struct frame *frame;
+	struct cb_frame *frame;
 
 	struct cb_upvalue **upvalues;
 	size_t upvalues_idx, upvalues_size;
