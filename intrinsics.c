@@ -418,7 +418,7 @@ static int read_file_bytes(size_t argc, struct cb_value *argv,
 		return 1;
 	}
 
-	f = fopen(cb_strptr(str), "r");
+	f = fopen(cb_strptr(str), "rb");
 	if (!f) {
 		perror("fopen");
 		return 1;
@@ -448,7 +448,7 @@ static int read_file_bytes(size_t argc, struct cb_value *argv,
 	for (i = 0; i < len; i += 1) {
 		result->val.as_array->values[i] = (struct cb_value) {
 			.type = CB_VALUE_INT,
-			.val.as_int = buf[i],
+			.val.as_int = buf[i] & 0xFF,
 		};
 	}
 
