@@ -18,7 +18,9 @@
 	X(CB_VALUE_INTERNED_STRING) \
 	X(CB_VALUE_STRING) \
 	X(CB_VALUE_ARRAY) \
-	X(CB_VALUE_FUNCTION)
+	X(CB_VALUE_FUNCTION) \
+	X(CB_VALUE_STRUCT_SPEC) \
+	X(CB_VALUE_STRUCT)
 
 enum cb_value_type {
 #define COMMA(V) V,
@@ -74,6 +76,10 @@ struct cb_value {
 		struct cb_string *as_string;
 		struct cb_array *as_array;
 		struct cb_function *as_function;
+		struct cb_struct *as_struct;
+		/* the struct spec is not garbage collected; it needs to have a
+		   lifetime as long as the VM */
+		const struct cb_struct_spec *as_struct_spec;
 	} val;
 };
 

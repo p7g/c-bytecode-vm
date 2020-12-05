@@ -16,7 +16,7 @@ export function parse_integer(str, base) {
   Array.reverse(cs);
 
   Array.foreach(cs, function(char, i) {
-    if Char.is_digit(char) {
+    if (Char.is_digit(char)) {
       sum = sum + Char.to_digit(char) * base ** i;
     }
   });
@@ -29,12 +29,12 @@ export function parse_float(str) {
   let negate = false;
   let chars = chars(str);
 
-  if chars[0] == '-' {
+  if (chars[0] == '-') {
     negate = true;
   }
 
   chars = Iter.from_array(chars);
-  if negate {
+  if (negate) {
     chars = Iter.drop(chars, 1);
   }
 
@@ -47,7 +47,7 @@ export function parse_float(str) {
     sum = sum + tofloat(Char.to_digit(c)) / 10 ** (i + 1);
   });
 
-  if negate {
+  if (negate) {
     sum = sum * -1;
   }
 

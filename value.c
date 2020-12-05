@@ -8,6 +8,7 @@
 #include "alloc.h"
 #include "eval.h"
 #include "string.h"
+#include "struct.h"
 #include "value.h"
 
 static void adjust_refcount(struct cb_value *value, int amount)
@@ -126,6 +127,9 @@ int cb_value_is_truthy(struct cb_value *val)
 		return 1;
 	case CB_VALUE_NULL:
 		return 0;
+	case CB_VALUE_STRUCT:
+	case CB_VALUE_STRUCT_SPEC:
+		return 1;
 	}
 	return 0;
 }
@@ -250,6 +254,84 @@ char *cb_value_to_string(struct cb_value *val)
 		break;
 	}
 
+	case CB_VALUE_STRUCT: {
+		char *ptr;
+		struct cb_struct *s = val->val.as_struct;
+		size_t struct_len = s->spec->nfields;
+		size_t element_lens[struct_len];
+		char *elements[struct_len];
+		const char *name;
+		size_t name_len;
+		if (s->spec->name == -1) {
+			name = "<anonymous>";
+			name_len = sizeof("<anonymous>") - 1;
+		} else {
+			cb_str n = cb_agent_get_string(s->spec->name);
+			name = cb_strptr(n);
+			name_len = cb_strlen(n);
+		}
+		len = name_len + 2;
+
+		for (int i = 0; i < struct_len; i += 1) {
+			elements[i] = cb_value_to_string(&s->fields[i]);
+			len += element_lens[i] = strlen(elements[i]);
+			len += cb_strlen(cb_agent_get_string(
+						s->spec->fields[i]));
+			len += 3; /* space equal space */
+			if (i != 0)
+				len += 2;
+		}
+
+		ptr = buf = malloc(len + 1);
+		buf[len] = 0;
+		memcpy(buf, name, name_len);
+		ptr += name_len;
+		*ptr++ = '{';
+		for (int i = 0; i < struct_len; i += 1) {
+			cb_str fname = cb_agent_get_string(
+					s->spec->fields[i]);
+			memcpy(ptr, cb_strptr(fname), cb_strlen(fname));
+			ptr += cb_strlen(fname);
+			memcpy(ptr, " = ", 3);
+			ptr += 3;
+			memcpy(ptr, elements[i], element_lens[i]);
+			free(elements[i]);
+			ptr += element_lens[i];
+			if (i + 1 < struct_len) {
+				*ptr++ = ',';
+				*ptr++ = ' ';
+			}
+		}
+		*ptr++ = '}';
+		assert(ptr == buf + len);
+		break;
+	}
+
+	case CB_VALUE_STRUCT_SPEC: {
+		size_t name_id = val->val.as_struct_spec->name;
+		char *ptr;
+		const char *name;
+		size_t name_len;
+		if (name_id == -1) {
+			name = "<anonymous>";
+			name_len = sizeof("<anonymous>") - 1;
+		} else {
+			cb_str n = cb_agent_get_string(name_id);
+			name = cb_strptr(n);
+			name_len = cb_strlen(n);
+		}
+		len = name_len + sizeof("<struct >") - 1;
+		ptr = buf = malloc(len + 1);
+		buf[len] = 0;
+		memcpy(ptr, "<struct ", 8);
+		ptr += 8;
+		memcpy(ptr, name, name_len);
+		ptr += name_len;
+		*ptr++ = '>';
+		assert(ptr == buf + len);
+		break;
+	}
+
 	default:
 		fprintf(stderr, "unsupported to_string\n");
 		abort();
@@ -285,6 +367,8 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		return a->val.as_bool == b->val.as_bool;
 	case CB_VALUE_CHAR:
 		return a->val.as_char == b->val.as_char;
+	case CB_VALUE_STRUCT_SPEC:
+		return a->val.as_struct_spec == b->val.as_struct_spec;
 	case CB_VALUE_NULL:
 		return 1;
 	case CB_VALUE_ARRAY: {
@@ -312,6 +396,18 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 			== b->val.as_function->value.as_native;
 	case CB_VALUE_INTERNED_STRING:
 		return a->val.as_interned_string == b->val.as_interned_string;
+	case CB_VALUE_STRUCT: {
+		if (a->val.as_struct->spec != b->val.as_struct->spec)
+			return 0;
+		struct cb_struct *left, *right;
+		left = a->val.as_struct;
+		right = b->val.as_struct;
+		for (int i = 0; i < left->spec->nfields; i += 1) {
+			if (!cb_value_eq(&left->fields[i], &right->fields[i]))
+				return 0;
+		}
+		return 1;
+	}
 	default:
 		return 0;
 	}
@@ -403,6 +499,10 @@ const char *cb_value_type_friendly_name(enum cb_value_type typ)
 		return "array";
 	case CB_VALUE_FUNCTION:
 		return "function";
+	case CB_VALUE_STRUCT:
+		return "struct";
+	case CB_VALUE_STRUCT_SPEC:
+		return "struct spec";
 	}
 
 	return "";
@@ -441,6 +541,7 @@ void cb_value_mark(struct cb_value *val)
 	case CB_VALUE_CHAR:
 	case CB_VALUE_NULL:
 	case CB_VALUE_INTERNED_STRING:
+	case CB_VALUE_STRUCT_SPEC:
 		return;
 
 	case CB_VALUE_STRING:
@@ -491,6 +592,22 @@ void cb_value_mark(struct cb_value *val)
 					cb_value_mark(&uv->v.value);
 			}
 		}
+		break;
+	}
+
+	case CB_VALUE_STRUCT: {
+		int i;
+		if (cb_gc_is_marked((cb_gc_header *) val->val.as_struct))
+			break;
+#ifdef DEBUG_GC
+		char *as_str = cb_value_to_string(val);
+		printf("GC: marked value at %p: %s\n", val->val.as_struct,
+				as_str);
+		free(as_str);
+#endif
+		cb_gc_mark((cb_gc_header *) val->val.as_struct);
+		for (i = 0; i < val->val.as_struct->spec->nfields; i += 1)
+			cb_value_mark(&val->val.as_struct->fields[i]);
 		break;
 	}
 	}

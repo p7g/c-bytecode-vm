@@ -11,7 +11,7 @@ export function from_array(array) {
   let i = idx;
   idx = idx + 1;
   return function from_array_iterator() {
-    if index == len {
+    if (index == len) {
       return null;
     }
     let item = array[index];
@@ -32,7 +32,7 @@ export function count() {
 export function range(to) {
   let i = 0;
   return function() {
-    if i >= to {
+    if (i >= to) {
       return null;
     }
     let val = i;
@@ -45,7 +45,7 @@ export function enumerate(it) {
   let i = 0;
   return function() {
     let val = it();
-    if val == null {
+    if (val == null) {
       return null;
     }
 
@@ -56,7 +56,7 @@ export function enumerate(it) {
 }
 
 export function foreach(it, fn) {
-  for let val; (val = it()) != null; {
+  for (let val; (val = it()) != null;) {
     fn(val);
   }
 }
@@ -74,7 +74,7 @@ export function drain(it) {
 export function map(it, fn) {
   return function() {
     let val = it();
-    if val == null {
+    if (val == null) {
       return null;
     }
     return fn(val);
@@ -84,7 +84,7 @@ export function map(it, fn) {
 export function take(it, n) {
   let i = 0;
   return function() {
-    if i >= n {
+    if (i >= n) {
       return null;
     }
     i = i + 1;
@@ -93,7 +93,7 @@ export function take(it, n) {
 }
 
 export function drop(it, n) {
-  for let i = 0; i < n; i = i + 1 {
+  for (let i = 0; i < n; i = i + 1) {
     it();
   }
 
@@ -104,12 +104,12 @@ export function take_while(it, pred) {
   let done = false;
 
   return function() {
-    if done {
+    if (done) {
       return null;
     }
 
     let val = it();
-    if !pred(val) {
+    if (!pred(val)) {
       done = true;
       return null;
     }
@@ -123,7 +123,7 @@ export function zip(a, b) {
     let val_a = a();
     let val_b = b();
 
-    if a == null && b == null {
+    if (a == null && b == null) {
       return null;
     }
     return [val_a, val_b];

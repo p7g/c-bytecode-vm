@@ -79,6 +79,7 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	case OP_DUP:
 	case OP_RETURN:
 	case OP_EXIT_MODULE:
+	case OP_NEW_STRUCT:
 		printf("%s\n", cb_opcode_name(op));
 		return WITH_ARGS(0);
 
@@ -102,12 +103,16 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	case OP_ENTER_MODULE:
 	case OP_NEW_ARRAY_WITH_VALUES:
 	case OP_CALL:
+	case OP_NEW_STRUCT_SPEC:
 		printf("%s(%zu)\n", cb_opcode_name(op), NEXT_USIZE());
 		return WITH_ARGS(1);
 
 	case OP_LOAD_GLOBAL:
 	case OP_DECLARE_GLOBAL:
 	case OP_STORE_GLOBAL:
+	case OP_LOAD_STRUCT:
+	case OP_STORE_STRUCT:
+	case OP_ADD_STRUCT_FIELD:
 		printf("%s(\"%s\")\n", cb_opcode_name(op),
 				cb_strptr(cb_agent_get_string(
 						NEXT_USIZE())));

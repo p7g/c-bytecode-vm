@@ -2,10 +2,15 @@ module ArrayList;
 
 import "array.rbcvm";
 
+struct ArrayList {
+  length,
+  array,
+}
+
 let INITIAL_SIZE = 16;
 
 export function from_array(len, array) {
-  return [len, array];
+  return ArrayList{length=len, array=array};
 }
 
 export function with_capacity(cap) {
@@ -17,31 +22,31 @@ export function new() {
 }
 
 export function length(self) {
-  return self[0];
+  return self:length;
 }
 
 export function capacity(self) {
-  return Array.length(self[1]);
+  return Array.length(self:array);
 }
 
 export function get(self, idx) {
-  return self[1][idx];
+  return self:array[idx];
 }
 
 export function set(self, idx, value) {
-  self[1][idx] = value;
+  self:array[idx] = value;
 }
 
 export function delete(self, index) {
-  let len = length(self);
+  let len = self:length;
 
-  for let i = index + 1; i < len; i = i + 1 {
+  for (let i = index + 1; i < len; i = i + 1) {
     set(self, i - 1, get(self, i));
   }
 }
 
 export function to_array(self) {
-  let new_array = Array.new(self[0]);
+  let new_array = Array.new(self:length);
 
   foreach(self, function(val, i) {
     new_array[i] = val;
@@ -51,46 +56,46 @@ export function to_array(self) {
 }
 
 export function push(self, value) {
-  let next_idx = self[0];
-  let array = self[1];
+  let next_idx = self:length;
+  let array = self:array;
   let len = Array.length(array);
 
-  if next_idx >= len {
+  if (next_idx >= len) {
     let new_array = Array.new(2 * len);
-    for let i = 0; i < next_idx; i = i + 1 {
+    for (let i = 0; i < next_idx; i = i + 1) {
       new_array[i] = array[i];
     }
-    self[1] = array = new_array;
+    self:array = array = new_array;
   }
 
   array[next_idx] = value;
-  self[0] = next_idx + 1;
+  self:length = next_idx + 1;
 }
 
 export function pop(self) {
-  if (self[0] <= 0) {
+  if (self:length <= 0) {
     return null;
   }
 
-  let i = self[0] = self[0] - 1;
-  return self[1][i];
+  let i = self:length = self:length - 1;
+  return self:array[i];
 }
 
 export function foreach(self, func) {
-  let len = self[0];
-  let array = self[1];
+  let len = self:length;
+  let array = self:array;
 
-  for let i = 0; i < len; i = i + 1 {
+  for (let i = 0; i < len; i = i + 1) {
     func(array[i], i, self);
   }
 }
 
 export function find_index(self, func) {
-  let len = length(self);
-  let array = self[1];
+  let len = self:length;
+  let array = self:array;
 
-  for let i = 0; i < len; i = i + 1 {
-    if func(array[i], i, self) {
+  for (let i = 0; i < len; i = i + 1) {
+    if (func(array[i], i, self)) {
       return i;
     }
   }
@@ -99,7 +104,7 @@ export function find_index(self, func) {
 }
 
 export function map(self, func) {
-  let len = length(self);
+  let len = self:length;
   let cap = capacity(self);
   let new_array = Array.new(cap);
 
@@ -113,7 +118,7 @@ export function map(self, func) {
 export function find(self, func) {
   let index = find_index(self, func);
 
-  if index < 0 {
+  if (index < 0) {
     return null;
   }
 

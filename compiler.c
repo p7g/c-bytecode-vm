@@ -15,6 +15,7 @@
 #include "hashmap.h"
 #include "module.h"
 #include "opcode.h"
+#include "struct.h"
 
 #define INITIAL_BYTECODE_SIZE 32
 #define LENGTH(ARR) (sizeof(ARR) / sizeof(ARR[0]))
@@ -45,6 +46,7 @@
 	X(TOK_AND_AND) \
 	X(TOK_PIPE_PIPE) \
 	X(TOK_SEMICOLON) \
+	X(TOK_COLON) \
 	X(TOK_EQUAL) \
 	X(TOK_EQUAL_EQUAL) \
 	X(TOK_TILDE) \
@@ -70,6 +72,7 @@
 	X(TOK_MODULE) \
 	X(TOK_EXPORT) \
 	X(TOK_IMPORT) \
+	X(TOK_STRUCT) \
 	X(TOK_EOF)
 
 enum token_type {
@@ -127,6 +130,7 @@ static struct {
 	KW("module", TOK_MODULE),
 	KW("export", TOK_EXPORT),
 	KW("import", TOK_IMPORT),
+	KW("struct", TOK_STRUCT),
 };
 #undef KW
 
@@ -210,6 +214,7 @@ static int next_token(lex_state *state, const char *input, struct token *dest)
 		case ')': TOKEN(TOK_RIGHT_PAREN);
 		case '%': TOKEN(TOK_PERCENT);
 		case ';': TOKEN(TOK_SEMICOLON);
+		case ':': TOKEN(TOK_COLON);
 		case ',': TOKEN(TOK_COMMA);
 		case '~': TOKEN(TOK_TILDE);
 		case '.': TOKEN(TOK_DOT);
@@ -840,6 +845,8 @@ static int compile_continue_statement(struct cstate *);
 static int compile_return_statement(struct cstate *);
 static int compile_export_statement(struct cstate *);
 static int compile_import_statement(struct cstate *);
+static int compile_struct_statement(struct cstate *, size_t *name_out,
+		int leave);
 static int compile_expression_statement(struct cstate *);
 
 static int compile_expression(struct cstate *);
@@ -879,6 +886,9 @@ end:
 	if (final) {
 		APPEND(OP_HALT);
 		bytecode_finalize(state->bytecode);
+#ifdef DEBUG_VM
+		cb_agent_set_finished_compiling();
+#endif
 	}
 
 	return 0;
@@ -916,6 +926,9 @@ static int compile_statement(struct cstate *state)
 		break;
 	case TOK_IMPORT:
 		X(compile_import_statement(state));
+		break;
+	case TOK_STRUCT:
+		X(compile_struct_statement(state, NULL, 0));
 		break;
 	default:
 		X(compile_expression_statement(state));
@@ -1117,6 +1130,7 @@ static int compile_if_statement(struct cstate *state)
 	size_t else_label, end_label;
 
 	EXPECT(TOK_IF);
+	EXPECT(TOK_LEFT_PAREN);
 
 	else_label = LABEL();
 	end_label = LABEL();
@@ -1127,6 +1141,7 @@ static int compile_if_statement(struct cstate *state)
 	APPEND(OP_JUMP_IF_FALSE);
 	ADDR_OF(else_label);
 
+	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
 
 	while (!MATCH_P(TOK_RIGHT_BRACE))
@@ -1174,6 +1189,7 @@ static int compile_for_statement(struct cstate *state)
 	lstate.break_label = end_label;
 
 	EXPECT(TOK_FOR);
+	EXPECT(TOK_LEFT_PAREN);
 	
 	/* if there is an initializer */
 	if (!MATCH_P(TOK_SEMICOLON)) {
@@ -1200,10 +1216,11 @@ static int compile_for_statement(struct cstate *state)
 	MARK(increment_label);
 
 	/* if there is an increment */
-	if (!MATCH_P(TOK_LEFT_BRACE)) {
+	if (!MATCH_P(TOK_RIGHT_PAREN)) {
 		X(compile_expression(state));
 		APPEND(OP_POP);
 	}
+	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
 
 	APPEND(OP_JUMP);
@@ -1238,6 +1255,7 @@ static int compile_while_statement(struct cstate *state)
 	lstate.continue_label = start_label;
 
 	EXPECT(TOK_WHILE);
+	EXPECT(TOK_LEFT_PAREN);
 
 	MARK(start_label);
 	X(compile_expression(state));
@@ -1247,6 +1265,7 @@ static int compile_while_statement(struct cstate *state)
 	old_lstate = state->loop_state;
 	state->loop_state = &lstate;
 
+	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
 	while (!MATCH_P(TOK_RIGHT_BRACE))
 		X(compile_statement(state));
@@ -1336,6 +1355,8 @@ static int compile_export_statement(struct cstate *state)
 		X(compile_let_statement(state, &name, 1));
 	} else if (MATCH_P(TOK_FUNCTION)) {
 		X(compile_function_statement(state, &name, 1));
+	} else if (MATCH_P(TOK_STRUCT)) {
+		X(compile_struct_statement(state, &name, 1));
 	} else {
 		ERROR_AT_P(PEEK(), "Can only export function and let declarations");
 		return 1;
@@ -1403,6 +1424,77 @@ static int compile_import_statement(struct cstate *state)
 	return 0;
 }
 
+static int compile_struct_decl(struct cstate *state, size_t *name_out)
+{
+	struct token name, field;
+	struct cb_struct_spec spec;
+	size_t name_id, num_fields, spec_id, binding_id;
+	int first_field;
+
+	EXPECT(TOK_STRUCT);
+	if (MATCH_P(TOK_IDENT)) {
+		name = EXPECT(TOK_IDENT);
+		name_id = intern_ident(state, &name);
+		if (name_out)
+			*name_out = name_id;
+	} else {
+		name_id = (size_t) -1;
+	}
+
+	num_fields = 0;
+	first_field = 1;
+	cb_struct_spec_init(&spec, name_id);
+
+	EXPECT(TOK_LEFT_BRACE);
+	while (!MATCH_P(TOK_RIGHT_BRACE)) {
+		if (first_field) {
+			first_field = 0;
+		} else {
+			EXPECT(TOK_COMMA);
+			/* support trailing comma */
+			if (MATCH_P(TOK_RIGHT_BRACE))
+				break;
+		}
+		num_fields += 1;
+		field = EXPECT(TOK_IDENT);
+		cb_struct_spec_add_field(&spec, intern_ident(state, &field));
+	}
+	EXPECT(TOK_RIGHT_BRACE);
+
+	spec_id = cb_agent_add_struct_spec(spec);
+	APPEND(OP_NEW_STRUCT_SPEC);
+	APPEND_SIZE_T(spec_id);
+
+	if (state->is_global && name_id != -1) {
+		APPEND(OP_DECLARE_GLOBAL);
+		APPEND_SIZE_T(name_id);
+		APPEND(OP_STORE_GLOBAL);
+		APPEND_SIZE_T(name_id);
+	} else if (name_id != -1) {
+		assert(state->scope != NULL);
+		binding_id = scope_add_binding(state->scope, name_id, 0);
+		APPEND(OP_STORE_LOCAL);
+		APPEND_SIZE_T(binding_id);
+	}
+
+	return 0;
+}
+
+static int compile_struct_statement(struct cstate *state, size_t *name_out,
+		int leave)
+{
+	size_t name_id;
+
+	X(compile_struct_decl(state, &name_id));
+
+	if (name_out)
+		*name_out = name_id;
+	if (!leave || !state->is_global)
+		APPEND(OP_POP);
+
+	return 0;
+}
+
 static int compile_expression_statement(struct cstate *state)
 {
 	X(compile_expression(state));
@@ -1426,7 +1518,6 @@ static int lbp(enum token_type op)
 	case TOK_SEMICOLON:
 	case TOK_RIGHT_PAREN:
 	case TOK_RIGHT_BRACKET:
-	case TOK_LEFT_BRACE:
 	case TOK_COMMA:
 		return 0;
 
@@ -1463,6 +1554,8 @@ static int lbp(enum token_type op)
 
 	case TOK_LEFT_PAREN:
 	case TOK_LEFT_BRACKET:
+	case TOK_COLON:
+	case TOK_LEFT_BRACE:
 		return 16;
 
 	case TOK_DOT:
@@ -1802,6 +1895,9 @@ static int nud(struct cstate *state)
 	case TOK_FUNCTION:
 		X(compile_function(state, NULL));
 		break;
+	case TOK_STRUCT:
+		X(compile_struct_decl(state, NULL));
+		break;
 
 	default:
 		ERROR_AT_P(PEEK(), "Expected expression");
@@ -1929,6 +2025,57 @@ static int compile_index_expression(struct cstate *state)
 	return 0;
 }
 
+static int compile_struct_field_expression(struct cstate *state)
+{
+	struct token fname_tok;
+	size_t name;
+
+	EXPECT(TOK_COLON);
+	fname_tok = EXPECT(TOK_IDENT);
+	name = intern_ident(state, &fname_tok);
+
+	if (MATCH_P(TOK_EQUAL)) {
+		EXPECT(TOK_EQUAL);
+		X(compile_expression(state));
+		APPEND(OP_STORE_STRUCT);
+	} else {
+		APPEND(OP_LOAD_STRUCT);
+	}
+
+	APPEND_SIZE_T(name);
+	return 0;
+}
+
+static int compile_struct_expression(struct cstate *state)
+{
+	int first_field;
+	struct token name_tok;
+	size_t name;
+
+	EXPECT(TOK_LEFT_BRACE);
+	APPEND(OP_NEW_STRUCT);
+
+	first_field = 1;
+	while (!MATCH_P(TOK_RIGHT_BRACE)) {
+		if (first_field) {
+			first_field = 0;
+		} else {
+			EXPECT(TOK_COMMA);
+			if (MATCH_P(TOK_RIGHT_BRACE))
+				break;
+		}
+		name_tok = EXPECT(TOK_IDENT);
+		name = intern_ident(state, &name_tok);
+		EXPECT(TOK_EQUAL);
+		X(compile_expression(state));
+		APPEND(OP_ADD_STRUCT_FIELD);
+		APPEND_SIZE_T(name);
+	}
+	EXPECT(TOK_RIGHT_BRACE);
+
+	return 0;
+}
+
 static int compile_short_circuit_binary(struct cstate *state)
 {
 	struct token tok;
@@ -1991,6 +2138,14 @@ static int led(struct cstate *state)
 
 	case TOK_LEFT_BRACKET:
 		X(compile_index_expression(state));
+		break;
+
+	case TOK_COLON:
+		X(compile_struct_field_expression(state));
+		break;
+
+	case TOK_LEFT_BRACE:
+		X(compile_struct_expression(state));
 		break;
 
 	default:
