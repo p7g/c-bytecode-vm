@@ -210,7 +210,6 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct frame *frame)
 static int cb_eval(size_t pc, struct frame *frame)
 {
 	int retval = 0;
-	enum cb_opcode op = OP_HALT;
 	cb_vm_state.frame = frame;
 
 #define TABLE_ENTRY(OP) &&DO_##OP,
@@ -225,7 +224,7 @@ static int cb_eval(size_t pc, struct frame *frame)
 		debug_state(cb_vm_state.bytecode, pc, frame); \
 		size_t _next = NEXT(); \
 		assert(_next >= 0 && _next < OP_MAX); \
-		goto *dispatch_table[op = _next]; \
+		goto *dispatch_table[_next]; \
 	})
 #else
 # define DISPATCH() ({ \
@@ -944,25 +943,31 @@ DO_OP_LOAD_STRUCT: {
 	DISPATCH();
 }
 
-DO_OP_ADD_STRUCT_FIELD:
-DO_OP_STORE_STRUCT: {
-	size_t fname = READ_SIZE_T();
-	struct cb_value val = POP();
-	struct cb_value recv = POP();
-	if (recv.type != CB_VALUE_STRUCT)
-		ERROR("Cannot set field of non-struct type %s\n",
-				cb_value_type_friendly_name(recv.type));
-	struct cb_struct *s = recv.val.as_struct;
-	if (cb_struct_set_field(s, fname, val)) {
+#define DO_STORE_STRUCT_FIELD(RET) ({ \
+	size_t fname = READ_SIZE_T(); \
+	struct cb_value val = POP(); \
+	struct cb_value recv = POP(); \
+	if (recv.type != CB_VALUE_STRUCT) \
+		ERROR("Cannot set field of non-struct type %s\n", \
+				cb_value_type_friendly_name(recv.type)); \
+	struct cb_struct *s = recv.val.as_struct; \
+	if (cb_struct_set_field(s, fname, val)) { \
+		ERROR("No such field '%s' on struct '%s'\n", \
+				cb_strptr(cb_agent_get_string(fname)), \
+				cb_strptr(cb_agent_get_string(s->spec->name))); \
+	} \
+	RET; \
+	})
 
-		ERROR("No such field '%s' on struct '%s'\n",
-				cb_strptr(cb_agent_get_string(fname)),
-				cb_strptr(cb_agent_get_string(s->spec->name)));
-	}
-	if (op == OP_ADD_STRUCT_FIELD)
-		PUSH(recv);
-	else
-		PUSH(val);
+DO_OP_ADD_STRUCT_FIELD: {
+	struct cb_value result = DO_STORE_STRUCT_FIELD(recv);
+	PUSH(result);
+	DISPATCH();
+}
+
+DO_OP_STORE_STRUCT: {
+	struct cb_value result = DO_STORE_STRUCT_FIELD(val);
+	PUSH(result);
 	DISPATCH();
 }
 
