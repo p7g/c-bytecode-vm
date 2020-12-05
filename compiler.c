@@ -1723,8 +1723,8 @@ static int compile_double_expression(struct cstate *state)
 }
 
 #define TRANSLATE_ESCAPE(C) ({ \
-		char _c; \
-		switch (C) { \
+		char _c = (C); \
+		switch (_c) { \
 		case 'n': \
 			_c = '\n'; \
 			break; \

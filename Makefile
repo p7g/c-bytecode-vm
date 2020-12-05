@@ -6,7 +6,7 @@ ifeq ($(TARGET),release)
 else ifeq ($(TARGET),debug)
 	CFLAGS+=-DDEBUG_DISASM -DDEBUG_VM -DDEBUG_GC
 else ifeq ($(TARGET),profile)
-	CFLAGS+=-DPROFILE -pg -Og --coverage
+	CFLAGS+=-DPROFILE -pg -O3 -flto --coverage
 endif
 
 cbcvm: *.c *.h
