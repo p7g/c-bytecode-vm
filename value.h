@@ -5,6 +5,7 @@
 
 #include "gc.h"
 #include "string.h"
+#include "userdata.h"
 
 #define CB_VALUE_IS_USER_FN(V) ((V)->type == CB_VALUE_FUNCTION \
 		&& (V)->val.as_function->type == CB_FUNCTION_USER)
@@ -20,7 +21,8 @@
 	X(CB_VALUE_ARRAY) \
 	X(CB_VALUE_FUNCTION) \
 	X(CB_VALUE_STRUCT_SPEC) \
-	X(CB_VALUE_STRUCT)
+	X(CB_VALUE_STRUCT) \
+	X(CB_VALUE_USERDATA)
 
 enum cb_value_type {
 #define COMMA(V) V,
@@ -80,6 +82,7 @@ struct cb_value {
 		/* the struct spec is not garbage collected; it needs to have a
 		   lifetime as long as the VM */
 		const struct cb_struct_spec *as_struct_spec;
+		struct cb_userdata *as_userdata;
 	} val;
 };
 

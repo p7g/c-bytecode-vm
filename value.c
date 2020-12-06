@@ -25,6 +25,12 @@ static void adjust_refcount(struct cb_value *value, int amount)
 	case CB_VALUE_FUNCTION:
 		header = &value->val.as_function->gc_header;
 		break;
+	case CB_VALUE_STRUCT:
+		header = &value->val.as_struct->gc_header;
+		break;
+	case CB_VALUE_USERDATA:
+		header = &value->val.as_userdata->gc_header;
+		break;
 
 	default:
 		return;
@@ -129,6 +135,8 @@ int cb_value_is_truthy(struct cb_value *val)
 		return 0;
 	case CB_VALUE_STRUCT:
 	case CB_VALUE_STRUCT_SPEC:
+		return 1;
+	case CB_VALUE_USERDATA:
 		return 1;
 	}
 	return 0;
@@ -332,6 +340,14 @@ char *cb_value_to_string(struct cb_value *val)
 		break;
 	}
 
+	case CB_VALUE_USERDATA: {
+		size_t size = sizeof("<userdata>");
+		buf = malloc(size);
+		buf[size - 1] = 0;
+		memcpy(buf, "<userdata>", size - 1);
+		break;
+	}
+
 	default:
 		fprintf(stderr, "unsupported to_string\n");
 		abort();
@@ -408,6 +424,8 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		}
 		return 1;
 	}
+	case CB_VALUE_USERDATA:
+		return a->val.as_userdata == b->val.as_userdata;
 	default:
 		return 0;
 	}
@@ -503,6 +521,8 @@ const char *cb_value_type_friendly_name(enum cb_value_type typ)
 		return "struct";
 	case CB_VALUE_STRUCT_SPEC:
 		return "struct spec";
+	case CB_VALUE_USERDATA:
+		return "userdata";
 	}
 
 	return "";
@@ -542,6 +562,7 @@ void cb_value_mark(struct cb_value *val)
 	case CB_VALUE_NULL:
 	case CB_VALUE_INTERNED_STRING:
 	case CB_VALUE_STRUCT_SPEC:
+	case CB_VALUE_USERDATA:
 		return;
 
 	case CB_VALUE_STRING:

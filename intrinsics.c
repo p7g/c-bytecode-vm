@@ -9,6 +9,7 @@
 #include "hashmap.h"
 #include "intrinsics.h"
 #include "value.h"
+#include "userdata.h"
 
 #define FUNC(FN, ARITY) ({ \
 		struct cb_function *_func; \
