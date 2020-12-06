@@ -1,5 +1,6 @@
 import "lib/array.rbcvm";
 import "lib/arraylist.rbcvm";
+import "lib/iter.rbcvm";
 import "lib/string.rbcvm";
 
 struct Tape {
@@ -10,45 +11,23 @@ struct Tape {
 function tape_new() {
     return Tape {
         pos = 0,
-        data = [0],
+        data = ArrayList.from_array(1, [0]),
     };
 }
 
 function tape_get(t) {
-    return t:data[t:pos];
+    return ArrayList.get(t:data, t:pos);
 }
 
 function tape_inc(t, n) {
-    t:data[t:pos] = t:data[t:pos] + n;
+    ArrayList.set(t:data, t:pos, ArrayList.get(t:data, t:pos) + n);
 }
 
 function tape_move(t, n) {
     t:pos = t:pos + n;
-    let len = Array.length(t:data);
-    if (t:pos >= len) {
-        let new_array = Array.new(t:pos + 1);
-        for (let i = 0; i < t:pos; i = i + 1) {
-            new_array[i] = t:data[i];
-        }
-        for (let i = len; i <= t:pos; i = i + 1) {
-            new_array[i] = 0;
-        }
-        t:data = new_array;
+    if (t:pos >= ArrayList.length(t:data)) {
+        ArrayList.push(t:data, 0);
     }
-}
-
-function string_iterator(s) {
-    let pos = 0;
-    let cs = String.chars(s);
-    let len = Array.length(cs);
-    return function() {
-        if (pos >= len) {
-            return null;
-        }
-        let val = cs[pos];
-        pos = pos + 1;
-        return val;
-    };
 }
 
 struct Op { type, value }
@@ -101,6 +80,6 @@ let args = argv();
 if (Array.length(args) != 3) {
     println("Usage: ./cbcvm bf3.rbcvm <program>");
 } else {
-    let it = string_iterator(read_file(args[2]));
+    let it = Iter.from_array(String.chars(read_file(args[2])));
     run(parse(it), tape_new());
 }
