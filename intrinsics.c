@@ -51,7 +51,10 @@
 	X(now, 0) \
 	X(read_file_bytes, 1) \
 	X(toint, 1) \
-	X(arguments, 0)
+	X(arguments, 0) \
+	X(file_open, 2) \
+	X(file_getchar, 1) \
+	X(file_close, 1)
 
 INTRINSIC_LIST(DECL);
 
@@ -69,6 +72,19 @@ void make_intrinsics(cb_hashmap *scope)
 					cb_value_type_of(&_val)); \
 			return 1; \
 		} \
+	})
+#define EXPECT_STRING(VAL) ({ \
+		cb_str _str; \
+		struct cb_value _val = (VAL); \
+		if (_val.type == CB_VALUE_STRING) { \
+			_str = _val.val.as_string->string; \
+		} else if (_val.type == CB_VALUE_INTERNED_STRING) { \
+			_str = cb_agent_get_string(_val.val.as_interned_string); \
+		} else { \
+			EXPECT_TYPE(CB_VALUE_STRING, _val); \
+			return 1; \
+		} \
+		_str; \
 	})
 
 static int print(size_t argc, struct cb_value *argv, struct cb_value *result)
@@ -159,19 +175,10 @@ static int array_new(size_t argc, struct cb_value *argv,
 static int string_chars(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
-	struct cb_value str_val;
 	cb_str str;
 	size_t len;
 
-	str_val = argv[0];
-	if (str_val.type == CB_VALUE_STRING) {
-		str = str_val.val.as_string->string;
-	} else if (str_val.type == CB_VALUE_INTERNED_STRING) {
-		str = cb_agent_get_string(str_val.val.as_interned_string);
-	} else {
-		EXPECT_TYPE(CB_VALUE_STRING, str_val);
-		return 1;
-	}
+	str = EXPECT_STRING(argv[0]);
 
 	len = cb_strlen(str);
 	result->type = CB_VALUE_ARRAY;
@@ -223,19 +230,10 @@ static int string_from_chars(size_t argc, struct cb_value *argv,
 static int string_bytes(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
-	struct cb_value str_val;
 	cb_str str;
 	size_t len;
 
-	str_val = argv[0];
-	if (str_val.type == CB_VALUE_STRING) {
-		str = str_val.val.as_string->string;
-	} else if (str_val.type == CB_VALUE_INTERNED_STRING) {
-		str = cb_agent_get_string(str_val.val.as_interned_string);
-	} else {
-		EXPECT_TYPE(CB_VALUE_STRING, str_val);
-		return 1;
-	}
+	str = EXPECT_STRING(argv[0]);
 
 	len = cb_strlen(str);
 	result->type = CB_VALUE_ARRAY;
@@ -261,15 +259,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 
 	len = 0;
 	for (int i = 0; i < argc; i += 1) {
-		if (argv[i].type == CB_VALUE_STRING) {
-			str = argv[i].val.as_string->string;
-		} else if (argv[i].type == CB_VALUE_INTERNED_STRING) {
-			str = cb_agent_get_string(
-					argv[i].val.as_interned_string);
-		} else {
-			EXPECT_TYPE(CB_VALUE_STRING, argv[i]);
-		}
-
+		str = EXPECT_STRING(argv[i]);
 		len += cb_strlen(str);
 	}
 
@@ -277,12 +267,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 	buf = malloc(len + 1);
 
 	for (int i = 0; i < argc; i += 1) {
-		if (argv[i].type == CB_VALUE_STRING) {
-			str = argv[i].val.as_string->string;
-		} else if (argv[i].type == CB_VALUE_INTERNED_STRING) {
-			str = cb_agent_get_string(
-					argv[i].val.as_interned_string);
-		}
+		str = EXPECT_STRING(argv[i]);
 		memcpy(buf + offset, cb_strptr(str), cb_strlen(str));
 		offset += cb_strlen(str);
 	}
@@ -360,14 +345,7 @@ static int read_file(size_t argc, struct cb_value *argv,
 	size_t len;
 	char *buf;
 
-	if (argv[0].type == CB_VALUE_STRING) {
-		str = argv[0].val.as_string->string;
-	} else if (argv[0].type == CB_VALUE_INTERNED_STRING) {
-		str = cb_agent_get_string(argv[0].val.as_interned_string);
-	} else {
-		EXPECT_TYPE(CB_VALUE_STRING, argv[0]);
-		return 1;
-	}
+	str = EXPECT_STRING(argv[0]);
 
 	f = fopen(cb_strptr(str), "r");
 	if (!f) {
@@ -411,14 +389,7 @@ static int read_file_bytes(size_t argc, struct cb_value *argv,
 	char *buf;
 	int i;
 
-	if (argv[0].type == CB_VALUE_STRING) {
-		str = argv[0].val.as_string->string;
-	} else if (argv[0].type == CB_VALUE_INTERNED_STRING) {
-		str = cb_agent_get_string(argv[0].val.as_interned_string);
-	} else {
-		EXPECT_TYPE(CB_VALUE_STRING, argv[0]);
-		return 1;
-	}
+	str = EXPECT_STRING(argv[0]);
 
 	f = fopen(cb_strptr(str), "rb");
 	if (!f) {
@@ -568,6 +539,104 @@ static int arguments(size_t argc, struct cb_value *argv,
 
 	for (size_t i = 0; i < nargs; i += 1)
 		result->val.as_array->values[i] = cb_vm_state.stack[start + i];
+
+	return 0;
+}
+
+static void deinit_file(void *ptr)
+{
+	struct cb_userdata *data = ptr;
+	FILE *f = *(FILE **) cb_userdata_ptr(data);
+	if (f)
+		fclose(f);
+}
+
+static int file_open(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	FILE *f;
+	cb_str name, perms;
+	struct cb_userdata *data;
+
+	name = EXPECT_STRING(argv[0]);
+	perms = EXPECT_STRING(argv[1]);
+
+	f = fopen(cb_strptr(name), cb_strptr(perms));
+	if (!f) {
+		perror("open_file");
+		return 1;
+	}
+
+	data = cb_userdata_new(sizeof(f), deinit_file);
+	*cb_userdata_ptr(data) = f;
+
+	result->type = CB_VALUE_USERDATA;
+	result->val.as_userdata = data;
+
+	return 0;
+}
+
+static int file_getchar(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	FILE *f;
+	struct cb_userdata *data;
+	int c;
+
+	EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
+	data = argv[0].val.as_userdata;
+
+	if (data->gc_header.deinit != deinit_file) {
+		fprintf(stderr, "file_getchar: Expected file userdata, got something else\n");
+		return 1;
+	}
+
+	f = *(FILE **) cb_userdata_ptr(data);
+	if (!f) {
+		fprintf(stderr, "file_getchar: Can't read from closed file");
+		return 1;
+	}
+
+	c = fgetc(f);
+	if (c == EOF) {
+		if (feof(f)) {
+			result->type = CB_VALUE_NULL;
+		} else if (ferror(f)) {
+			perror("file_getchar");
+			return 1;
+		}
+	} else {
+		result->type = CB_VALUE_CHAR;
+		result->val.as_char = c;
+	}
+
+	return 0;
+}
+
+static int file_close(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	FILE *f;
+	struct cb_userdata *data;
+
+	EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
+	data = argv[0].val.as_userdata;
+
+	if (data->gc_header.deinit != deinit_file) {
+		fprintf(stderr, "file_close: Expected file userdata, got something else\n");
+		return 1;
+	}
+
+	f = *(FILE **) cb_userdata_ptr(data);
+	if (!f) {
+		fprintf(stderr, "file_close: File is already closed");
+		return 1;
+	}
+
+	fclose(f);
+	*cb_userdata_ptr(data) = NULL;
+
+	result->type = CB_VALUE_NULL;
 
 	return 0;
 }
