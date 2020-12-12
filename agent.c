@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "agent.h"
+#include "builtin_modules.h"
 #include "module.h"
 #include "string.h"
 #include "struct.h"
@@ -48,6 +49,8 @@ void cb_agent_init(void)
 #ifdef DEBUG_VM
 	agent.finished_compiling = 0;
 #endif
+
+	cb_initialize_builtin_modules();
 }
 
 void cb_agent_deinit(void)
