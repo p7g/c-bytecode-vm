@@ -107,6 +107,8 @@ void cb_value_decref(struct cb_value *val);
 struct cb_function *cb_function_new(void);
 struct cb_string *cb_string_new(void);
 struct cb_array *cb_array_new(size_t len);
+struct cb_value cb_cfunc_new(size_t name, size_t arity,
+		cb_native_function *func);
 
 const char *cb_value_type_name(enum cb_value_type type);
 const char *cb_value_type_of(struct cb_value *val);

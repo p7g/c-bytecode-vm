@@ -12,17 +12,11 @@
 #include "userdata.h"
 
 #define FUNC(FN, ARITY) ({ \
-		struct cb_function *_func; \
 		struct cb_value _func_val; \
 		size_t _name; \
 		_name = cb_agent_intern_string(#FN, sizeof(#FN) - 1); \
-		_func = cb_function_new(); \
-		_func->arity = (ARITY); \
-		_func->name = _name; \
-		_func->type = CB_FUNCTION_NATIVE; \
-		_func->value.as_native = (cb_native_function *) (FN); \
-		_func_val.type = CB_VALUE_FUNCTION; \
-		_func_val.val.as_function = _func; \
+		_func_val = cb_cfunc_new(_name, (ARITY), \
+				(cb_native_function *) (FN)); \
 		cb_hashmap_set(scope, _name, _func_val); \
 	});
 

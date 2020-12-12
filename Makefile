@@ -1,4 +1,4 @@
-CFLAGS+=-g -std=gnu11 -Wall
+CFLAGS+=-g -std=gnu11 -Wall -I$(CURDIR)
 LDFLAGS+=-lm
 
 ifeq ($(TARGET),release)
@@ -9,8 +9,8 @@ else ifeq ($(TARGET),profile)
 	CFLAGS+=-DPROFILE -pg -O3 -flto --coverage
 endif
 
-cbcvm: *.c *.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o cbcvm *.c
+cbcvm: *.c *.h modules/*.c modules/*.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o cbcvm *.c modules/*.c
 
 # Generate a release binary using profile-guided optimization
 profile-opt:

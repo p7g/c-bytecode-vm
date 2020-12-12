@@ -92,6 +92,23 @@ inline struct cb_function *cb_function_new(void)
 	return cb_malloc(sizeof(struct cb_function), cb_function_deinit);
 }
 
+struct cb_value cb_cfunc_new(size_t name, size_t arity,
+		cb_native_function *fn)
+{
+	struct cb_function *func;
+	struct cb_value func_val;
+
+	func = cb_function_new();
+	func->arity = arity;
+	func->name = name;
+	func->type = CB_FUNCTION_NATIVE;
+	func->value.as_native = fn;
+	func_val.type = CB_VALUE_FUNCTION;
+	func_val.val.as_function = func;
+
+	return func_val;
+}
+
 inline struct cb_array *cb_array_new(size_t len)
 {
 	return cb_malloc(sizeof(struct cb_array)

@@ -7,8 +7,12 @@
 #include "hashmap.h"
 #include "module.h"
 
-const size_t cb_builtin_module_count = 0;
-struct cb_builtin_module_spec builtins[cb_builtin_module_count] = {};
+#include "modules/time.h"
+
+const size_t cb_builtin_module_count = 1;
+struct cb_builtin_module_spec builtins[cb_builtin_module_count] = {
+	{"time", cb_time_build_spec, cb_time_instantiate},
+};
 struct cb_builtin_module_spec *cb_builtin_modules = builtins;
 
 void cb_initialize_builtin_modules(void)
