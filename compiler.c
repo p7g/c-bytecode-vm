@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "agent.h"
+#include "builtin_modules.h"
 #include "compiler.h"
 #include "hashmap.h"
 #include "module.h"
@@ -1375,7 +1376,9 @@ static int compile_import_statement(struct cstate *state)
 {
 	struct token tok, string;
 	char *filename;
-	size_t modname;
+	const char *modsrc;
+	size_t modname, modsrc_len;
+	struct cb_builtin_module_spec *builtin;
 
 	tok = EXPECT(TOK_IMPORT);
 	if (!state->is_global) {
@@ -1386,40 +1389,58 @@ static int compile_import_statement(struct cstate *state)
 	string = EXPECT(TOK_STRING);
 	EXPECT(TOK_SEMICOLON);
 
-	/* FIXME: this sucks */
-	if (strlen(state->filename) == sizeof("<script>") - 1 && !strncmp(
-				"<script>", state->filename,
-				sizeof("<script>") - 1)) {
-		filename = malloc(tok_len(&string) - 1);
-		filename[tok_len(&string) - 1] = 0;
-		memcpy(filename, tok_start(state, &string) + 1,
-				tok_len(&string) - 2);
-	} else {
-		char *real_path = realpath(state->filename, NULL);
-		const char *dir_name = dirname(real_path);
-		size_t len = strlen(dir_name) + tok_len(&string) - 1;
-		filename = malloc(len + 1);
-		filename[len] = 0;
-		memcpy(filename, dir_name, strlen(dir_name));
-		filename[strlen(dir_name)] = '/';
-		memcpy(filename + strlen(dir_name) + 1,
-				tok_start(state, &string) + 1,
-				tok_len(&string) - 2);
-		free(real_path);
+	modsrc = tok_start(state, &string) + 1;
+	modsrc_len = tok_len(&string) - 2;
+	builtin = NULL;
+
+	/* If the import name is one of the names is one of the builtin
+	 * modules, just add that builtin module to state->imported */
+	for (size_t i = 0; i < cb_builtin_module_count; i += 1) {
+		size_t builtin_name_len = strlen(cb_builtin_modules[i].name);
+		if (builtin_name_len != modsrc_len)
+			continue;
+		if (!strncmp(cb_builtin_modules[i].name, modsrc,
+					builtin_name_len)) {
+			builtin = &cb_builtin_modules[i];
+			modname = cb_agent_intern_string(modsrc, modsrc_len);
+			break;
+		}
 	}
 
-	if (state->modspec)
-		APPEND(OP_EXIT_MODULE);
-	X(compile_file(state, filename, 0, &modname));
-	if (state->modspec) {
-		APPEND(OP_ENTER_MODULE);
-		APPEND_SIZE_T(cb_modspec_id(state->modspec));
+	if (!builtin) {
+		/* FIXME: this sucks */
+		if (strlen(state->filename) == sizeof("<script>") - 1
+				&& !strncmp("<script>", state->filename,
+					sizeof("<script>") - 1)) {
+			filename = malloc(modsrc_len + 1);
+			filename[tok_len(&string) - 1] = 0;
+			memcpy(filename, modsrc, modsrc_len);
+		} else {
+			char *real_path = realpath(state->filename, NULL);
+			const char *dir_name = dirname(real_path);
+			size_t len = strlen(dir_name) + modsrc_len + 1;
+			filename = malloc(len + 1);
+			filename[len] = 0;
+			memcpy(filename, dir_name, strlen(dir_name));
+			filename[strlen(dir_name)] = '/';
+			memcpy(filename + strlen(dir_name) + 1, modsrc,
+					modsrc_len);
+			free(real_path);
+		}
+
+		if (state->modspec)
+			APPEND(OP_EXIT_MODULE);
+		X(compile_file(state, filename, 0, &modname));
+		if (state->modspec) {
+			APPEND(OP_ENTER_MODULE);
+			APPEND_SIZE_T(cb_modspec_id(state->modspec));
+		}
+		free(filename);
 	}
 
 	if (modname != -1)
 		cb_hashmap_set(state->imported, modname,
 				(struct cb_value) { .type = CB_VALUE_NULL });
-	free(filename);
 
 	return 0;
 }

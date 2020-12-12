@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "agent.h"
+#include "builtin_modules.h"
 #include "compiler.h"
 #include "eval.h"
 #include "hashmap.h"
@@ -38,6 +39,8 @@ void cb_vm_init(cb_bytecode *bytecode)
 			sizeof(struct cb_module));
 	cb_vm_state.globals = cb_hashmap_new();
 	make_intrinsics(cb_vm_state.globals);
+
+	cb_instantiate_builtin_modules();
 }
 
 void cb_vm_deinit(void)
