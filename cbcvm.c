@@ -10,7 +10,7 @@
 #include "eval.h"
 #include "gc.h"
 #include "intrinsics.h"
-#include "string.h"
+#include "str.h"
 #include "value.h"
 
 #ifdef PROFILE

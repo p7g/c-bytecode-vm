@@ -6,7 +6,7 @@
 #include "compiler.h"
 #include "disassemble.h"
 #include "opcode.h"
-#include "string.h"
+#include "str.h"
 
 int cb_disassemble(cb_bytecode *bytecode)
 {

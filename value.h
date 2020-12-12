@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include "gc.h"
-#include "string.h"
+#include "str.h"
 #include "userdata.h"
 
 #define CB_VALUE_IS_USER_FN(V) ((V)->type == CB_VALUE_FUNCTION \

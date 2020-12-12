@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "string.h"
+#include "str.h"
 
 inline size_t cb_strlen(cb_str s)
 {

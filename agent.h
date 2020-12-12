@@ -4,7 +4,7 @@
 #include <stddef.h>
 
 #include "module.h"
-#include "string.h"
+#include "str.h"
 #include "struct.h"
 
 void cb_agent_init(void);

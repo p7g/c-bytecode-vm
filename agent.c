@@ -6,7 +6,7 @@
 #include "agent.h"
 #include "builtin_modules.h"
 #include "module.h"
-#include "string.h"
+#include "str.h"
 #include "struct.h"
 
 #define INITIAL_STRING_TABLE_SIZE 4

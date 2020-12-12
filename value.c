@@ -7,7 +7,7 @@
 #include "agent.h"
 #include "alloc.h"
 #include "eval.h"
-#include "string.h"
+#include "str.h"
 #include "struct.h"
 #include "value.h"
 

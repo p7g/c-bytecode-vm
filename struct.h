@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <stdint.h>
 
-#include "string.h"
+#include "str.h"
 #include "value.h"
 
 struct cb_struct_spec {

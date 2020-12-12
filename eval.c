@@ -13,7 +13,7 @@
 #include "intrinsics.h"
 #include "opcode.h"
 #include "value.h"
-#include "string.h"
+#include "str.h"
 #include "struct.h"
 
 #ifdef DEBUG_VM
