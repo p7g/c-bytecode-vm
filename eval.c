@@ -169,7 +169,7 @@ int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 }
 
 #ifdef DEBUG_VM
-static void debug_state(cb_bytecode *bytecode, size_t pc, struct frame *frame)
+static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame)
 {
 	size_t _name;
 	printf("%s%s%s\n", frame->module
