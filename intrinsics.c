@@ -359,6 +359,7 @@ static int read_file(size_t argc, struct cb_value *argv,
 	X(fseek(f, 0, SEEK_SET));
 
 	buf = malloc(len + 1);
+	buf[len] = 0;
 	fread(buf, sizeof(char), len, f);
 	fclose(f);
 
