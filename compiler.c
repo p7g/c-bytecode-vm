@@ -513,9 +513,10 @@ static void bytecode_update_size_t(struct bytecode *bc, size_t idx,
 {
 	size_t i;
 
-	for (i = 0; i < sizeof(size_t) / sizeof(cb_instruction); i += 1)
+	for (i = 0; i < sizeof(size_t) / sizeof(cb_instruction); i += 1) {
 		bc->code[idx + i] = (value >> (i * 8 * sizeof(cb_instruction)))
-			& (((size_t) 1 << (sizeof(cb_instruction) * 8)) - 1);
+			& (cb_instruction) -1;
+	}
 }
 
 static void bytecode_mark_label(struct bytecode *bc, size_t label)
@@ -558,10 +559,10 @@ static void bytecode_push(struct bytecode *bc, cb_instruction byte)
 static void bytecode_push_size_t(struct bytecode *bc, size_t value)
 {
 	int i;
-	uint32_t byte;
+	cb_instruction byte;
 
 	for (i = 0; i < sizeof(size_t) / sizeof(cb_instruction); i += 1) {
-		byte = value & (((size_t) 1 << (8 * sizeof(cb_instruction))) - 1);
+		byte = value & (cb_instruction) -1;
 		bytecode_push(bc, byte);
 		value >>= 8 * sizeof(cb_instruction);
 	}
