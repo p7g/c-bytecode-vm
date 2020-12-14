@@ -2105,6 +2105,7 @@ static int compile_short_circuit_binary(struct cstate *state)
 
 	tok = NEXT();
 	end_label = LABEL();
+	APPEND(OP_DUP);
 
 	switch (tok.type) {
 	case TOK_AND_AND:
@@ -2118,6 +2119,7 @@ static int compile_short_circuit_binary(struct cstate *state)
 	}
 
 	ADDR_OF(end_label);
+	APPEND(OP_POP);
 	X(compile_expression_inner(state, lbp(tok.type)));
 	MARK(end_label);
 
