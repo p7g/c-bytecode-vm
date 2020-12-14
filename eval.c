@@ -230,13 +230,15 @@ static int cb_eval(size_t pc, struct cb_frame *frame)
 	})
 #endif
 
+#define RET_WITH_TRACE() ({ \
+		if (frame->is_function) \
+			print_stack_function(cb_vm_state.stack[frame->bp]); \
+		goto end; \
+	})
 #define ERROR(MSG, ...) ({ \
 		fprintf(stderr, (MSG), ##__VA_ARGS__); \
 		retval = 1; \
-		if (frame->is_function) \
-			print_stack_function( \
-					cb_vm_state.stack[frame->bp]); \
-		goto end; \
+		RET_WITH_TRACE(); \
 	})
 #define READ_SIZE_T() ({ \
 		int _i = 0; \
@@ -444,7 +446,7 @@ DO_OP_CALL: {
 						cb_vm_state.sp - num_args],
 					&result)) {
 			retval = 1;
-			goto end;
+			RET_WITH_TRACE();
 		}
 		assert(cb_vm_state.sp > num_args);
 		cb_vm_state.sp -= (num_args + 1);
@@ -459,9 +461,8 @@ DO_OP_CALL: {
 		else
 			next_frame.module = NULL;
 		if (cb_eval(func->value.as_user.address, &next_frame)) {
-			print_stack_function(cb_vm_state.stack[frame->bp]);
 			retval = 1;
-			goto end;
+			RET_WITH_TRACE();
 		}
 	}
 
