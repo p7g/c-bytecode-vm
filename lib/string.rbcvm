@@ -17,7 +17,7 @@ export function parse_integer(str, base) {
 
   Array.foreach(cs, function(char, i) {
     if (Char.is_digit(char)) {
-      sum = sum + Char.to_digit(char) * base ** i;
+      sum = sum + toint(Char.to_digit(char) * base ** i);
     }
   });
 

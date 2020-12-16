@@ -20,3 +20,7 @@ export function fnv1a(bytes) {
 export function int(n) {
   return n;
 }
+
+export function char(c) {
+  return int(ord(c));
+}
