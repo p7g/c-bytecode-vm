@@ -58,27 +58,26 @@ void make_intrinsics(cb_hashmap *scope)
 }
 
 #define EXPECT_TYPE(TYPE, VAL) ({ \
-		struct cb_value _val = (VAL); \
-		if (_val.type != (TYPE)) { \
+		if ((VAL).type != (TYPE)) { \
 			fprintf(stderr, "%s: expected %s argument, got %s\n", \
 					__func__, \
 					cb_value_type_friendly_name(TYPE), \
-					cb_value_type_of(&_val)); \
+					cb_value_type_of(&(VAL))); \
 			return 1; \
 		} \
 	})
 #define EXPECT_STRING(VAL) ({ \
-		cb_str _str; \
-		struct cb_value _val = (VAL); \
-		if (_val.type == CB_VALUE_STRING) { \
-			_str = _val.val.as_string->string; \
-		} else if (_val.type == CB_VALUE_INTERNED_STRING) { \
-			_str = cb_agent_get_string(_val.val.as_interned_string); \
+		cb_str _EXPECT_STRING_str; \
+		if ((VAL).type == CB_VALUE_STRING) { \
+			_EXPECT_STRING_str = (VAL).val.as_string->string; \
+		} else if ((VAL).type == CB_VALUE_INTERNED_STRING) { \
+			_EXPECT_STRING_str = cb_agent_get_string( \
+					(VAL).val.as_interned_string); \
 		} else { \
-			EXPECT_TYPE(CB_VALUE_STRING, _val); \
+			EXPECT_TYPE(CB_VALUE_STRING, (VAL)); \
 			return 1; \
 		} \
-		_str; \
+		_EXPECT_STRING_str; \
 	})
 
 static int print(size_t argc, struct cb_value *argv, struct cb_value *result)
