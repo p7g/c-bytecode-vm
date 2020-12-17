@@ -125,7 +125,7 @@ export function has(self, key) {
   return AssocList.has(bucket, key);
 }
 
-export function keys(self) {
+export function entries(self) {
   let len = Array.length(self:buckets);
   let i = 0;
   let j = 0;
@@ -139,11 +139,21 @@ export function keys(self) {
       let entry = ArrayList.get(bucket, j);
       j = j + 1;
       return entry;
+    } else if (bucket) {
+      i = i + 1;
     }
     for (; i < len && !(bucket = self:buckets[i]); i = i + 1) {}
     j = 0;
     return next();
   };
+}
+
+export function keys(self) {
+  return Iter.map(entries(self), function (e) { return e[0]; });
+}
+
+export function values(self) {
+  return Iter.map(entries(self), function (e) { return e[1]; });
 }
 
 export function make_with_hash_function(hash, init_fn) {
