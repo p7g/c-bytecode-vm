@@ -9,17 +9,16 @@
 
 #include "modules/time.h"
 
-const size_t cb_builtin_module_count = 1;
-struct cb_builtin_module_spec builtins[cb_builtin_module_count] = {
+static const struct cb_builtin_module_spec builtins[CB_BUILTIN_MODULE_COUNT] = {
 	{"time", cb_time_build_spec, cb_time_instantiate},
 };
-struct cb_builtin_module_spec *cb_builtin_modules = builtins;
+const struct cb_builtin_module_spec *cb_builtin_modules = builtins;
 
 void cb_initialize_builtin_modules(void)
 {
 	cb_modspec *modspec;
 
-	for (size_t i = 0; i < cb_builtin_module_count; i += 1) {
+	for (size_t i = 0; i < CB_BUILTIN_MODULE_COUNT; i += 1) {
 		modspec = cb_modspec_new(cb_agent_intern_string(
 					builtins[i].name,
 					strlen(builtins[i].name)));
@@ -32,10 +31,10 @@ void cb_instantiate_builtin_modules(void)
 {
 	cb_modspec *spec;
 	size_t spec_id;
-	struct cb_builtin_module_spec *builtin;
+	const struct cb_builtin_module_spec *builtin;
 	struct cb_module *mod;
 
-	for (size_t i = 0; i < cb_builtin_module_count; i += 1) {
+	for (size_t i = 0; i < CB_BUILTIN_MODULE_COUNT; i += 1) {
 		builtin = &builtins[i];
 		spec = cb_agent_get_modspec_by_name(
 				cb_agent_intern_string(builtin->name,

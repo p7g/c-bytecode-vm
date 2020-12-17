@@ -3,14 +3,15 @@
 
 #include "module.h"
 
+#define CB_BUILTIN_MODULE_COUNT 1
+
 struct cb_builtin_module_spec {
 	const char *name;
 	void (*build_spec)(cb_modspec *);
 	void (*instantiate)(struct cb_module *);
 };
 
-const size_t cb_builtin_module_count;
-struct cb_builtin_module_spec *cb_builtin_modules;
+const struct cb_builtin_module_spec *cb_builtin_modules;
 
 void cb_initialize_builtin_modules(void);
 void cb_instantiate_builtin_modules(void);
