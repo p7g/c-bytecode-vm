@@ -5,6 +5,13 @@ import "arraylist.rbcvm";
 
 let idx = 0;
 
+function ensure_iterable(it) {
+  if (type_of(it) == "array") {
+    return from_array(it);
+  }
+  return it;
+}
+
 export function from_array(array) {
   let index = 0;
   let len = Array.length(array);
@@ -41,7 +48,8 @@ export function range(to) {
   };
 }
 
-export function enumerate(it) {
+export function enumerate(_it) {
+  let it = ensure_iterable(_it);
   let i = 0;
   return function() {
     let val = it();
@@ -55,13 +63,15 @@ export function enumerate(it) {
   };
 }
 
-export function foreach(it, fn) {
+export function foreach(_it, fn) {
+  let it = ensure_iterable(_it);
   for (let val; (val = it()) != null;) {
     fn(val);
   }
 }
 
-export function drain(it) {
+export function drain(_it) {
+  let it = ensure_iterable(_it);
   let dest = ArrayList.new();
 
   foreach(it, function(val) {
@@ -71,7 +81,8 @@ export function drain(it) {
   return ArrayList.to_array(dest);
 }
 
-export function map(it, fn) {
+export function map(_it, fn) {
+  let it = ensure_iterable(_it);
   return function() {
     let val = it();
     if (val == null) {
@@ -81,7 +92,8 @@ export function map(it, fn) {
   };
 }
 
-export function take(it, n) {
+export function take(_it, n) {
+  let it = ensure_iterable(_it);
   let i = 0;
   return function() {
     if (i >= n) {
@@ -92,7 +104,8 @@ export function take(it, n) {
   };
 }
 
-export function drop(it, n) {
+export function drop(_it, n) {
+  let it = ensure_iterable(_it);
   for (let i = 0; i < n; i = i + 1) {
     it();
   }
@@ -100,7 +113,8 @@ export function drop(it, n) {
   return it;
 }
 
-export function take_while(it, pred) {
+export function take_while(_it, pred) {
+  let it = ensure_iterable(_it);
   let done = false;
 
   return function() {
@@ -118,7 +132,9 @@ export function take_while(it, pred) {
   };
 }
 
-export function zip(a, b) {
+export function zip(_a, _b) {
+  let a = ensure_iterable(_a);
+  let b = ensure_iterable(_b);
   return function() {
     let val_a = a();
     let val_b = b();
