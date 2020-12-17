@@ -38,7 +38,7 @@ export function parse_float(str) {
     chars = Iter.drop(chars, 1);
   }
 
-  let integer_chars = Iter.drain(Iter.take_while(chars, Fn.curry(Op.ne, '.')));
+  let integer_chars = Iter.collect(Iter.take_while(chars, Fn.curry(Op.ne, '.')));
   sum = sum + parse_integer(from_chars(integer_chars), 10);
 
   Iter.foreach(Iter.enumerate(chars), function(ic) {

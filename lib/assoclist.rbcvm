@@ -2,9 +2,8 @@ module AssocList;
 
 import "arraylist.rbcvm";
 
-export function new() {
-  return ArrayList.new();
-}
+export let new = ArrayList.new;
+export let length = ArrayList.length;
 
 function get_entry(self, key) {
   return ArrayList.find(self, function(entry) {
@@ -42,6 +41,12 @@ export function delete(self, key) {
   } else {
     ArrayList.delete(self, idx);
   }
+}
+
+export function has(self, key) {
+  return null != ArrayList.find(self, function(entry) {
+    return entry[0] == key;
+  });
 }
 
 export function is_empty(self) {

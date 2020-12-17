@@ -70,7 +70,7 @@ export function foreach(_it, fn) {
   }
 }
 
-export function drain(_it) {
+export function collect(_it) {
   let it = ensure_iterable(_it);
   let dest = ArrayList.new();
 

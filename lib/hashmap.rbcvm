@@ -1,6 +1,7 @@
 module HashMap;
 
 import "array.rbcvm";
+import "arraylist.rbcvm";
 import "assoclist.rbcvm";
 import "hash.rbcvm";
 import "iter.rbcvm";
@@ -63,6 +64,12 @@ export function set_hash_function(self, func) {
   self:hash_fn = func;
 }
 
+export function with_hash_function(hash_function) {
+  let m = new();
+  set_hash_function(m, hash_function);
+  return m;
+}
+
 export function get(self, key) {
   let hashed = do_hash(self, key);
   let bucket = self:buckets[hashed];
@@ -106,6 +113,37 @@ export function delete(self, key) {
     return true;
   }
   return false;
+}
+
+export function has(self, key) {
+  let hashed = do_hash(self, key);
+  let bucket = self:buckets[hashed];
+  if (!bucket) {
+    return false;
+  }
+
+  return AssocList.has(bucket, key);
+}
+
+export function keys(self) {
+  let len = Array.length(self:buckets);
+  let i = 0;
+  let j = 0;
+  let bucket = null;
+
+  return function next() {
+    if (i >= len) {
+      return null;
+    }
+    if (bucket && j < ArrayList.length(bucket)) {
+      let entry = ArrayList.get(bucket, j);
+      j = j + 1;
+      return entry;
+    }
+    for (; i < len && !(bucket = self:buckets[i]); i = i + 1) {}
+    j = 0;
+    return next();
+  };
 }
 
 export function make_with_hash_function(hash, init_fn) {
