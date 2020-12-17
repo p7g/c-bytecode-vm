@@ -58,7 +58,6 @@ void cb_hashmap_free(cb_hashmap *m)
 		while (entry) {
 			tmp = entry;
 			entry = entry->next;
-			cb_value_decref(&tmp->value);
 			free(tmp);
 		}
 	}
@@ -117,13 +116,11 @@ void cb_hashmap_set(cb_hashmap *m, size_t key, struct cb_value value)
 
 	maybe_grow(m);
 
-	cb_value_incref(&value);
 	idx = hash_size_t(key) % m->size;
 
 	entry = m->entries[idx];
 	while (entry != NULL) {
 		if (entry->key == key) {
-			cb_value_decref(&entry->value);
 			entry->value = value;
 			return;
 		}
@@ -135,4 +132,16 @@ void cb_hashmap_set(cb_hashmap *m, size_t key, struct cb_value value)
 	entry->value = value;
 	entry->next = m->entries[idx];
 	m->entries[idx] = entry;
+	m->num_entries += 1;
+}
+
+void cb_hashmap_mark_contents(cb_hashmap *m)
+{
+	size_t i;
+	struct entry *entry;
+
+	for (i = 0; i < m->size; i += 1) {
+		for (entry = m->entries[i]; entry; entry = entry->next)
+			cb_value_mark(&entry->value);
+	}
 }

@@ -50,14 +50,16 @@ void cb_vm_deinit(void)
 
 	for (i = 0; i < num_modules; i += 1) {
 		if (!cb_module_is_zero(cb_vm_state.modules[i]))
-			cb_module_free(cb_vm_state.modules[i]);
+			cb_module_free(&cb_vm_state.modules[i]);
 	}
 	free(cb_vm_state.modules);
+	cb_vm_state.modules = NULL;
 
 	free(cb_vm_state.upvalues);
 	cb_vm_state.upvalues = NULL;
 	free(cb_vm_state.stack);
 	cb_hashmap_free(cb_vm_state.globals);
+	cb_vm_state.globals = NULL;
 	cb_vm_state.sp = 0;
 	cb_gc_collect();
 }
@@ -188,8 +190,8 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 			? "... "
 			: "" : "(empty)");
 	int _first = 1;
-	for (int _i = 10 < cb_vm_state.sp
-			? 10 : cb_vm_state.sp; _i > 0; _i -= 1) {
+	for (int _i = 10 < cb_vm_state.sp ? 10 : cb_vm_state.sp;
+			_i > 0; _i -= 1) {
 		int _idx = cb_vm_state.sp - _i;
 		if (_first)
 			_first = 0;

@@ -6,6 +6,7 @@
 
 #include "agent.h"
 #include "eval.h"
+#include "gc.h"
 #include "hashmap.h"
 #include "intrinsics.h"
 #include "value.h"
@@ -48,7 +49,8 @@
 	X(arguments, 0) \
 	X(file_open, 2) \
 	X(file_getchar, 1) \
-	X(file_close, 1)
+	X(file_close, 1) \
+	X(__gc_collect, 0)
 
 INTRINSIC_LIST(DECL);
 
@@ -632,5 +634,13 @@ static int file_close(size_t argc, struct cb_value *argv,
 
 	result->type = CB_VALUE_NULL;
 
+	return 0;
+}
+
+static int __gc_collect(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	result->type = CB_VALUE_NULL;
+	cb_gc_collect();
 	return 0;
 }

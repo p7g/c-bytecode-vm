@@ -1,11 +1,18 @@
 #include <stdlib.h>
 
+#include "agent.h"
 #include "eval.h"
 #include "gc.h"
+#include "hashmap.h"
+#include "module.h"
 #include "value.h"
 
 #ifdef DEBUG_GC
 # include <stdio.h>
+
+# define DEBUG_LOG(MSG, ...) printf("GC: " MSG "\n", ##__VA_ARGS__)
+#else
+# define DEBUG_LOG(MSG, ...)
 #endif
 
 #define GC_HINT_THRESHOLD 2048
@@ -41,9 +48,7 @@ inline void cb_gc_adjust_refcount(cb_gc_header *obj, int amount)
 	if (obj->refcount == 0) {
 		hint += 1;
 		if (cb_gc_should_collect()) {
-#ifdef DEBUG_GC
-			printf("GC: collecting due to refcount hint\n");
-#endif
+			DEBUG_LOG("collecting due to refcount hint");
 			cb_gc_collect();
 		}
 	}
@@ -62,19 +67,34 @@ inline int cb_gc_is_marked(struct cb_gc_header *obj)
 static void mark(void)
 {
 	int i;
+	struct cb_module *mod;
 
 	/* Roots:
 	 * - stack
-	 *
-	 * Globals have a refcount of at least 1 thanks to the hashmap, so we
-	 * don't need to iterate over every global scope map. The global vm
-	 * state holds only open upvalues (i.e. they just point to the stack),
-	 * so we don't have to worry about those. The closed upvalues will be
-	 * marked by the functions that depend on them.
+	 * - globals
 	 */
 
+	DEBUG_LOG("marking stack values");
 	for (i = 0; i < cb_vm_state.sp; i += 1)
 		cb_value_mark(&cb_vm_state.stack[i]);
+
+	if (cb_vm_state.globals) {
+		DEBUG_LOG("marking script global scope");
+		cb_hashmap_mark_contents(cb_vm_state.globals);
+	}
+
+	if (cb_vm_state.modules) {
+		DEBUG_LOG("marking module global scopes");
+		for (i = 0; i < cb_agent_modspec_count(); i += 1) {
+			mod = &cb_vm_state.modules[i];
+			if (!mod)
+				continue;
+			DEBUG_LOG("marking %s global scope", cb_strptr(
+					cb_agent_get_string(cb_modspec_name(
+						mod->spec))));
+			cb_hashmap_mark_contents(mod->global_scope);
+		}
+	}
 }
 
 static void sweep(void)
@@ -90,16 +110,12 @@ static void sweep(void)
 			*prev_ptr = tmp->next;
 			if (tmp->deinit)
 				tmp->deinit(tmp);
-#ifdef DEBUG_GC
-			printf("GC: freeing object at %p\n", tmp);
-#endif
+			DEBUG_LOG("freeing object at %p", tmp);
 			amount_allocated -= tmp->size;
 			free(tmp);
 		} else {
-#ifdef DEBUG_GC
-			printf("GC: not freeing object at %p (%s)\n", tmp,
+			DEBUG_LOG("not freeing object at %p (%s)", tmp,
 					tmp->mark ? "mark" : "refcount");
-#endif
 			tmp->mark = 0;
 			prev_ptr = &tmp->next;
 		}
@@ -110,15 +126,13 @@ void cb_gc_collect(void)
 {
 #ifdef DEBUG_GC
 	size_t before = amount_allocated;
-	printf("GC: start; allocated=%zu\n", amount_allocated);
 #endif
+	DEBUG_LOG("start; allocated=%zu", amount_allocated);
 	hint = 0;
 	mark();
 	sweep();
 	next_allocation_threshold = amount_allocated * GC_HEAP_GROW_FACTOR;
-#ifdef DEBUG_GC
-	printf("GC: end; allocated=%zu, collected=%zu, next collection at %zu\n",
+	DEBUG_LOG("end; allocated=%zu, collected=%zu, next collection at %zu",
 			amount_allocated, before - amount_allocated,
 			next_allocation_threshold);
-#endif
 }
