@@ -67,6 +67,11 @@ export function with_hash_function(hash_function) {
   return m;
 }
 
+export function clear(self) {
+  self:buckets = Array.new(self:capacity);
+  self:load = 0;
+}
+
 export function get(self, key) {
   let hashed = do_hash(self, key);
   let bucket = self:buckets[hashed];
@@ -143,6 +148,12 @@ export function entries(self) {
     j = 0;
     return next();
   };
+}
+
+export function size(self) {
+  let n = 0;
+  Iter.foreach(entries(self), function () { n = n + 1; });
+  return n;
 }
 
 export function keys(self) {

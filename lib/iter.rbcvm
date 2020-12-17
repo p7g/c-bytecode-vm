@@ -143,3 +143,24 @@ export function zip(_a, _b) {
     return [val_a, val_b];
   };
 }
+
+export function flat(_it) {
+  let it = ensure_iterable(_it);
+  let current = null;
+
+  return function next() {
+    if (current) {
+      let val = current();
+      if (val == null) {
+        current = null;
+        return next();
+      }
+      return val;
+    }
+    current = it();
+    if (current == null) {
+      return null;
+    }
+    return next();
+  };
+}
