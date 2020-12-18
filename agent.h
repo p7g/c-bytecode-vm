@@ -18,13 +18,7 @@ size_t cb_agent_reserve_modspec_id();
 const cb_modspec *cb_agent_get_modspec(size_t id);
 cb_modspec *cb_agent_get_modspec_by_name(size_t name);
 size_t cb_agent_modspec_count(void);
-size_t cb_agent_add_struct_spec(struct cb_struct_spec spec);
-const struct cb_struct_spec *cb_agent_get_struct_spec(size_t id);
 FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 		char **fname_out);
-
-#ifdef DEBUG_VM
-void cb_agent_set_finished_compiling();
-#endif
 
 #endif

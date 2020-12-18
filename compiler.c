@@ -847,9 +847,6 @@ static int compile(struct cstate *state, size_t name_id, int final)
 	if (final) {
 		APPEND(OP_HALT);
 		bytecode_finalize(state->bytecode);
-#ifdef DEBUG_VM
-		cb_agent_set_finished_compiling();
-#endif
 	}
 
 	return 0;
@@ -1387,9 +1384,7 @@ static int compile_import_statement(struct cstate *state)
 		free(filename);
 		if (!f)
 			goto error;
-		filename = strndup(cb_strptr(modsrc), cb_strlen(modsrc));
-		X(compile_file(state, modname, filename, f, 0));
-		free(filename);
+		X(compile_file(state, modname, cb_strptr(modsrc), f, 0));
 		assert(state->modspec && "Missing modspec while compiling");
 		APPEND(OP_ENTER_MODULE);
 		APPEND_SIZE_T(cb_modspec_id(state->modspec));
@@ -1407,8 +1402,7 @@ error:
 static int compile_struct_decl(struct cstate *state, size_t *name_out)
 {
 	struct token name, field;
-	struct cb_struct_spec spec;
-	size_t name_id, num_fields, spec_id, binding_id;
+	size_t name_id, num_fields, binding_id, field_id, nfields_pos;
 	int first_field;
 
 	EXPECT(TOK_STRUCT);
@@ -1423,7 +1417,10 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 
 	num_fields = 0;
 	first_field = 1;
-	cb_struct_spec_init(&spec, name_id);
+	APPEND(OP_NEW_STRUCT_SPEC);
+	APPEND_SIZE_T(name_id);
+	nfields_pos = cb_bytecode_len(state->bytecode);
+	APPEND_SIZE_T(0);
 
 	EXPECT(TOK_LEFT_BRACE);
 	while (!MATCH_P(TOK_RIGHT_BRACE)) {
@@ -1437,13 +1434,12 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 		}
 		num_fields += 1;
 		field = EXPECT(TOK_IDENT);
-		cb_struct_spec_add_field(&spec, intern_ident(state, &field));
+		field_id = intern_ident(state, &field);
+		APPEND_SIZE_T(field_id);
 	}
 	EXPECT(TOK_RIGHT_BRACE);
 
-	spec_id = cb_agent_add_struct_spec(spec);
-	APPEND(OP_NEW_STRUCT_SPEC);
-	APPEND_SIZE_T(spec_id);
+	UPDATE(nfields_pos, num_fields);
 
 	if (state->is_global && name_id != -1) {
 		APPEND(OP_DECLARE_GLOBAL);

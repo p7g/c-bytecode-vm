@@ -985,12 +985,17 @@ DO_OP_NEW_STRUCT: {
 }
 
 DO_OP_NEW_STRUCT_SPEC: {
-	size_t struct_id;
+	size_t name_id, nfields;
 	struct cb_value val;
-	struct_id = READ_SIZE_T();
+	name_id = READ_SIZE_T();
+	nfields = READ_SIZE_T();
 	val.type = CB_VALUE_STRUCT_SPEC;
-	val.val.as_struct_spec = cb_agent_get_struct_spec(struct_id);
-	assert(val.val.as_struct_spec);
+	val.val.as_struct_spec = cb_struct_spec_new(name_id, nfields);
+	for (size_t i = 0; i < nfields; i += 1) {
+		size_t field_id = READ_SIZE_T();
+		cb_struct_spec_set_field_name(val.val.as_struct_spec, i,
+				field_id);
+	}
 	PUSH(val);
 	DISPATCH();
 }

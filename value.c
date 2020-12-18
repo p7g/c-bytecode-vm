@@ -571,6 +571,16 @@ int cb_value_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 
 void cb_value_mark(struct cb_value *val)
 {
+#ifdef DEBUG_GC
+#define GC_LOG(F) ({ \
+		char *as_str = cb_value_to_string(val); \
+		printf("GC: marked value at %p: %s\n", (cb_gc_header *) (F), \
+				as_str); \
+		free(as_str); \
+	})
+#else
+#define GC_LOG(F)
+#endif
 	switch (val->type) {
 	case CB_VALUE_INT:
 	case CB_VALUE_DOUBLE:
@@ -578,17 +588,13 @@ void cb_value_mark(struct cb_value *val)
 	case CB_VALUE_CHAR:
 	case CB_VALUE_NULL:
 	case CB_VALUE_INTERNED_STRING:
-	case CB_VALUE_STRUCT_SPEC:
 	case CB_VALUE_USERDATA:
 		return;
 
 	case CB_VALUE_STRING:
 		if (cb_gc_is_marked((cb_gc_header *) val->val.as_string))
 			break;
-#ifdef DEBUG_GC
-		printf("GC: marked value at %p: \"%s\"\n", val->val.as_string,
-				cb_strptr(val->val.as_string->string));
-#endif
+		GC_LOG(val->val.as_string);
 		cb_gc_mark((cb_gc_header *) val->val.as_string);
 		break;
 
@@ -596,12 +602,7 @@ void cb_value_mark(struct cb_value *val)
 		int i;
 		if (cb_gc_is_marked((cb_gc_header *) val->val.as_array))
 			break;
-#ifdef DEBUG_GC
-		char *as_str = cb_value_to_string(val);
-		printf("GC: marked value at %p: %s\n", val->val.as_array,
-				as_str);
-		free(as_str);
-#endif
+		GC_LOG(val->val.as_array);
 		cb_gc_mark((cb_gc_header *) val->val.as_array);
 		for (i = 0; i < val->val.as_array->len; i += 1)
 			cb_value_mark(&val->val.as_array->values[i]);
@@ -616,12 +617,7 @@ void cb_value_mark(struct cb_value *val)
 		fn = val->val.as_function;
 		if (cb_gc_is_marked((cb_gc_header *) fn))
 			break;
-#ifdef DEBUG_GC
-		char *as_str = cb_value_to_string(val);
-		printf("GC: marked value at %p: %s\n", val->val.as_function,
-				as_str);
-		free(as_str);
-#endif
+		GC_LOG(fn);
 		cb_gc_mark((cb_gc_header *) fn);
 		if (fn->type == CB_FUNCTION_USER) {
 			for (i = 0; i < fn->value.as_user.upvalues_len; i += 1) {
@@ -637,16 +633,17 @@ void cb_value_mark(struct cb_value *val)
 		int i;
 		if (cb_gc_is_marked((cb_gc_header *) val->val.as_struct))
 			break;
-#ifdef DEBUG_GC
-		char *as_str = cb_value_to_string(val);
-		printf("GC: marked value at %p: %s\n", val->val.as_struct,
-				as_str);
-		free(as_str);
-#endif
+		GC_LOG(val->val.as_struct);
 		cb_gc_mark((cb_gc_header *) val->val.as_struct);
+		cb_gc_mark(&val->val.as_struct->spec->gc_header);
 		for (i = 0; i < val->val.as_struct->spec->nfields; i += 1)
 			cb_value_mark(&val->val.as_struct->fields[i]);
 		break;
 	}
+
+	case CB_VALUE_STRUCT_SPEC:
+		GC_LOG(val->val.as_struct_spec);
+		cb_gc_mark(&val->val.as_struct_spec->gc_header);
+		break;
 	}
 }

@@ -79,9 +79,7 @@ struct cb_value {
 		struct cb_array *as_array;
 		struct cb_function *as_function;
 		struct cb_struct *as_struct;
-		/* the struct spec is not garbage collected; it needs to have a
-		   lifetime as long as the VM */
-		const struct cb_struct_spec *as_struct_spec;
+		struct cb_struct_spec *as_struct_spec;
 		struct cb_userdata *as_userdata;
 	} val;
 };

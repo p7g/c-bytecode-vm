@@ -6,22 +6,25 @@
 #include "struct.h"
 #include "value.h"
 
-void cb_struct_spec_init(struct cb_struct_spec *spec, size_t name)
+struct cb_struct_spec *cb_struct_spec_new(size_t name, size_t nfields)
 {
+	struct cb_struct_spec *spec;
+
+	spec = cb_malloc(sizeof(struct cb_struct_spec)
+			+ sizeof(size_t) * nfields, NULL);
 	spec->name = name;
-	spec->nfields = 0;
-	spec->fields = NULL;
+	spec->nfields = nfields;
+
+	return spec;
 }
 
-size_t cb_struct_spec_add_field(struct cb_struct_spec *spec, size_t field)
+void cb_struct_spec_set_field_name(struct cb_struct_spec *spec, size_t i,
+		size_t name)
 {
-	spec->nfields += 1;
-	spec->fields = realloc(spec->fields, spec->nfields * sizeof(size_t));
-	spec->fields[spec->nfields - 1] = field;
-	return spec->nfields - 1;
+	spec->fields[i] = name;
 }
 
-struct cb_struct *cb_struct_spec_instantiate(const struct cb_struct_spec *spec)
+struct cb_struct *cb_struct_spec_instantiate(struct cb_struct_spec *spec)
 {
 	struct cb_struct *val;
 	size_t i;
