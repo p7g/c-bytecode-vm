@@ -1,11 +1,8 @@
-module HashMap;
-
-import "array.rbcvm";
-import "arraylist.rbcvm";
-import "assoclist.rbcvm";
-import "hash.rbcvm";
-import "iter.rbcvm";
-import "string.rbcvm";
+import array;
+import arraylist;
+import assoclist;
+import hash;
+import iter;
 
 let INITIAL_CAPACITY = toint(2 ** 3);
 let LOAD_FACTOR = 0.7;
@@ -19,7 +16,7 @@ struct HashMap {
 # members
 
 function hash_string(str) {
-  return Hash.fnv1a(string_bytes(str));
+  return hash.fnv1a(string_bytes(str));
 }
 
 let default_hash = hash_string;
@@ -32,14 +29,14 @@ function grow(self) {
   let cap = self:cap = self:cap * 2;
 
   let old_buckets = self:buckets;
-  self:buckets = Array.new(cap);
+  self:buckets = array.new(cap);
   self:load = 0;
 
-  Array.foreach(old_buckets, function(bucket) {
+  array.foreach(old_buckets, function(bucket) {
     if (!bucket) {
       return;
     }
-    Array.foreach(AssocList.entries(bucket), function(entry) {
+    array.foreach(assoclist.entries(bucket), function(entry) {
       set(self, entry[0], entry[1]);
     });
   });
@@ -52,7 +49,7 @@ export function with_capacity(capacity) {
     cap=capacity,
     load=0,
     hash_fn=default_hash,
-    buckets=Array.new(capacity),
+    buckets=array.new(capacity),
   };
 }
 
@@ -78,7 +75,7 @@ export function get(self, key) {
     return null;
   }
 
-  return AssocList.get(bucket, key);
+  return assoclist.get(bucket, key);
 }
 
 export function set(self, key, value) {
@@ -86,12 +83,12 @@ export function set(self, key, value) {
   let bucket = self:buckets[hashed];
 
   if (bucket == null) {
-    bucket = AssocList.new();
+    bucket = assoclist.new();
     self:load = self:load + 1;
     self:buckets[hashed] = bucket;
   }
 
-  AssocList.set(bucket, key, value);
+  assoclist.set(bucket, key, value);
 
   if (self:load / self:cap > LOAD_FACTOR) {
     grow(self);
@@ -105,8 +102,8 @@ export function delete(self, key) {
     return false;
   }
 
-  if (AssocList.delete(bucket, key)) {
-    if (AssocList.is_empty(bucket)) {
+  if (assoclist.delete(bucket, key)) {
+    if (assoclist.is_empty(bucket)) {
       self:buckets[hashed] = null;
       self:load = self:load - 1;
     }
@@ -122,11 +119,11 @@ export function has(self, key) {
     return false;
   }
 
-  return AssocList.has(bucket, key);
+  return assoclist.has(bucket, key);
 }
 
 export function entries(self) {
-  let len = Array.length(self:buckets);
+  let len = array.length(self:buckets);
   let i = 0;
   let j = 0;
   let bucket = null;
@@ -135,8 +132,8 @@ export function entries(self) {
     if (i >= len) {
       return null;
     }
-    if (bucket && j < ArrayList.length(bucket)) {
-      let entry = ArrayList.get(bucket, j);
+    if (bucket && j < arraylist.length(bucket)) {
+      let entry = arraylist.get(bucket, j);
       j = j + 1;
       return entry;
     } else if (bucket) {
@@ -149,11 +146,11 @@ export function entries(self) {
 }
 
 export function keys(self) {
-  return Iter.map(entries(self), function (e) { return e[0]; });
+  return iter.map(entries(self), function (e) { return e[0]; });
 }
 
 export function values(self) {
-  return Iter.map(entries(self), function (e) { return e[1]; });
+  return iter.map(entries(self), function (e) { return e[1]; });
 }
 
 export function make_with_hash_function(hash, init_fn) {
@@ -183,7 +180,7 @@ export function from_entries(entries) {
 }
 
 export function extend(map, entries) {
-  Iter.foreach(entries, function(entry) {
+  iter.foreach(entries, function(entry) {
     set(map, entry[0], entry[1]);
   });
 }

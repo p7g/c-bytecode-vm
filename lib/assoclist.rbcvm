@@ -1,12 +1,10 @@
-module AssocList;
+import arraylist;
 
-import "arraylist.rbcvm";
-
-export let new = ArrayList.new;
-export let length = ArrayList.length;
+export let new = arraylist.new;
+export let length = arraylist.length;
 
 function get_entry(self, key) {
-  return ArrayList.find(self, function(entry) {
+  return arraylist.find(self, function(entry) {
     return entry[0] == key;
   });
 }
@@ -15,7 +13,7 @@ export function set(self, key, value) {
   let found = get_entry(self, key);
 
   if (found == null) {
-    ArrayList.push(self, [key, value]);
+    arraylist.push(self, [key, value]);
   } else {
     found[1] = value;
   }
@@ -32,27 +30,27 @@ export function get(self, key) {
 }
 
 export function delete(self, key) {
-  let idx = ArrayList.find_index(self, function(entry) {
+  let idx = arraylist.find_index(self, function(entry) {
     return entry[0] == key;
   });
 
   if (idx < 0) {
     return false;
   } else {
-    ArrayList.delete(self, idx);
+    arraylist.delete(self, idx);
   }
 }
 
 export function has(self, key) {
-  return null != ArrayList.find(self, function(entry) {
+  return null != arraylist.find(self, function(entry) {
     return entry[0] == key;
   });
 }
 
 export function is_empty(self) {
-  return ArrayList.length(self) == 0;
+  return arraylist.length(self) == 0;
 }
 
 export function entries(self) {
-  return ArrayList.to_array(self);
+  return arraylist.to_array(self);
 }

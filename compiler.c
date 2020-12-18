@@ -70,7 +70,6 @@
 	X(TOK_LET) \
 	X(TOK_TRUE) \
 	X(TOK_FALSE) \
-	X(TOK_MODULE) \
 	X(TOK_EXPORT) \
 	X(TOK_IMPORT) \
 	X(TOK_STRUCT) \
@@ -128,7 +127,6 @@ static struct {
 	KW("null", TOK_NULL),
 	KW("true", TOK_TRUE),
 	KW("false", TOK_FALSE),
-	KW("module", TOK_MODULE),
 	KW("export", TOK_EXPORT),
 	KW("import", TOK_IMPORT),
 	KW("struct", TOK_STRUCT),
@@ -809,32 +807,6 @@ static struct token next(struct cstate *state, int *ok)
 /* Propagate errors */
 #define X(V) ({ if (V) return 1; })
 
-static int compile_module_header(struct cstate *state, int *already_compiled)
-{
-	struct token name;
-	size_t name_id;
-
-	*already_compiled = 0;
-	if (!MATCH_P(TOK_MODULE))
-		return 0;
-
-	EXPECT(TOK_MODULE);
-	name = EXPECT(TOK_IDENT);
-	EXPECT(TOK_SEMICOLON);
-
-	name_id = intern_ident(state, &name);
-	if ((state->modspec = cb_agent_get_modspec_by_name(name_id))) {
-		*already_compiled = 1;
-		return 0;
-	}
-	state->modspec = cb_modspec_new(name_id);
-
-	APPEND(OP_INIT_MODULE);
-	APPEND_SIZE_T(cb_modspec_id(state->modspec));
-
-	return 0;
-}
-
 static int compile_statement(struct cstate *);
 static int compile_let_statement(struct cstate *, size_t *name_out, int leave);
 static int compile_function_statement(struct cstate *, size_t *name_out,
@@ -853,38 +825,25 @@ static int compile_expression_statement(struct cstate *);
 
 static int compile_expression(struct cstate *);
 
-static int compile(struct cstate *state, int final, size_t *modname_out)
+static int compile(struct cstate *state, size_t name_id, int final)
 {
 	struct token *tok;
-	int already_compiled;
 
-	/* optional module header */
-	X(compile_module_header(state, &already_compiled));
+	state->modspec = cb_modspec_new(name_id);
 
-	if (modname_out) {
-		if (state->modspec)
-			*modname_out = cb_modspec_name(state->modspec);
-		else
-			*modname_out = -1;
-	}
-
-	if (already_compiled) {
-		state->modspec = NULL;
-		goto end;
-	}
+	APPEND(OP_INIT_MODULE);
+	APPEND_SIZE_T(cb_modspec_id(state->modspec));
 
 	while ((tok = PEEK()) && tok->type != TOK_EOF)
 		X(compile_statement(state));
 
 	EXPECT(TOK_EOF);
 
-	if (state->modspec) {
-		APPEND(OP_END_MODULE);
-		cb_agent_add_modspec(state->modspec);
-		state->modspec = NULL;
-	}
+	assert(state->modspec && "Missing modspec while compiling");
+	APPEND(OP_END_MODULE);
+	cb_agent_add_modspec(state->modspec);
+	state->modspec = NULL;
 
-end:
 	if (final) {
 		APPEND(OP_HALT);
 		bytecode_finalize(state->bytecode);
@@ -1343,10 +1302,7 @@ static int compile_export_statement(struct cstate *state)
 	size_t name;
 
 	tok = EXPECT(TOK_EXPORT);
-	if (!state->modspec) {
-		ERROR_AT(tok, "Cannot export from script (add a module header)");
-		return 1;
-	}
+	assert(state->modspec && "modspec not present while compiling");
 
 	if (!state->is_global) {
 		ERROR_AT(tok, "Can only export from global scope");
@@ -1360,7 +1316,7 @@ static int compile_export_statement(struct cstate *state)
 	} else if (MATCH_P(TOK_STRUCT)) {
 		X(compile_struct_statement(state, &name, 1));
 	} else {
-		ERROR_AT_P(PEEK(), "Can only export function and let declarations");
+		ERROR_AT_P(PEEK(), "Can only export function, let, and struct declarations");
 		return 1;
 	}
 
@@ -1370,16 +1326,17 @@ static int compile_export_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_file(struct cstate *state, const char *name, int final,
-		size_t *modname_out);
+static int compile_file(struct cstate *state, size_t name, const char *path,
+		FILE *f, int final);
 
 static int compile_import_statement(struct cstate *state)
 {
-	struct token tok, string;
-	char *filename;
-	const char *modsrc;
-	size_t modname, modsrc_len;
+	struct token tok, ident;
+	char *filename, *modpath;
+	cb_str modsrc;
+	size_t modname;
 	const struct cb_builtin_module_spec *builtin;
+	FILE *f;
 
 	tok = EXPECT(TOK_IMPORT);
 	if (!state->is_global) {
@@ -1387,23 +1344,23 @@ static int compile_import_statement(struct cstate *state)
 		return 1;
 	}
 
-	string = EXPECT(TOK_STRING);
+	ident = EXPECT(TOK_IDENT);
 	EXPECT(TOK_SEMICOLON);
 
-	modsrc = tok_start(state, &string) + 1;
-	modsrc_len = tok_len(&string) - 2;
+	modname = intern_ident(state, &ident);
+	modsrc = cb_agent_get_string(modname);
 	builtin = NULL;
+
+	if (cb_hashmap_get(state->imported, modname))
+		return 0;
 
 	/* If the import name is one of the names is one of the builtin
 	 * modules, just add that builtin module to state->imported */
 	for (size_t i = 0; i < cb_builtin_module_count; i += 1) {
 		size_t builtin_name_len = strlen(cb_builtin_modules[i].name);
-		if (builtin_name_len != modsrc_len)
-			continue;
-		if (!strncmp(cb_builtin_modules[i].name, modsrc,
-					builtin_name_len)) {
+		if (!cb_str_eq_cstr(modsrc, cb_builtin_modules[i].name,
+				builtin_name_len)) {
 			builtin = &cb_builtin_modules[i];
-			modname = cb_agent_intern_string(modsrc, modsrc_len);
 			break;
 		}
 	}
@@ -1413,37 +1370,38 @@ static int compile_import_statement(struct cstate *state)
 		if (strlen(state->filename) == sizeof("<script>") - 1
 				&& !strncmp("<script>", state->filename,
 					sizeof("<script>") - 1)) {
-			filename = malloc(modsrc_len + 1);
-			filename[tok_len(&string) - 1] = 0;
-			memcpy(filename, modsrc, modsrc_len);
+			filename = malloc(1);
+			*filename = 0;
 		} else {
 			char *real_path = realpath(state->filename, NULL);
 			const char *dir_name = dirname(real_path);
-			size_t len = strlen(dir_name) + modsrc_len + 1;
+			size_t len = strlen(dir_name);
 			filename = malloc(len + 1);
 			filename[len] = 0;
 			memcpy(filename, dir_name, strlen(dir_name));
-			filename[strlen(dir_name)] = '/';
-			memcpy(filename + strlen(dir_name) + 1, modsrc,
-					modsrc_len);
 			free(real_path);
 		}
 
-		if (state->modspec)
-			APPEND(OP_EXIT_MODULE);
-		X(compile_file(state, filename, 0, &modname));
-		if (state->modspec) {
-			APPEND(OP_ENTER_MODULE);
-			APPEND_SIZE_T(cb_modspec_id(state->modspec));
-		}
+		APPEND(OP_EXIT_MODULE);
+		f = cb_agent_resolve_import(modsrc, filename, &modpath);
 		free(filename);
+		if (!f)
+			goto error;
+		filename = strndup(cb_strptr(modsrc), cb_strlen(modsrc));
+		X(compile_file(state, modname, filename, f, 0));
+		free(filename);
+		assert(state->modspec && "Missing modspec while compiling");
+		APPEND(OP_ENTER_MODULE);
+		APPEND_SIZE_T(cb_modspec_id(state->modspec));
 	}
 
-	if (modname != -1)
-		cb_hashmap_set(state->imported, modname,
-				(struct cb_value) { .type = CB_VALUE_NULL });
+	cb_hashmap_set(state->imported, modname,
+			(struct cb_value) { .type = CB_VALUE_NULL });
 
 	return 0;
+
+error:
+	return 1;
 }
 
 static int compile_struct_decl(struct cstate *state, size_t *name_out)
@@ -2201,7 +2159,7 @@ int cb_compile(const char *input, struct bytecode **bc_out)
 	struct cstate state = cstate_default(1);
 	state.input = input;
 
-	result = compile(&state, 1, NULL);
+	result = compile(&state, cb_agent_intern_string("<string>", 8), 1);
 
 	cstate_free(state);
 	*bc_out = state.bytecode;
@@ -2209,10 +2167,9 @@ int cb_compile(const char *input, struct bytecode **bc_out)
 	return result;
 }
 
-static int read_file(const char *name, char **out)
+static int read_file(FILE *f, char **out)
 {
 	int result;
-	FILE *f;
 	size_t filesize;
 
 	assert(out != NULL);
@@ -2228,9 +2185,7 @@ static int read_file(const char *name, char **out)
 		} \
 	} while (0)
 
-	f = fopen(name, "rb");
 	/* FIXME: Return error code so caller can report */
-	HANDLE_ERROR(!f, fprintf(stderr, "File not found: '%s'\n", name));
 	HANDLE_ERROR(fseek(f, 0, SEEK_END), perror("fseek"));
 	filesize = ftell(f);
 	HANDLE_ERROR(fseek(f, 0, SEEK_SET), perror("fseek"));
@@ -2252,40 +2207,52 @@ epilogue:
 	return result;
 }
 
-static int compile_file(struct cstate *state, const char *name, int final,
-		size_t *modname_out)
+static int compile_file(struct cstate *state, size_t name, const char *path,
+		FILE *f, int final)
 {
 	int result;
 	char *input;
 	struct cstate new_state;
 
 	assert(state != NULL);
+	if (cb_agent_get_modspec_by_name(name))
+		return 0;
 
-	if (read_file(name, &input))
+	if (read_file(f, &input))
 		return 1;
 
 	new_state = cstate_default(0);
 	new_state.bytecode = state->bytecode;
 	new_state.input = input;
-	new_state.lex_state = lex_state_new(name);
-	new_state.filename = name;
+	new_state.lex_state = lex_state_new(path);
+	new_state.filename = path;
 
-	result = compile(&new_state, final, modname_out);
+	result = compile(&new_state, name, final);
 
 	free(input);
 	cstate_free(new_state);
 	return result;
 }
 
-int cb_compile_file(const char *name, struct bytecode **bc_out)
+int cb_compile_file(const char *name, const char *path,
+		struct bytecode **bc_out)
 {
 	int result;
-	struct cstate state = cstate_default(1);
+	FILE *f;
+	struct cstate state;
 
-	result = compile_file(&state, name, 1, NULL);
+	f = fopen(path, "rb");
+	if (!f) {
+		fprintf(stderr, "File not found: '%s'\n", path);
+		return 1;
+	}
+
+	state = cstate_default(1);
+	result = compile_file(&state,
+			cb_agent_intern_string(name, strlen(name)), path, f, 1);
+	*bc_out = state.bytecode;
 
 	cstate_free(state);
-	*bc_out = state.bytecode;
 
 	return result;
 }

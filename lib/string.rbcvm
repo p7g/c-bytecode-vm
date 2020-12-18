@@ -1,10 +1,8 @@
-module String;
-
-import "array.rbcvm";
-import "char.rbcvm";
-import "fn.rbcvm";
-import "iter.rbcvm";
-import "op.rbcvm";
+import array;
+import char;
+import fn;
+import iter;
+import op;
 
 export let chars = string_chars;
 export let from_chars = string_from_chars;
@@ -13,11 +11,11 @@ export let bytes = string_bytes;
 export function parse_integer(str, base) {
   let sum = 0;
   let cs = chars(str);
-  Array.reverse(cs);
+  array.reverse(cs);
 
-  Array.foreach(cs, function(char, i) {
-    if (Char.is_digit(char)) {
-      sum = sum + toint(Char.to_digit(char) * base ** i);
+  array.foreach(cs, function(char, i) {
+    if (char.is_digit(char)) {
+      sum = sum + toint(char.to_digit(char) * base ** i);
     }
   });
 
@@ -33,18 +31,18 @@ export function parse_float(str) {
     negate = true;
   }
 
-  chars = Iter.from_array(chars);
+  chars = iter.from_array(chars);
   if (negate) {
-    chars = Iter.drop(chars, 1);
+    chars = iter.drop(chars, 1);
   }
 
-  let integer_chars = Iter.collect(Iter.take_while(chars, Fn.curry(Op.ne, '.')));
+  let integer_chars = iter.collect(iter.take_while(chars, fn.curry(op.ne, '.')));
   sum = sum + parse_integer(from_chars(integer_chars), 10);
 
-  Iter.foreach(Iter.enumerate(chars), function(ic) {
+  iter.foreach(iter.enumerate(chars), function(ic) {
     let i = ic[0];
     let c = ic[1];
-    sum = sum + tofloat(Char.to_digit(c)) / 10 ** (i + 1);
+    sum = sum + tofloat(char.to_digit(c)) / 10 ** (i + 1);
   });
 
   if (negate) {
@@ -56,5 +54,5 @@ export function parse_float(str) {
 
 export function slice(self, start, end) {
     let cs = chars(self);
-    return from_chars(Array.slice(cs, start, end));
+    return from_chars(array.slice(cs, start, end));
 }

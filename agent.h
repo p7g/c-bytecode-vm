@@ -2,12 +2,13 @@
 #define cb_agent_h
 
 #include <stddef.h>
+#include <stdio.h>
 
 #include "module.h"
 #include "str.h"
 #include "struct.h"
 
-void cb_agent_init(void);
+int cb_agent_init(void);
 void cb_agent_deinit(void);
 
 size_t cb_agent_intern_string(const char *str, size_t len);
@@ -19,6 +20,8 @@ cb_modspec *cb_agent_get_modspec_by_name(size_t name);
 size_t cb_agent_modspec_count(void);
 size_t cb_agent_add_struct_spec(struct cb_struct_spec spec);
 const struct cb_struct_spec *cb_agent_get_struct_spec(size_t id);
+FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
+		char **fname_out);
 
 #ifdef DEBUG_VM
 void cb_agent_set_finished_compiling();

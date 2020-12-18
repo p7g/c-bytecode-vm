@@ -1,7 +1,5 @@
-module Iter;
-
-import "array.rbcvm";
-import "arraylist.rbcvm";
+import array;
+import arraylist;
 
 let idx = 0;
 
@@ -14,7 +12,7 @@ function ensure_iterable(it) {
 
 export function from_array(array) {
   let index = 0;
-  let len = Array.length(array);
+  let len = array.length(array);
   let i = idx;
   idx = idx + 1;
   return function from_array_iterator() {
@@ -72,13 +70,13 @@ export function foreach(_it, fn) {
 
 export function collect(_it) {
   let it = ensure_iterable(_it);
-  let dest = ArrayList.new();
+  let dest = arraylist.new();
 
   foreach(it, function(val) {
-    ArrayList.push(dest, val);
+    arraylist.push(dest, val);
   });
 
-  return ArrayList.to_array(dest);
+  return arraylist.to_array(dest);
 }
 
 export function map(_it, fn) {

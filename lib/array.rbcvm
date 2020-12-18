@@ -1,5 +1,3 @@
-module Array;
-
 export let new = array_new;
 export let length = array_length;
 

@@ -1,8 +1,4 @@
-module Obj;
-
-import "fn.rbcvm";
-import "op.rbcvm";
-import "result.rbcvm";
+import result;
 
 export let E_NO_SUCH_METHOD = -1;
 
@@ -40,7 +36,7 @@ export function _send(cls, obj, msg, args) {
   if (meth == null) {
     meth = resolve_method(cls, "method_missing");
     if (meth == null) {
-        return Result.error(E_NO_SUCH_METHOD, msg);
+        return result.error(E_NO_SUCH_METHOD, msg);
     }
     let args_len = Array.length(args);
     let new_args = Array.new(args_len + 2);

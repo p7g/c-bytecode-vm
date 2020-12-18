@@ -1,5 +1,3 @@
-module Result;
-
 export let OK = "ok";
 export let ERROR = "error";
 

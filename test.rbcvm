@@ -1,10 +1,10 @@
-import "lib/array.rbcvm";
-import "lib/arraylist.rbcvm";
-import "lib/hash.rbcvm";
-import "lib/hashmap.rbcvm";
-import "lib/iter.rbcvm";
-import "lib/result.rbcvm";
-import "lib/string.rbcvm";
+import array;
+import arraylist;
+import hash;
+import hashmap;
+import iter;
+import result;
+import string;
 
 (function main() {
     function tape_new() {
