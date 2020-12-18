@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -10,6 +11,8 @@
 #include "struct.h"
 
 #define INITIAL_STRING_TABLE_SIZE 4
+#define MAX_IMPORT_PATHS 256
+#define MAX_IMPORT_PATH_LEN 512
 
 struct cb_agent {
 	int inited;
@@ -22,6 +25,9 @@ struct cb_agent {
 	size_t next_module_id,
 	       next_string_id;
 
+	char *cbcvm_path;
+	const char *import_paths[MAX_IMPORT_PATHS];
+
 	struct cb_struct_spec *struct_specs;
 	size_t struct_specs_len;
 
@@ -32,8 +38,11 @@ struct cb_agent {
 
 static struct cb_agent agent;
 
-void cb_agent_init(void)
+int cb_agent_init(void)
 {
+	size_t i;
+	char *path;
+
 	assert(!agent.inited);
 	agent.inited = 1;
 
@@ -50,7 +59,26 @@ void cb_agent_init(void)
 	agent.finished_compiling = 0;
 #endif
 
+	for (i = 0; i < MAX_IMPORT_PATHS; i += 1)
+		agent.import_paths[i] = NULL;
+	agent.cbcvm_path = getenv("CBCVM_PATH");
+	if (agent.cbcvm_path) {
+		agent.cbcvm_path = strdup(agent.cbcvm_path);
+		for (i = 0, path = strtok(agent.cbcvm_path, ":"); path;
+				i += 1, path = strtok(NULL, ":")) {
+			if (i >= MAX_IMPORT_PATHS) {
+				fprintf(stderr, "Too many paths in CBCVM_PATH\n");
+				goto error;
+			}
+			agent.import_paths[i] = path;
+		}
+	}
+
 	cb_initialize_builtin_modules();
+	return 0;
+
+error:
+	return 1;
 }
 
 void cb_agent_deinit(void)
@@ -81,6 +109,15 @@ void cb_agent_deinit(void)
 	agent.modules = NULL;
 	agent.struct_specs = NULL;
 	agent.struct_specs_len = 0;
+
+	if (agent.cbcvm_path) {
+		free(agent.cbcvm_path);
+		agent.cbcvm_path = NULL;
+		for (i = 0; i < MAX_IMPORT_PATHS && agent.import_paths[i];
+				i += 1) {
+			agent.import_paths[i] = NULL;
+		}
+	}
 }
 
 size_t cb_agent_intern_string(const char *str, size_t len)
@@ -202,3 +239,65 @@ void cb_agent_set_finished_compiling()
 	agent.finished_compiling = 1;
 }
 #endif
+
+/* Given a name like "hashmap", find a matching file relative to one of the
+   paths in CBCVM_PATH with a .rbcvm extension. If found, it will be opened and
+   a FILE handle returned. Otherwise NULL will be returned, and an error
+   message will be printed.
+
+   It is the caller's responsibility to close the returned file handle. */
+FILE *cb_agent_resolve_import(const char *import_name, size_t len,
+		const char *pwd, char **fname_out)
+{
+#define min(A, B) ({ typeof((A)) _a = (A), _b = (B); _a < _b ? _a : _b; })
+#define CHECK_LEN ({ \
+		if (path[MAX_IMPORT_PATH_LEN - 1] != 0) { \
+			fprintf(stderr, "Import path for '%.*s' is too long\n", \
+					(int) len, import_name); \
+			return NULL; \
+		} \
+	})
+
+	static char path[MAX_IMPORT_PATH_LEN];
+	ssize_t i, j;
+	FILE *f;
+
+	for (i = -1; i < MAX_IMPORT_PATHS && agent.import_paths[i]; i += 1) {
+		path[MAX_IMPORT_PATH_LEN - 1] = 0;
+		strncpy(path, i == -1 ? pwd : agent.import_paths[i],
+				MAX_IMPORT_PATH_LEN);
+		CHECK_LEN;
+
+		j = strlen(path);
+		assert(j + 1 < MAX_IMPORT_PATH_LEN);
+		path[j++] = '/';
+		strncpy(path + j, import_name,
+				min(MAX_IMPORT_PATH_LEN - j, len));
+		CHECK_LEN;
+		j += len;
+		strncpy(path + j, ".rbcvm", MAX_IMPORT_PATH_LEN - j);
+		CHECK_LEN;
+
+		f = fopen(path, "rb");
+		if (!f)
+			continue;
+		if (fname_out)
+			*fname_out = strdup(path);
+		return f;
+	}
+
+	fprintf(stderr, "Import '%.*s' not found, checked in: ", (int) len,
+			import_name);
+	for (i = -1; i < MAX_IMPORT_PATHS && agent.import_paths[i]; i += 1) {
+		if (i > 0)
+			fputs(", ", stderr);
+		fputs(i == -1 ? pwd : agent.import_paths[i], stderr);
+	}
+	if (!agent.import_paths[0])
+		fputs("(none)", stderr);
+	fputc('\n', stderr);
+	return NULL;
+
+#undef CHECK_LEN
+#undef min
+}
