@@ -246,14 +246,15 @@ void cb_agent_set_finished_compiling()
    message will be printed.
 
    It is the caller's responsibility to close the returned file handle. */
-FILE *cb_agent_resolve_import(const char *import_name, size_t len,
-		const char *pwd, char **fname_out)
+FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
+		char **fname_out)
 {
 #define min(A, B) ({ typeof((A)) _a = (A), _b = (B); _a < _b ? _a : _b; })
 #define CHECK_LEN ({ \
 		if (path[MAX_IMPORT_PATH_LEN - 1] != 0) { \
 			fprintf(stderr, "Import path for '%.*s' is too long\n", \
-					(int) len, import_name); \
+					(int) cb_strlen(import_name), \
+					cb_strptr(import_name)); \
 			return NULL; \
 		} \
 	})
@@ -271,10 +272,11 @@ FILE *cb_agent_resolve_import(const char *import_name, size_t len,
 		j = strlen(path);
 		assert(j + 1 < MAX_IMPORT_PATH_LEN);
 		path[j++] = '/';
-		strncpy(path + j, import_name,
-				min(MAX_IMPORT_PATH_LEN - j, len));
+		strncpy(path + j, cb_strptr(import_name), min(
+				MAX_IMPORT_PATH_LEN - j,
+				cb_strlen(import_name)));
 		CHECK_LEN;
-		j += len;
+		j += cb_strlen(import_name);
 		strncpy(path + j, ".rbcvm", MAX_IMPORT_PATH_LEN - j);
 		CHECK_LEN;
 
@@ -286,8 +288,9 @@ FILE *cb_agent_resolve_import(const char *import_name, size_t len,
 		return f;
 	}
 
-	fprintf(stderr, "Import '%.*s' not found, checked in: ", (int) len,
-			import_name);
+	fprintf(stderr, "Import '%.*s' not found, checked in: ",
+			(int) cb_strlen(import_name),
+			cb_strptr(import_name));
 	for (i = -1; i < MAX_IMPORT_PATHS && agent.import_paths[i]; i += 1) {
 		if (i > 0)
 			fputs(", ", stderr);

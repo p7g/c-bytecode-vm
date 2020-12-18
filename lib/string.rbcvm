@@ -1,8 +1,8 @@
-import "array";
-import "char";
-import "fn";
-import "iter";
-import "op";
+import array;
+import char;
+import fn;
+import iter;
+import op;
 
 export let chars = string_chars;
 export let from_chars = string_from_chars;

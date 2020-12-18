@@ -1,4 +1,4 @@
-import "arraylist";
+import arraylist;
 
 export let new = arraylist.new;
 export let length = arraylist.length;

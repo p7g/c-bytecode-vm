@@ -1331,10 +1331,10 @@ static int compile_file(struct cstate *state, size_t name, const char *path,
 
 static int compile_import_statement(struct cstate *state)
 {
-	struct token tok, string;
+	struct token tok, ident;
 	char *filename, *modpath;
-	const char *modsrc;
-	size_t modname, modsrc_len;
+	cb_str modsrc;
+	size_t modname;
 	const struct cb_builtin_module_spec *builtin;
 	FILE *f;
 
@@ -1344,12 +1344,11 @@ static int compile_import_statement(struct cstate *state)
 		return 1;
 	}
 
-	string = EXPECT(TOK_STRING);
+	ident = EXPECT(TOK_IDENT);
 	EXPECT(TOK_SEMICOLON);
 
-	modsrc = tok_start(state, &string) + 1;
-	modsrc_len = tok_len(&string) - 2;
-	modname = cb_agent_intern_string(modsrc, modsrc_len);
+	modname = intern_ident(state, &ident);
+	modsrc = cb_agent_get_string(modname);
 	builtin = NULL;
 
 	if (cb_hashmap_get(state->imported, modname))
@@ -1359,10 +1358,8 @@ static int compile_import_statement(struct cstate *state)
 	 * modules, just add that builtin module to state->imported */
 	for (size_t i = 0; i < cb_builtin_module_count; i += 1) {
 		size_t builtin_name_len = strlen(cb_builtin_modules[i].name);
-		if (builtin_name_len != modsrc_len)
-			continue;
-		if (!strncmp(cb_builtin_modules[i].name, modsrc,
-					builtin_name_len)) {
+		if (!cb_str_eq_cstr(modsrc, cb_builtin_modules[i].name,
+				builtin_name_len)) {
 			builtin = &cb_builtin_modules[i];
 			break;
 		}
@@ -1386,12 +1383,11 @@ static int compile_import_statement(struct cstate *state)
 		}
 
 		APPEND(OP_EXIT_MODULE);
-		f = cb_agent_resolve_import(modsrc, modsrc_len, filename,
-				&modpath);
+		f = cb_agent_resolve_import(modsrc, filename, &modpath);
 		free(filename);
 		if (!f)
 			goto error;
-		filename = strndup(modsrc, modsrc_len);
+		filename = strndup(cb_strptr(modsrc), cb_strlen(modsrc));
 		X(compile_file(state, modname, filename, f, 0));
 		free(filename);
 		assert(state->modspec && "Missing modspec while compiling");

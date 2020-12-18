@@ -1,5 +1,5 @@
-import "array";
-import "box";
+import array;
+import box;
 
 struct Node {
   car, cdr

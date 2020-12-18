@@ -1,9 +1,9 @@
-import "array";
-import "arraylist";
-import "char";
-import "hashmap";
-import "result";
-import "string";
+import array;
+import arraylist;
+import char;
+import hashmap;
+import result;
+import string;
 
 
 let T_LEFT_BRACE = 0;

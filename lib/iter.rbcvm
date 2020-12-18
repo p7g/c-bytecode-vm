@@ -1,5 +1,5 @@
-import "array";
-import "arraylist";
+import array;
+import arraylist;
 
 let idx = 0;
 

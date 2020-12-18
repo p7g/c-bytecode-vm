@@ -1,4 +1,4 @@
-import "array";
+import array;
 
 export function identity(n) {
     return n;

@@ -1,8 +1,8 @@
-import "array";
-import "arraylist";
-import "assoclist";
-import "hash";
-import "iter";
+import array;
+import arraylist;
+import assoclist;
+import hash;
+import iter;
 
 let INITIAL_CAPACITY = toint(2 ** 3);
 let LOAD_FACTOR = 0.7;

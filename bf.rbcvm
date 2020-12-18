@@ -1,7 +1,7 @@
-import "array";
-import "arraylist";
-import "iter";
-import "string";
+import array;
+import arraylist;
+import iter;
+import string;
 
 struct Tape {
     pos,

@@ -1,4 +1,4 @@
-import "result.rbcvm";
+import result;
 
 export let E_NO_SUCH_METHOD = -1;
 
