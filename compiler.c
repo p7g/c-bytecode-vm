@@ -1396,7 +1396,7 @@ static int compile_import_statement(struct cstate *state)
 
 	/* If the import name is one of the names is one of the builtin
 	 * modules, just add that builtin module to state->imported */
-	for (size_t i = 0; i < CB_BUILTIN_MODULE_COUNT; i += 1) {
+	for (size_t i = 0; i < cb_builtin_module_count; i += 1) {
 		size_t builtin_name_len = strlen(cb_builtin_modules[i].name);
 		if (builtin_name_len != modsrc_len)
 			continue;
