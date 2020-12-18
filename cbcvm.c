@@ -41,9 +41,10 @@ int main(int argc, char **argv) {
 	sigaction(SIGINT, &sigint_action, NULL);
 #endif
 
-	cb_agent_init();
+	if (cb_agent_init())
+		return 1;
 
-	int result = cb_compile_file(argv[1], &bytecode);
+	int result = cb_compile_file("<script>", argv[1], &bytecode);
 #ifdef DEBUG_DISASM
 	if (!result)
 		result = cb_disassemble(bytecode);
