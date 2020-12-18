@@ -8,9 +8,11 @@
 #include "module.h"
 
 #include "modules/time.h"
+#include "modules/structs.h"
 
 static const struct cb_builtin_module_spec builtins[] = {
 	{"time", cb_time_build_spec, cb_time_instantiate},
+	{"structs", cb_structs_build_spec, cb_structs_instantiate},
 };
 const struct cb_builtin_module_spec *cb_builtin_modules = builtins;
 const size_t cb_builtin_module_count = sizeof(builtins) / sizeof(builtins[0]);
