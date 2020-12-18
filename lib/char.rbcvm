@@ -1,5 +1,3 @@
-module Char;
-
 let ZERO = ord('0');
 let NINE = ord('9');
 

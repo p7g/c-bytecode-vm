@@ -1,7 +1,7 @@
-import "lib/array.rbcvm";
-import "lib/arraylist.rbcvm";
-import "lib/iter.rbcvm";
-import "lib/string.rbcvm";
+import "array";
+import "arraylist";
+import "iter";
+import "string";
 
 struct Tape {
     pos,
@@ -11,54 +11,54 @@ struct Tape {
 function tape_new() {
     return Tape {
         pos = 0,
-        data = ArrayList.from_array(1, [0]),
+        data = arraylist.from_array(1, [0]),
     };
 }
 
 function tape_get(t) {
-    return ArrayList.get(t:data, t:pos);
+    return arraylist.get(t:data, t:pos);
 }
 
 function tape_inc(t, n) {
-    ArrayList.set(t:data, t:pos, ArrayList.get(t:data, t:pos) + n);
+    arraylist.set(t:data, t:pos, arraylist.get(t:data, t:pos) + n);
 }
 
 function tape_move(t, n) {
     t:pos = t:pos + n;
-    if (t:pos >= ArrayList.length(t:data)) {
-        ArrayList.push(t:data, 0);
+    if (t:pos >= arraylist.length(t:data)) {
+        arraylist.push(t:data, 0);
     }
 }
 
 struct Op { type, value }
 
 function parse(it) {
-    let ops = ArrayList.new();
+    let ops = arraylist.new();
     let c;
 
     while ((c = it())) {
         if (c == '+') {
-            ArrayList.push(ops, Op{type="inc", value=1});
+            arraylist.push(ops, Op{type="inc", value=1});
         } else if (c == '-') {
-            ArrayList.push(ops, Op{type="inc", value=-1});
+            arraylist.push(ops, Op{type="inc", value=-1});
         } else if (c == '>') {
-            ArrayList.push(ops, Op{type="move", value=1});
+            arraylist.push(ops, Op{type="move", value=1});
         } else if (c == '<') {
-            ArrayList.push(ops, Op{type="move", value=-1});
+            arraylist.push(ops, Op{type="move", value=-1});
         } else if (c == '.') {
-            ArrayList.push(ops, Op{type="print"});
+            arraylist.push(ops, Op{type="print"});
         } else if (c == '[') {
-            ArrayList.push(ops, Op{type="loop", value=parse(it)});
+            arraylist.push(ops, Op{type="loop", value=parse(it)});
         } else if (c == ']') {
             break;
         }
     }
 
-    return ArrayList.to_array(ops);
+    return arraylist.to_array(ops);
 }
 
 function run(ops, tape) {
-    let len = Array.length(ops);
+    let len = array.length(ops);
     for (let i = 0; i < len; i = i + 1) {
         let op = ops[i];
         let type = op:type;
@@ -77,9 +77,9 @@ function run(ops, tape) {
 }
 
 let args = argv();
-if (Array.length(args) != 3) {
+if (array.length(args) != 3) {
     println("Usage: ./cbcvm bf3.rbcvm <program>");
 } else {
-    let it = Iter.from_array(String.chars(read_file(args[2])));
+    let it = iter.from_array(string.chars(read_file(args[2])));
     run(parse(it), tape_new());
 }

@@ -1,18 +1,16 @@
-module List;
-
-import "array.rbcvm";
-import "box.rbcvm";
+import "array";
+import "box";
 
 struct Node {
   car, cdr
 }
 
 export function new() {
-  return Box.new(null);
+  return box.new(null);
 }
 
 export function length(self) {
-  let current = Box.get(self);
+  let current = box.get(self);
   let len = 0;
 
   while (current) {
@@ -24,15 +22,15 @@ export function length(self) {
 }
 
 export function prepend(self, value) {
-  let current = Box.get(self);
-  Box.set(self, Node{car=value, cdr=current});
+  let current = box.get(self);
+  box.set(self, Node{car=value, cdr=current});
 }
 
 export function append(self, value) {
-  let current = Box.get(self);
+  let current = box.get(self);
   let prev = null;
   if (current == null) {
-    Box.set(self, Node{car=value, cdr=null});
+    box.set(self, Node{car=value, cdr=null});
     return;
   }
 
@@ -45,7 +43,7 @@ export function append(self, value) {
 }
 
 export function foreach(self, func) {
-  let current = Box.get(self);
+  let current = box.get(self);
 
   for (let i = 0; current; i = i + 1) {
     func(current:car, i, self);
@@ -54,7 +52,7 @@ export function foreach(self, func) {
 }
 
 export function find(self, func) {
-  let current = Box.get(self);
+  let current = box.get(self);
 
   for (let i = 0; current; i = i + 1) {
     if (func(current:car, i, self)) {
@@ -86,7 +84,7 @@ export function map(self, func) {
 }
 
 export function to_array(self) {
-  let arr = Array.new(length(self));
+  let arr = array.new(length(self));
 
   foreach(self, function(val, i) {
     arr[i] = val;

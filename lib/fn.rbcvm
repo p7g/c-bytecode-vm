@@ -1,6 +1,4 @@
-module Fn;
-
-import "array.rbcvm";
+import "array";
 
 export function identity(n) {
     return n;
@@ -19,26 +17,26 @@ export function curry(fn, a) {
 }
 
 export function partial(fn, args) {
-    return Array.foldl(args, fn, function(acc, i) {
+    return array.foldl(args, fn, function(acc, i) {
         return curry(acc, i);
     });
 }
 
 export function compose(functions) {
-    return Array.foldl1(functions, function(acc, fn) {
+    return array.foldl1(functions, function(acc, fn) {
         return function(arg) {
             return acc(fn(arg));
         };
     });
 }
 
-export let chain = compose([compose, Array.reversed]);
+export let chain = compose([compose, array.reversed]);
 
 export function bind(fn, slf) {
     return function() {
         let args = arguments();
-        let args_len = Array.length(args);
-        let all_args = Array.new(args_len + 1);
+        let args_len = array.length(args);
+        let all_args = array.new(args_len + 1);
         all_args[0] = slf;
         for (let i = 0; i < args_len; i = i + 1) {
             all_args[i + 1] = args[i];

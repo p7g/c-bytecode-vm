@@ -1,12 +1,9 @@
-module JSON;
-
-import "array.rbcvm";
-import "arraylist.rbcvm";
-import "char.rbcvm";
-import "hashmap.rbcvm";
-import "iter.rbcvm";
-import "result.rbcvm";
-import "string.rbcvm";
+import "array";
+import "arraylist";
+import "char";
+import "hashmap";
+import "result";
+import "string";
 
 
 let T_LEFT_BRACE = 0;
@@ -29,9 +26,9 @@ struct Token {
 }
 
 function tokenize(input) {
-  let chars = String.chars(input);
-  let tokens = ArrayList.new();
-  let len = Array.length(chars);
+  let chars = string.chars(input);
+  let tokens = arraylist.new();
+  let len = array.length(chars);
   let i = 0;
 
   while (i < len) {
@@ -92,7 +89,7 @@ function tokenize(input) {
 
       i = i + 1;
       token = Token{type=T_STRING, value=str};
-    } else if (Char.is_digit(char) || char == '-') {
+    } else if (char.is_digit(char) || char == '-') {
       let is_float = false;
       let c;
       let str;
@@ -108,11 +105,11 @@ function tokenize(input) {
         is_float = true;
         i = i + 1;
         str = string_concat(str, "0");
-      } else if (Char.is_digit(c) && c != '0') {
+      } else if (char.is_digit(c) && c != '0') {
         str = string_concat(str, tostring(c));
         i = i + 1;
       } else {
-        return Result.error(E_UNEXPECTED_TOKEN, c);
+        return result.error(E_UNEXPECTED_TOKEN, c);
       }
 
       if (chars[i] == '.') {
@@ -120,23 +117,23 @@ function tokenize(input) {
         i = i + 1;
         str = string_concat(str, ".");
       } else if (is_float) {
-        return Result.error(E_UNEXPECTED_TOKEN, chars[i]);
+        return result.error(E_UNEXPECTED_TOKEN, chars[i]);
       }
 
-      while (i < len && Char.is_digit(chars[i])) {
+      while (i < len && char.is_digit(chars[i])) {
         str = string_concat(str, tostring(chars[i]));
         i = i + 1;
       }
 
       token = Token{type=T_NUMBER, value=str};
     } else {
-      return Result.error(E_UNEXPECTED_TOKEN, char);
+      return result.error(E_UNEXPECTED_TOKEN, char);
     }
 
-    ArrayList.push(tokens, token);
+    arraylist.push(tokens, token);
   }
 
-  return Result.ok(ArrayList.to_array(tokens));
+  return result.ok(arraylist.to_array(tokens));
 }
 
 function parse_value(next, peek) {
@@ -146,7 +143,7 @@ function parse_value(next, peek) {
 
   let ret;
   if (type == T_NUMBER) {
-    ret = String.parse_float(value, 10);
+    ret = string.parse_float(value, 10);
   } else if (type == T_STRING) {
     ret = value;
   } else if (type == T_TRUE) {
@@ -156,14 +153,14 @@ function parse_value(next, peek) {
   } else if (type == T_NULL) {
     ret = null;
   } else if (type == T_LEFT_BRACE) {
-    let values = HashMap.new();
+    let values = hashmap.new();
     let is_first = true;
 
     while (peek():type != T_RIGHT_BRACE) {
       if (!is_first) {
         let comma = next();
         if (comma:type != T_COMMA) {
-          return Result.error(
+          return result.error(
             E_UNEXPECTED_TOKEN,
             string_concat("Expected comma, found '", comma:value, "'"),
           );
@@ -174,10 +171,10 @@ function parse_value(next, peek) {
 
       let key = parse_value(next, peek);
 
-      if (Result.is_ok(key)) {
-        key = Result.data(key);
-      } else if (type_of(Result.data(key)) != "string") {
-        return Result.error(
+      if (result.is_ok(key)) {
+        key = result.data(key);
+      } else if (type_of(result.data(key)) != "string") {
+        return result.error(
           E_UNEXPECTED_TOKEN,
           string_concat("Expected string, found ", key),
         );
@@ -187,7 +184,7 @@ function parse_value(next, peek) {
 
       let colon = next();
       if (colon:type != T_COLON) {
-        return Result.error(
+        return result.error(
           E_UNEXPECTED_TOKEN,
           string_concat("Expected colon, found '", comma:value, "'"),
         );
@@ -195,8 +192,8 @@ function parse_value(next, peek) {
 
       let map_value = parse_value(next, peek);
 
-      if (Result.is_ok(map_value)) {
-        HashMap.set(values, key, Result.data(map_value));
+      if (result.is_ok(map_value)) {
+        hashmap.set(values, key, result.data(map_value));
       } else {
         return map_value;
       }
@@ -206,14 +203,14 @@ function parse_value(next, peek) {
 
     ret = values;
   } else if (type == T_LEFT_BRACKET) {
-    let values = ArrayList.new();
+    let values = arraylist.new();
 
     let is_first = true;
     while (peek():type != T_RIGHT_BRACKET) {
       if (!is_first) {
         let comma = next();
         if (comma:type != T_COMMA) {
-          return Result.error(
+          return result.error(
             E_UNEXPECTED_TOKEN,
             string_concat("Expected comma, found '", comma:value, "'"),
           );
@@ -224,8 +221,8 @@ function parse_value(next, peek) {
 
       let result = parse_value(next, peek);
 
-      if (Result.is_ok(result)) {
-        ArrayList.push(values, Result.data(result));
+      if (result.is_ok(result)) {
+        arraylist.push(values, result.data(result));
       } else {
         return result;
       }
@@ -233,26 +230,26 @@ function parse_value(next, peek) {
 
     next(); # consume right bracket
 
-    ret = ArrayList.to_array(values);
+    ret = arraylist.to_array(values);
   } else {
-    return Result.error(
+    return result.error(
       E_UNEXPECTED_TOKEN,
       string_concat("Unexpected token ", tostring(value)),
     );
   }
 
-  return Result.ok(ret);
+  return result.ok(ret);
 }
 
 export function parse(input) {
   let tokens = tokenize(input);
   let i = 0;
 
-  if (Result.is_error(tokens)) {
+  if (result.is_error(tokens)) {
     return tokens;
   }
-  tokens = Result.data(tokens);
-  let len = Array.length(tokens);
+  tokens = result.data(tokens);
+  let len = array.length(tokens);
 
   function peek() {
     return tokens[i];
@@ -266,12 +263,12 @@ export function parse(input) {
 
   let data = parse_value(next, peek);
 
-  if (Result.is_error(data)) {
+  if (result.is_error(data)) {
     return data;
   }
 
   if (i != len) {
-    return Result.error(
+    return result.error(
       E_INVALID_JSON,
       string_concat("Expected EOF, found ", tostring(tokens[i - 1]:value)),
     );
