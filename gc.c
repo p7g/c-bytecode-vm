@@ -78,11 +78,6 @@ static void mark(void)
 	for (i = 0; i < cb_vm_state.sp; i += 1)
 		cb_value_mark(&cb_vm_state.stack[i]);
 
-	if (cb_vm_state.globals) {
-		DEBUG_LOG("marking script global scope");
-		cb_hashmap_mark_contents(cb_vm_state.globals);
-	}
-
 	if (cb_vm_state.modules) {
 		DEBUG_LOG("marking module global scopes");
 		for (i = 0; i < cb_agent_modspec_count(); i += 1) {

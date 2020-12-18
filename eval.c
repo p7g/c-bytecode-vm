@@ -37,8 +37,6 @@ void cb_vm_init(cb_bytecode *bytecode)
 
 	cb_vm_state.modules = calloc(cb_agent_modspec_count(),
 			sizeof(struct cb_module));
-	cb_vm_state.globals = cb_hashmap_new();
-	make_intrinsics(cb_vm_state.globals);
 
 	cb_instantiate_builtin_modules();
 }
@@ -58,8 +56,6 @@ void cb_vm_deinit(void)
 	free(cb_vm_state.upvalues);
 	cb_vm_state.upvalues = NULL;
 	free(cb_vm_state.stack);
-	cb_hashmap_free(cb_vm_state.globals);
-	cb_vm_state.globals = NULL;
 	cb_vm_state.sp = 0;
 	cb_gc_collect();
 }
@@ -260,7 +256,7 @@ static int cb_eval(size_t pc, struct cb_frame *frame)
 		struct cb_value _v = (VAL); \
 		cb_vm_state.stack[(N)] = _v; \
 	})
-#define GLOBALS() (frame->module ? frame->module->global_scope : cb_vm_state.globals)
+#define GLOBALS() (frame->module->global_scope)
 
 	DISPATCH();
 
