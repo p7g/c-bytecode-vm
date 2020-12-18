@@ -103,7 +103,6 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	case OP_ENTER_MODULE:
 	case OP_NEW_ARRAY_WITH_VALUES:
 	case OP_CALL:
-	case OP_NEW_STRUCT_SPEC:
 		printf("%s(%zu)\n", cb_opcode_name(op), NEXT_USIZE());
 		return WITH_ARGS(1);
 
@@ -138,6 +137,21 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 		printf("%s(%zu, %zu)\n", cb_opcode_name(op), arg1,
 				arg2);
 		return WITH_ARGS(2);
+	}
+
+	case OP_NEW_STRUCT_SPEC: {
+		size_t name_id, nfields, field_name, i;
+		name_id = NEXT_USIZE();
+		nfields = NEXT_USIZE();
+		printf("%s(\"%s\"", cb_opcode_name(op),
+				cb_strptr(cb_agent_get_string(name_id)));
+		for (i = 0; i < nfields; i += 1) {
+			field_name = NEXT_USIZE();
+			printf(", \"%s\"", cb_strptr(
+					cb_agent_get_string(field_name)));
+		}
+		puts(")");
+		return WITH_ARGS(nfields + 2);
 	}
 
 	default:

@@ -59,29 +59,6 @@ void make_intrinsics(cb_hashmap *scope)
 	INTRINSIC_LIST(FUNC);
 }
 
-#define EXPECT_TYPE(TYPE, VAL) ({ \
-		if ((VAL).type != (TYPE)) { \
-			fprintf(stderr, "%s: expected %s argument, got %s\n", \
-					__func__, \
-					cb_value_type_friendly_name(TYPE), \
-					cb_value_type_of(&(VAL))); \
-			return 1; \
-		} \
-	})
-#define EXPECT_STRING(VAL) ({ \
-		cb_str _EXPECT_STRING_str; \
-		if ((VAL).type == CB_VALUE_STRING) { \
-			_EXPECT_STRING_str = (VAL).val.as_string->string; \
-		} else if ((VAL).type == CB_VALUE_INTERNED_STRING) { \
-			_EXPECT_STRING_str = cb_agent_get_string( \
-					(VAL).val.as_interned_string); \
-		} else { \
-			EXPECT_TYPE(CB_VALUE_STRING, (VAL)); \
-			return 1; \
-		} \
-		_EXPECT_STRING_str; \
-	})
-
 static int print(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	int i, first;
@@ -154,7 +131,7 @@ static int array_new(size_t argc, struct cb_value *argv,
 	size_t len;
 	len_val = argv[0];
 
-	EXPECT_TYPE(CB_VALUE_INT, len_val);
+	CB_EXPECT_TYPE(CB_VALUE_INT, len_val);
 	len = len_val.val.as_int;
 
 	result->type = CB_VALUE_ARRAY;
@@ -173,7 +150,7 @@ static int string_chars(size_t argc, struct cb_value *argv,
 	cb_str str;
 	size_t len;
 
-	str = EXPECT_STRING(argv[0]);
+	str = CB_EXPECT_STRING(argv[0]);
 
 	len = cb_strlen(str);
 	result->type = CB_VALUE_ARRAY;
@@ -198,7 +175,7 @@ static int string_from_chars(size_t argc, struct cb_value *argv,
 	size_t len;
 
 	arr = argv[0];
-	EXPECT_TYPE(CB_VALUE_ARRAY, arr);
+	CB_EXPECT_TYPE(CB_VALUE_ARRAY, arr);
 
 	len = arr.val.as_array->len;
 	str = malloc(len + 1);
@@ -228,7 +205,7 @@ static int string_bytes(size_t argc, struct cb_value *argv,
 	cb_str str;
 	size_t len;
 
-	str = EXPECT_STRING(argv[0]);
+	str = CB_EXPECT_STRING(argv[0]);
 
 	len = cb_strlen(str);
 	result->type = CB_VALUE_ARRAY;
@@ -254,7 +231,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 
 	len = 0;
 	for (int i = 0; i < argc; i += 1) {
-		str = EXPECT_STRING(argv[i]);
+		str = CB_EXPECT_STRING(argv[i]);
 		len += cb_strlen(str);
 	}
 
@@ -262,7 +239,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 	buf = malloc(len + 1);
 
 	for (int i = 0; i < argc; i += 1) {
-		str = EXPECT_STRING(argv[i]);
+		str = CB_EXPECT_STRING(argv[i]);
 		memcpy(buf + offset, cb_strptr(str), cb_strlen(str));
 		offset += cb_strlen(str);
 	}
@@ -281,7 +258,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 
 static int ord(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	EXPECT_TYPE(CB_VALUE_CHAR, argv[0]);
+	CB_EXPECT_TYPE(CB_VALUE_CHAR, argv[0]);
 
 	result->type = CB_VALUE_INT;
 	result->val.as_int = argv[0].val.as_char;
@@ -291,7 +268,7 @@ static int ord(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 static int chr(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	EXPECT_TYPE(CB_VALUE_INT, argv[0]);
+	CB_EXPECT_TYPE(CB_VALUE_INT, argv[0]);
 
 	result->type = CB_VALUE_CHAR;
 	result->val.as_char = argv[0].val.as_int & 0xFF;
@@ -302,7 +279,7 @@ static int chr(size_t argc, struct cb_value *argv, struct cb_value *result)
 static int array_length(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
-	EXPECT_TYPE(CB_VALUE_ARRAY, argv[0]);
+	CB_EXPECT_TYPE(CB_VALUE_ARRAY, argv[0]);
 
 	result->type = CB_VALUE_INT;
 	result->val.as_int = argv[0].val.as_array->len;
@@ -313,7 +290,7 @@ static int array_length(size_t argc, struct cb_value *argv,
 static int truncate32(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
-	EXPECT_TYPE(CB_VALUE_INT, argv[0]);
+	CB_EXPECT_TYPE(CB_VALUE_INT, argv[0]);
 
 	*result = argv[0];
 	result->val.as_int = result->val.as_int & 0xFFFFFFFF;
@@ -324,7 +301,7 @@ static int truncate32(size_t argc, struct cb_value *argv,
 static int tofloat(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
-	EXPECT_TYPE(CB_VALUE_INT, argv[0]);
+	CB_EXPECT_TYPE(CB_VALUE_INT, argv[0]);
 
 	result->type = CB_VALUE_DOUBLE;
 	result->val.as_double = (double) argv[0].val.as_int;
@@ -340,7 +317,7 @@ static int read_file(size_t argc, struct cb_value *argv,
 	size_t len;
 	char *buf;
 
-	str = EXPECT_STRING(argv[0]);
+	str = CB_EXPECT_STRING(argv[0]);
 
 	f = fopen(cb_strptr(str), "r");
 	if (!f) {
@@ -385,7 +362,7 @@ static int read_file_bytes(size_t argc, struct cb_value *argv,
 	char *buf;
 	int i;
 
-	str = EXPECT_STRING(argv[0]);
+	str = CB_EXPECT_STRING(argv[0]);
 
 	f = fopen(cb_strptr(str), "rb");
 	if (!f) {
@@ -476,8 +453,8 @@ static int apply(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	struct cb_array *arr;
 
-	EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
-	EXPECT_TYPE(CB_VALUE_ARRAY, argv[1]);
+	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
+	CB_EXPECT_TYPE(CB_VALUE_ARRAY, argv[1]);
 
 	arr = argv[1].val.as_array;
 
@@ -554,8 +531,8 @@ static int file_open(size_t argc, struct cb_value *argv,
 	cb_str name, perms;
 	struct cb_userdata *data;
 
-	name = EXPECT_STRING(argv[0]);
-	perms = EXPECT_STRING(argv[1]);
+	name = CB_EXPECT_STRING(argv[0]);
+	perms = CB_EXPECT_STRING(argv[1]);
 
 	f = fopen(cb_strptr(name), cb_strptr(perms));
 	if (!f) {
@@ -579,7 +556,7 @@ static int file_getchar(size_t argc, struct cb_value *argv,
 	struct cb_userdata *data;
 	int c;
 
-	EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
+	CB_EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
 	data = argv[0].val.as_userdata;
 
 	if (data->gc_header.deinit != deinit_file) {
@@ -615,7 +592,7 @@ static int file_close(size_t argc, struct cb_value *argv,
 	FILE *f;
 	struct cb_userdata *data;
 
-	EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
+	CB_EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
 	data = argv[0].val.as_userdata;
 
 	if (data->gc_header.deinit != deinit_file) {

@@ -8,7 +8,6 @@
 #include "builtin_modules.h"
 #include "module.h"
 #include "str.h"
-#include "struct.h"
 
 #define INITIAL_STRING_TABLE_SIZE 4
 #define MAX_IMPORT_PATHS 256
@@ -27,13 +26,6 @@ struct cb_agent {
 
 	char *cbcvm_path;
 	const char *import_paths[MAX_IMPORT_PATHS];
-
-	struct cb_struct_spec *struct_specs;
-	size_t struct_specs_len;
-
-#ifdef DEBUG_VM
-	int finished_compiling;
-#endif
 };
 
 static struct cb_agent agent;
@@ -52,12 +44,6 @@ int cb_agent_init(void)
 	agent.next_string_id = 0;
 	agent.string_table_size = 0;
 	agent.modules_size = 0;
-	agent.struct_specs = NULL;
-	agent.struct_specs_len = 0;
-
-#ifdef DEBUG_VM
-	agent.finished_compiling = 0;
-#endif
 
 	for (i = 0; i < MAX_IMPORT_PATHS; i += 1)
 		agent.import_paths[i] = NULL;
@@ -102,13 +88,9 @@ void cb_agent_deinit(void)
 		}
 		free(agent.modules);
 	}
-	if (agent.struct_specs)
-		free(agent.struct_specs);
 
 	agent.string_table = NULL;
 	agent.modules = NULL;
-	agent.struct_specs = NULL;
-	agent.struct_specs_len = 0;
 
 	if (agent.cbcvm_path) {
 		free(agent.cbcvm_path);
@@ -208,37 +190,6 @@ inline size_t cb_agent_modspec_count(void)
 {
 	return agent.next_module_id;
 }
-
-size_t cb_agent_add_struct_spec(struct cb_struct_spec struct_spec)
-{
-#ifdef DEBUG_VM
-	assert(!agent.finished_compiling
-			&& "Cannot add struct spec after compiling");
-#endif
-	agent.struct_specs_len += 1;
-	agent.struct_specs = realloc(agent.struct_specs,
-			sizeof(struct cb_struct_spec)
-			* agent.struct_specs_len);
-	agent.struct_specs[agent.struct_specs_len - 1] = struct_spec;
-	return agent.struct_specs_len - 1;
-}
-
-const struct cb_struct_spec *cb_agent_get_struct_spec(size_t id)
-{
-#ifdef DEBUG_VM
-	assert(agent.finished_compiling
-			&& "Cannot get struct spec while compiling");
-#endif
-	assert(id >= 0 && id < agent.struct_specs_len);
-	return &agent.struct_specs[id];
-}
-
-#ifdef DEBUG_VM
-void cb_agent_set_finished_compiling()
-{
-	agent.finished_compiling = 1;
-}
-#endif
 
 /* Given a name like "hashmap", find a matching file relative to one of the
    paths in CBCVM_PATH with a .rbcvm extension. If found, it will be opened and

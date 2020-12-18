@@ -8,22 +8,23 @@
 #include "value.h"
 
 struct cb_struct_spec {
+	cb_gc_header gc_header;
 	size_t name;
 	/* A list of interned strings. The index of the string is the index of
 	   the corresponding field. */
-	size_t *fields, nfields;
+	size_t nfields, fields[];
 };
 
 struct cb_struct {
 	cb_gc_header gc_header;
-	const struct cb_struct_spec *spec;
+	struct cb_struct_spec *spec;
 	struct cb_value fields[];
 };
 
-void cb_struct_spec_init(struct cb_struct_spec *spec, size_t name);
-size_t cb_struct_spec_add_field(struct cb_struct_spec *spec, size_t field);
-struct cb_struct *cb_struct_spec_instantiate(
-		const struct cb_struct_spec *spec);
+struct cb_struct_spec *cb_struct_spec_new(size_t name, size_t nfields);
+void cb_struct_spec_set_field_name(struct cb_struct_spec *spec, size_t i,
+		size_t name);
+struct cb_struct *cb_struct_spec_instantiate(struct cb_struct_spec *spec);
 struct cb_value *cb_struct_get_field(struct cb_struct *s, size_t name);
 int cb_struct_set_field(struct cb_struct *s, size_t name, struct cb_value val);
 
