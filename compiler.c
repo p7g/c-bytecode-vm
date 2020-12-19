@@ -1329,7 +1329,7 @@ static int compile_file(struct cstate *state, size_t name, const char *path,
 static int compile_import_statement(struct cstate *state)
 {
 	struct token tok, ident;
-	char *filename, *modpath;
+	char *filename;
 	cb_str modsrc;
 	size_t modname;
 	const struct cb_builtin_module_spec *builtin;
@@ -1380,7 +1380,7 @@ static int compile_import_statement(struct cstate *state)
 		}
 
 		APPEND(OP_EXIT_MODULE);
-		f = cb_agent_resolve_import(modsrc, filename, &modpath);
+		f = cb_agent_resolve_import(modsrc, filename);
 		free(filename);
 		if (!f)
 			goto error;

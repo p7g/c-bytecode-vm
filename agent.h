@@ -18,7 +18,6 @@ size_t cb_agent_reserve_modspec_id();
 const cb_modspec *cb_agent_get_modspec(size_t id);
 cb_modspec *cb_agent_get_modspec_by_name(size_t name);
 size_t cb_agent_modspec_count(void);
-FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
-		char **fname_out);
+FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd);
 
 #endif

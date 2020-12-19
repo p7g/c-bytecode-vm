@@ -197,8 +197,7 @@ inline size_t cb_agent_modspec_count(void)
    message will be printed.
 
    It is the caller's responsibility to close the returned file handle. */
-FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
-		char **fname_out)
+FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd)
 {
 #define min(A, B) ({ typeof((A)) _a = (A), _b = (B); _a < _b ? _a : _b; })
 #define CHECK_LEN ({ \
@@ -234,8 +233,6 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 		f = fopen(path, "rb");
 		if (!f)
 			continue;
-		if (fname_out)
-			*fname_out = strdup(path);
 		return f;
 	}
 
