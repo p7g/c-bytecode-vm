@@ -40,8 +40,8 @@ static int wrapped_opendir(size_t argc, struct cb_value *argv,
 	dir = opendir(cb_strptr(name));
 
 	if (!dir) {
-		perror("opendir");
-		return 1;
+		result->type = CB_VALUE_NULL;
+		return 0;
 	}
 
 	dirval = cb_userdata_new(sizeof(DIR *), deinit_dir);
@@ -90,12 +90,7 @@ static int wrapped_readdir(size_t argc, struct cb_value *argv,
 	data = argv[0].val.as_userdata;
 	dir = *cb_userdata_ptr(data);
 
-	errno = 0;
 	if (!(ent = readdir(dir))) {
-		if (errno) {
-			perror("readdir");
-			return 1;
-		}
 		result->type = CB_VALUE_NULL;
 	} else {
 		result->type = CB_VALUE_STRING;
@@ -109,7 +104,7 @@ static int wrapped_readdir(size_t argc, struct cb_value *argv,
 
 /* Files */
 static size_t ident_stat, ident_fopen, ident_fclose, ident_fread, ident_fgetc,
-	ident_fgets, ident_feof;
+	ident_fgets, ident_feof, ident_ferror;
 
 struct cb_struct_spec *get_stat_struct_spec(void)
 {
@@ -164,14 +159,13 @@ static int wrapped_stat(size_t argc, struct cb_value *argv,
 
 	filename = CB_EXPECT_STRING(argv[0]);
 	if (stat(cb_strptr(filename), &s)) {
-		perror("stat");
-		return 1;
+		result->type = CB_VALUE_NULL;
+	} else {
+		result->type = CB_VALUE_STRUCT;
+		result->val.as_struct = cb_struct_spec_instantiate(
+				get_stat_struct_spec());
+		populate_stat_struct(result->val.as_struct, &s);
 	}
-
-	result->type = CB_VALUE_STRUCT;
-	result->val.as_struct = cb_struct_spec_instantiate(
-			get_stat_struct_spec());
-	populate_stat_struct(result->val.as_struct, &s);
 	return 0;
 }
 
@@ -194,14 +188,13 @@ static int wrapped_fopen(size_t argc, struct cb_value *argv,
 
 	f = fopen(cb_strptr(fname), cb_strptr(mode));
 	if (!f) {
-		perror("fopen");
-		return 1;
+		result->type = CB_VALUE_NULL;
+	} else {
+		result->type = CB_VALUE_USERDATA;
+		data = result->val.as_userdata = cb_userdata_new(
+				sizeof(FILE *), deinit_file);
+		*cb_userdata_ptr(data) = f;
 	}
-
-	result->type = CB_VALUE_USERDATA;
-	data = result->val.as_userdata = cb_userdata_new(sizeof(FILE *),
-			deinit_file);
-	*cb_userdata_ptr(data) = f;
 	return 0;
 }
 
@@ -265,10 +258,6 @@ static int wrapped_fread(size_t argc, struct cb_value *argv,
 	else
 		buf = malloc(sizeof(char) * n.val.as_int);
 	nread = fread(buf, sizeof(char), n.val.as_int, f);
-	if (nread != n.val.as_int && ferror(f)) {
-		perror("fread");
-		return 1;
-	}
 
 	/* kinda sketchy */
 	if (!fits_buf) {
@@ -322,28 +311,20 @@ static int wrapped_fgets(size_t argc, struct cb_value *argv,
 	else
 		buf = malloc(sizeof(char) * n.val.as_int);
 	if (NULL == fgets(buf, n.val.as_int, f)) {
-		if (ferror(f)) {
-			perror("fgets");
-			return 1;
-		}
-		if (n.val.as_int == 0) {
-			nread = 0;
-		} else {
-			*buf = '\n';
-			nread = 1;
-		}
+		if (!fits_buf)
+			free(buf);
+		result->type = CB_VALUE_NULL;
 	} else {
 		nread = strlen(buf);
-	}
+		if (!fits_buf) {
+			cb_str_free(bufv.val.as_string->string);
+			bufv.val.as_string->string.chars = buf;
+		}
+		bufv.val.as_string->string.len = nread;
 
-	if (!fits_buf) {
-		cb_str_free(bufv.val.as_string->string);
-		bufv.val.as_string->string.chars = buf;
+		result->type = CB_VALUE_INT;
+		result->val.as_int = nread;
 	}
-	bufv.val.as_string->string.len = nread;
-
-	result->type = CB_VALUE_INT;
-	result->val.as_int = nread;
 	return 0;
 }
 
@@ -402,6 +383,30 @@ static int wrapped_feof(size_t argc, struct cb_value *argv,
 	return 0;
 }
 
+static int wrapped_ferror(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	struct cb_userdata *data;
+	FILE *f;
+
+	CB_EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
+	if (!IS_FILE(argv[0])) {
+		fprintf(stderr, "ferror: Not a file object\n");
+		return 1;
+	}
+
+	data = argv[0].val.as_userdata;
+	f = *cb_userdata_ptr(data);
+	if (!f) {
+		fprintf(stderr, "ferror: File is closed\n");
+		return 1;
+	}
+
+	result->type = CB_VALUE_BOOL;
+	result->val.as_bool = ferror(f);
+	return 0;
+}
+
 #define CONSTS(C) \
 	/* File types */ \
 	C(S_IFMT) \
@@ -449,6 +454,7 @@ void cb_fs_build_spec(cb_modspec *spec)
 	CB_DEFINE_EXPORT(spec, "fgetc", ident_fgetc);
 	CB_DEFINE_EXPORT(spec, "fgets", ident_fgets);
 	CB_DEFINE_EXPORT(spec, "feof", ident_feof);
+	CB_DEFINE_EXPORT(spec, "ferror", ident_ferror);
 
 #define DEF_CONST(C) CB_DEFINE_EXPORT(spec, #C, ident_ ## C);
 	CONSTS(DEF_CONST);
@@ -477,6 +483,8 @@ void cb_fs_instantiate(struct cb_module *mod)
 			cb_cfunc_new(ident_fgets, 1, wrapped_fgets));
 	CB_SET_EXPORT(mod, ident_feof,
 			cb_cfunc_new(ident_feof, 1, wrapped_feof));
+	CB_SET_EXPORT(mod, ident_ferror,
+			cb_cfunc_new(ident_ferror, 1, wrapped_ferror));
 
 #define SET_CONST(C) CB_SET_EXPORT(mod, ident_ ## C, cb_int(C));
 	CONSTS(SET_CONST);
