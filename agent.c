@@ -102,6 +102,17 @@ void cb_agent_deinit(void)
 	}
 }
 
+ssize_t cb_agent_get_string_id(const char *str, size_t len)
+{
+	size_t i;
+
+	for (i = 0; i < agent.next_string_id; i += 1) {
+		if (cb_str_eq_cstr(agent.string_table[i], str, len))
+			return i;
+	}
+	return -1;
+}
+
 size_t cb_agent_intern_string(const char *str, size_t len)
 {
 	size_t id;
@@ -197,7 +208,8 @@ inline size_t cb_agent_modspec_count(void)
    message will be printed.
 
    It is the caller's responsibility to close the returned file handle. */
-FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd)
+FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
+		char **path_out)
 {
 #define min(A, B) ({ typeof((A)) _a = (A), _b = (B); _a < _b ? _a : _b; })
 #define CHECK_LEN ({ \
@@ -214,6 +226,8 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd)
 	FILE *f;
 
 	for (i = -1; i < MAX_IMPORT_PATHS && agent.import_paths[i]; i += 1) {
+		if (i == -1 && !pwd)
+			continue;
 		path[MAX_IMPORT_PATH_LEN - 1] = 0;
 		strncpy(path, i == -1 ? pwd : agent.import_paths[i],
 				MAX_IMPORT_PATH_LEN);
@@ -233,6 +247,8 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd)
 		f = fopen(path, "rb");
 		if (!f)
 			continue;
+		if (path_out)
+			*path_out = strdup(path);
 		return f;
 	}
 
@@ -240,7 +256,9 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd)
 			(int) cb_strlen(import_name),
 			cb_strptr(import_name));
 	for (i = -1; i < MAX_IMPORT_PATHS && agent.import_paths[i]; i += 1) {
-		if (i > 0)
+		if (i == -1 && !pwd)
+			continue;
+		if (i > 0 || (pwd && i > -1))
 			fputs(", ", stderr);
 		fputs(i == -1 ? pwd : agent.import_paths[i], stderr);
 	}

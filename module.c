@@ -83,6 +83,11 @@ inline size_t cb_modspec_name(const struct modspec *spec)
 	return spec->name;
 }
 
+inline size_t cb_modspec_n_exports(const cb_modspec *spec)
+{
+	return spec->exports_len;
+}
+
 int cb_module_is_zero(struct cb_module m)
 {
 	return m.global_scope == 0 && m.spec == 0;

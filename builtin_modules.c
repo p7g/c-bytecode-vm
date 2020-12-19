@@ -21,6 +21,7 @@ static const struct cb_builtin_module_spec builtins[] = {
 	{"_string", cb_strings_build_spec, cb_strings_instantiate},
 	{"errno", cb_errno_build_spec, cb_errno_instantiate},
 	{"sys", cb_sys_build_spec, cb_sys_instantiate},
+	{"module", cb_module_build_spec, cb_module_instantiate},
 };
 const struct cb_builtin_module_spec *cb_builtin_modules = builtins;
 const size_t cb_builtin_module_count = sizeof(builtins) / sizeof(builtins[0]);

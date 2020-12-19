@@ -600,6 +600,7 @@ static int bytecode_finalize(struct bytecode *bc)
 		bc->label_addresses = NULL;
 	}
 	bc->code = realloc(bc->code, bc->size * sizeof(cb_instruction));
+	bc->label_addr_size = bc->label_addr_len = 0;
 
 	return 0;
 }
@@ -1380,7 +1381,7 @@ static int compile_import_statement(struct cstate *state)
 		}
 
 		APPEND(OP_EXIT_MODULE);
-		f = cb_agent_resolve_import(modsrc, filename);
+		f = cb_agent_resolve_import(modsrc, filename, NULL);
 		free(filename);
 		if (!f)
 			goto error;
@@ -2149,20 +2150,6 @@ static int compile_expression(struct cstate *state)
 	return compile_expression_inner(state, 0);
 }
 
-int cb_compile(const char *input, struct bytecode **bc_out)
-{
-	int result;
-	struct cstate state = cstate_default(1);
-	state.input = input;
-
-	result = compile(&state, cb_agent_intern_string("<string>", 8), 1);
-
-	cstate_free(state);
-	*bc_out = state.bytecode;
-
-	return result;
-}
-
 static int read_file(FILE *f, char **out)
 {
 	int result;
@@ -2227,6 +2214,20 @@ static int compile_file(struct cstate *state, size_t name, const char *path,
 
 	free(input);
 	cstate_free(new_state);
+	return result;
+}
+
+int cb_compile_module(cb_bytecode *bc, cb_str name, FILE *f, const char *path)
+{
+	int result;
+	size_t name_id;
+	struct cstate state = cstate_default(0);
+
+	state.bytecode = bc;
+	name_id = cb_agent_intern_string(cb_strptr(name), cb_strlen(name));
+	result = compile_file(&state, name_id, path, f, 1);
+
+	cstate_free(state);
 	return result;
 }
 

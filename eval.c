@@ -108,7 +108,7 @@ inline struct cb_value cb_get_upvalue(struct cb_upvalue *uv)
 	return uv->v.value;
 }
 
-static int cb_eval(size_t pc, struct cb_frame *frame);
+int cb_eval(size_t pc, struct cb_frame *frame);
 
 int cb_run(void)
 {
@@ -201,7 +201,7 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 }
 #endif
 
-static int cb_eval(size_t pc, struct cb_frame *frame)
+int cb_eval(size_t pc, struct cb_frame *frame)
 {
 	int retval = 0;
 	cb_vm_state.frame = frame;
