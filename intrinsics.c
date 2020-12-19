@@ -47,9 +47,6 @@
 	X(read_file_bytes, 1) \
 	X(toint, 1) \
 	X(arguments, 0) \
-	X(file_open, 2) \
-	X(file_getchar, 1) \
-	X(file_close, 1) \
 	X(__gc_collect, 0)
 
 INTRINSIC_LIST(DECL);
@@ -512,104 +509,6 @@ static int arguments(size_t argc, struct cb_value *argv,
 
 	for (size_t i = 0; i < nargs; i += 1)
 		result->val.as_array->values[i] = cb_vm_state.stack[start + i];
-
-	return 0;
-}
-
-static void deinit_file(void *ptr)
-{
-	struct cb_userdata *data = ptr;
-	FILE *f = *(FILE **) cb_userdata_ptr(data);
-	if (f)
-		fclose(f);
-}
-
-static int file_open(size_t argc, struct cb_value *argv,
-		struct cb_value *result)
-{
-	FILE *f;
-	cb_str name, perms;
-	struct cb_userdata *data;
-
-	name = CB_EXPECT_STRING(argv[0]);
-	perms = CB_EXPECT_STRING(argv[1]);
-
-	f = fopen(cb_strptr(name), cb_strptr(perms));
-	if (!f) {
-		perror("open_file");
-		return 1;
-	}
-
-	data = cb_userdata_new(sizeof(f), deinit_file);
-	*cb_userdata_ptr(data) = f;
-
-	result->type = CB_VALUE_USERDATA;
-	result->val.as_userdata = data;
-
-	return 0;
-}
-
-static int file_getchar(size_t argc, struct cb_value *argv,
-		struct cb_value *result)
-{
-	FILE *f;
-	struct cb_userdata *data;
-	int c;
-
-	CB_EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
-	data = argv[0].val.as_userdata;
-
-	if (data->gc_header.deinit != deinit_file) {
-		fprintf(stderr, "file_getchar: Expected file userdata, got something else\n");
-		return 1;
-	}
-
-	f = *(FILE **) cb_userdata_ptr(data);
-	if (!f) {
-		fprintf(stderr, "file_getchar: Can't read from closed file");
-		return 1;
-	}
-
-	c = fgetc(f);
-	if (c == EOF) {
-		if (feof(f)) {
-			result->type = CB_VALUE_NULL;
-		} else if (ferror(f)) {
-			perror("file_getchar");
-			return 1;
-		}
-	} else {
-		result->type = CB_VALUE_CHAR;
-		result->val.as_char = c;
-	}
-
-	return 0;
-}
-
-static int file_close(size_t argc, struct cb_value *argv,
-		struct cb_value *result)
-{
-	FILE *f;
-	struct cb_userdata *data;
-
-	CB_EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
-	data = argv[0].val.as_userdata;
-
-	if (data->gc_header.deinit != deinit_file) {
-		fprintf(stderr, "file_close: Expected file userdata, got something else\n");
-		return 1;
-	}
-
-	f = *(FILE **) cb_userdata_ptr(data);
-	if (!f) {
-		fprintf(stderr, "file_close: File is already closed");
-		return 1;
-	}
-
-	fclose(f);
-	*cb_userdata_ptr(data) = NULL;
-
-	result->type = CB_VALUE_NULL;
 
 	return 0;
 }
