@@ -47,7 +47,8 @@
 	X(read_file_bytes, 1) \
 	X(toint, 1) \
 	X(arguments, 0) \
-	X(__gc_collect, 0)
+	X(__gc_collect, 0) \
+	X(pcall, 1)
 
 INTRINSIC_LIST(DECL);
 
@@ -518,5 +519,21 @@ static int __gc_collect(size_t argc, struct cb_value *argv,
 {
 	result->type = CB_VALUE_NULL;
 	cb_gc_collect();
+	return 0;
+}
+
+static int pcall(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	int failed;
+	size_t sp;
+
+	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
+
+	sp = cb_vm_state.sp;
+	failed = cb_value_call(argv[0], argv + 1, argc - 1, result);
+	cb_vm_state.sp = sp;
+	if (failed)
+		result->type = CB_VALUE_NULL;
 	return 0;
 }

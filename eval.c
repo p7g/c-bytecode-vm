@@ -423,6 +423,7 @@ DO_OP_CALL: {
 	struct cb_value func_val, result;
 	struct cb_function *func;
 	struct cb_frame next_frame;
+	int failed;
 
 	num_args = READ_SIZE_T();
 	func_val = cb_vm_state.stack[cb_vm_state.sp - num_args - 1];
@@ -439,16 +440,16 @@ DO_OP_CALL: {
 				? "<anonymous>"
 				: cb_strptr(cb_agent_get_string(name)));
 	if (func->type == CB_FUNCTION_NATIVE) {
-		if (func->value.as_native(num_args,
-					&cb_vm_state.stack[
-						cb_vm_state.sp - num_args],
-					&result)) {
-			retval = 1;
-			RET_WITH_TRACE();
-		}
+		failed = func->value.as_native(num_args,
+				&cb_vm_state.stack[cb_vm_state.sp - num_args],
+					&result);
 		assert(cb_vm_state.sp > num_args);
 		cb_vm_state.sp -= (num_args + 1);
 		PUSH(result);
+		if (failed) {
+			retval = 1;
+			RET_WITH_TRACE();
+		}
 	} else {
 		next_frame.parent = frame;
 		next_frame.is_function = 1;
