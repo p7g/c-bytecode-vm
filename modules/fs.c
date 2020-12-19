@@ -109,7 +109,7 @@ static int wrapped_readdir(size_t argc, struct cb_value *argv,
 
 /* Files */
 static size_t ident_stat, ident_fopen, ident_fclose, ident_fread, ident_fgetc,
-	ident_feof;
+	ident_fgets, ident_feof;
 
 struct cb_struct_spec *get_stat_struct_spec(void)
 {
@@ -282,6 +282,71 @@ static int wrapped_fread(size_t argc, struct cb_value *argv,
 	return 0;
 }
 
+static int wrapped_fgets(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	struct cb_value bufv, n, file;
+	struct cb_userdata *data;
+	FILE *f;
+	char *buf;
+	size_t nread;
+	int fits_buf;
+
+	bufv = argv[0];
+	n = argv[1];
+	file = argv[2];
+
+	CB_EXPECT_TYPE(CB_VALUE_STRING, bufv); /* not interned */
+	CB_EXPECT_TYPE(CB_VALUE_INT, n);
+	CB_EXPECT_TYPE(CB_VALUE_USERDATA, file);
+	if (n.val.as_int < 0) {
+		fprintf(stderr, "fgets: Invalid size\n");
+		return 1;
+	}
+	if (!IS_FILE(file)) {
+		fprintf(stderr, "fgets: Not a file object\n");
+		return 1;
+	}
+
+	data = file.val.as_userdata;
+	f = *cb_userdata_ptr(data);
+	if (!f) {
+		fprintf(stderr, "fgets: Cannot read from closed file\n");
+		return 1;
+	}
+
+	fits_buf = bufv.val.as_string->string.len >= n.val.as_int;
+
+	if (fits_buf)
+		buf = bufv.val.as_string->string.chars;
+	else
+		buf = malloc(sizeof(char) * n.val.as_int);
+	if (NULL == fgets(buf, n.val.as_int, f)) {
+		if (ferror(f)) {
+			perror("fgets");
+			return 1;
+		}
+		if (n.val.as_int == 0) {
+			nread = 0;
+		} else {
+			*buf = '\n';
+			nread = 1;
+		}
+	} else {
+		nread = strlen(buf);
+	}
+
+	if (!fits_buf) {
+		cb_str_free(bufv.val.as_string->string);
+		bufv.val.as_string->string.chars = buf;
+	}
+	bufv.val.as_string->string.len = nread;
+
+	result->type = CB_VALUE_INT;
+	result->val.as_int = nread;
+	return 0;
+}
+
 static int wrapped_fgetc(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
@@ -373,7 +438,7 @@ CONSTS(IDENT_VAR);
 
 void cb_fs_build_spec(cb_modspec *spec)
 {
-	// TODO: fgets, writing
+	// TODO: writing
 	CB_DEFINE_EXPORT(spec, "opendir", ident_opendir);
 	CB_DEFINE_EXPORT(spec, "closedir", ident_closedir);
 	CB_DEFINE_EXPORT(spec, "readdir", ident_readdir);
@@ -382,6 +447,7 @@ void cb_fs_build_spec(cb_modspec *spec)
 	CB_DEFINE_EXPORT(spec, "fclose", ident_fclose);
 	CB_DEFINE_EXPORT(spec, "fread", ident_fread);
 	CB_DEFINE_EXPORT(spec, "fgetc", ident_fgetc);
+	CB_DEFINE_EXPORT(spec, "fgets", ident_fgets);
 	CB_DEFINE_EXPORT(spec, "feof", ident_feof);
 
 #define DEF_CONST(C) CB_DEFINE_EXPORT(spec, #C, ident_ ## C);
@@ -407,6 +473,8 @@ void cb_fs_instantiate(struct cb_module *mod)
 			cb_cfunc_new(ident_fread, 3, wrapped_fread));
 	CB_SET_EXPORT(mod, ident_fgetc,
 			cb_cfunc_new(ident_fgetc, 1, wrapped_fgetc));
+	CB_SET_EXPORT(mod, ident_fgets,
+			cb_cfunc_new(ident_fgets, 1, wrapped_fgets));
 	CB_SET_EXPORT(mod, ident_feof,
 			cb_cfunc_new(ident_feof, 1, wrapped_feof));
 
