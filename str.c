@@ -12,6 +12,7 @@ inline size_t cb_strlen(cb_str s)
 
 inline const char *cb_strptr(cb_str s)
 {
+	s.chars[s.len] = 0;
 	return s.chars;
 }
 

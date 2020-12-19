@@ -5,7 +5,9 @@
 #include <stdint.h>
 
 typedef struct cb_str {
+	/* Maximally the allocated size of chars minus 1 */
 	size_t len;
+	/* Terminated with a NUL character */
 	char *chars;
 } cb_str;
 

@@ -220,6 +220,7 @@ char *cb_value_to_string(struct cb_value *val)
 
 	case CB_VALUE_STRING:
 		buf = strdup(cb_strptr(val->val.as_string->string));
+		buf[val->val.as_string->string.len] = 0;
 		break;
 
 	case CB_VALUE_INTERNED_STRING:
