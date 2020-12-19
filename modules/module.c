@@ -121,8 +121,12 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 			goto err;
 	}
 
+	pc = cb_bytecode_len(cb_vm_state.bytecode);
+	/* Compile the module */
+	cb_compile_module(cb_vm_state.bytecode, import_name, f, path);
+
 	/* Make room in cb_vm_state for new module */
-	nmodules = cb_agent_modspec_count() + 1;
+	nmodules = cb_agent_modspec_count();
 	cb_vm_state.modules = realloc((old_modules_ptr = cb_vm_state.modules),
 			nmodules * sizeof(struct cb_module));
 	/* Patch all existing frames to point at the new modules */
@@ -133,10 +137,6 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 					+ (current->module - old_modules_ptr);
 		}
 	}
-
-	pc = cb_bytecode_len(cb_vm_state.bytecode);
-	/* Compile the module */
-	cb_compile_module(cb_vm_state.bytecode, import_name, f, path);
 
 	frame.is_function = 0;
 	frame.module = NULL;
