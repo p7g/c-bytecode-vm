@@ -9,51 +9,75 @@ import _fs;
 let BLOCK_SIZE = 4096;
 
 function perror(msg) {
-	sys.panic(string_concat(msg, ": ", errno.strerror(errno.get())));
+    sys.panic(string_concat(msg, ": ", errno.strerror(errno.get())));
 }
 
 export function read_file(name) {
-	let f = _fs.fopen(name, "rb");
-	if (f == null) {
-		perror("read_file");
-	}
-	let bufs = arraylist.new();
-	let buf;
-	let nread;
+    let f = _fs.fopen(name, "rb");
+    if (f == null) {
+        perror("read_file");
+    }
+    let bufs = arraylist.new();
+    let buf;
+    let nread;
 
-	while (!_fs.feof(f)) {
-		arraylist.push(bufs, (buf = string.buf(4096)));
-		nread = _fs.fread(buf, BLOCK_SIZE, f);
-		if (nread != BLOCK_SIZE) {
-			if (_fs.ferror(f)) {
-				perror("read_file");
-			}
-			string.resize_buf(buf, nread);
-		}
-	}
+    while (!_fs.feof(f)) {
+        arraylist.push(bufs, (buf = string.buf(4096)));
+        nread = _fs.fread(buf, BLOCK_SIZE, f);
+        if (nread != BLOCK_SIZE) {
+            if (_fs.ferror(f)) {
+                perror("read_file");
+            }
+            string.resize_buf(buf, nread);
+        }
+    }
 
-	return fn.apply(string_concat, arraylist.to_array(bufs));
+    return fn.apply(string_concat, arraylist.to_array(bufs));
 }
 
 export function directory_entries(path) {
-	let dirp = _fs.opendir(path);
-	if (dirp == null) {
-		perror("directory_entries");
-	}
+    let dirp = _fs.opendir(path);
+    if (dirp == null) {
+        perror("directory_entries");
+    }
 
-	return function next() {
-		errno.set(0);
-		let ent = _fs.readdir(dirp);
-		if (ent == null) {
-			if (errno.get()) {
-				perror("directory_entries");
-			}
-			_fs.closedir(dirp);
-			dirp = null;
-			return null;
-		} else if (ent == "." || ent == "..") {
-			return next();
-		}
-		return ent;
-	};
+    return function next() {
+        errno.set(0);
+        let ent = _fs.readdir(dirp);
+        if (ent == null) {
+            if (errno.get()) {
+                perror("directory_entries");
+            }
+            _fs.closedir(dirp);
+            dirp = null;
+            return null;
+        } else if (ent == "." || ent == "..") {
+            return next();
+        }
+        return ent;
+    };
+}
+
+function type_test(path, type) {
+    let st = _fs.stat(path);
+    if (st == null) {
+        sys.panic(string_concat("stat: ", errno.strerror(errno.get())));
+    }
+    return (st:mode & _fs.S_IFMT) == type;
+}
+
+export function isfile(path) {
+    return type_test(path, _fs.S_IFREG);
+}
+
+export function isdir(path) {
+    return type_test(path, _fs.S_IFDIR);
+}
+
+export function islink(path) {
+    return type_test(path, _fs.S_IFLNK);
+}
+
+export function issock(path) {
+    return type_test(path, _fs.S_IFSOCK);
 }

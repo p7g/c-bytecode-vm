@@ -68,7 +68,7 @@ export function with_hash_function(hash_function) {
 }
 
 export function clear(self) {
-  self:buckets = Array.new(self:capacity);
+  self:buckets = array.new(self:capacity);
   self:load = 0;
 }
 
@@ -152,7 +152,7 @@ export function entries(self) {
 
 export function size(self) {
   let n = 0;
-  Iter.foreach(entries(self), function () { n = n + 1; });
+  iter.foreach(entries(self), function () { n = n + 1; });
   return n;
 }
 

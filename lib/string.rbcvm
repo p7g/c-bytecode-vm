@@ -3,6 +3,7 @@ import char;
 import fn;
 import iter;
 import op;
+import sys;
 
 import _string;
 
@@ -11,6 +12,8 @@ export let from_chars = string_from_chars;
 export let bytes = string_bytes;
 export let buf = _string.buf;
 export let resize_buf = _string.resize_buf;
+export let length = _string.len;
+export let char_at = _string.char_at;
 
 export function parse_integer(str, base) {
   let sum = 0;
@@ -57,6 +60,58 @@ export function parse_float(str) {
 }
 
 export function slice(self, start, end) {
-    let cs = chars(self);
-    return from_chars(array.slice(cs, start, end));
+  let cs = chars(self);
+  return from_chars(array.slice(cs, start, end));
+}
+
+export function startswith(self, other) {
+    let otherlen = length(other);
+    if (otherlen > length(self)) {
+        return false;
+    }
+    for (let i = 0; i < otherlen; i = i + 1) {
+        if (char_at(self, i) != char_at(other, i)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+export function endswith(self, other) {
+    let otherlen = length(other);
+    let selflen = length(self);
+    if (otherlen > selflen) {
+        return false;
+    }
+    for (let i = 0; i < otherlen; i = i + 1) {
+        if (char_at(self, selflen - i) != char_at(other, otherlen - i)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+export function index(self, c) {
+    if (type_of(c) != "char") {
+        sys.panic("index: Only finding index of char is implemented");
+    }
+    let len = length(self);
+    for (let i = 0; i < len; i = i + 1) {
+        if (char_at(self, i) == c) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+export function rindex(self, c) {
+    if (type_of(c) != "char") {
+        sys.panic("index: Only finding index of char is implemented");
+    }
+    for (let i = length(self) - 1; i >= 0; i = i - 1) {
+        if (char_at(self, i) == c) {
+            return i;
+        }
+    }
+    return -1;
 }

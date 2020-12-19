@@ -126,14 +126,19 @@ static int array_new(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	struct cb_value len_val;
-	size_t len;
+	int64_t len;
 	len_val = argv[0];
 
 	CB_EXPECT_TYPE(CB_VALUE_INT, len_val);
 	len = len_val.val.as_int;
 
+	if (len < 0) {
+		fprintf(stderr, "array_new: Invalid length\n");
+		return 1;
+	}
+
 	result->type = CB_VALUE_ARRAY;
-	result->val.as_array = cb_array_new(len);
+	result->val.as_array = cb_array_new((size_t) len);
 	result->val.as_array->len = len;
 
 	for (int i = 0; i < len; i += 1)
