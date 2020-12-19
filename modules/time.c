@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <time.h>
 #include "agent.h"
+#include "builtin_modules.h"
 #include "module.h"
 #include "value.h"
 
@@ -8,8 +9,7 @@ static size_t ident_unix;
 
 void cb_time_build_spec(cb_modspec *spec)
 {
-	cb_modspec_add_export(spec,
-			(ident_unix = cb_agent_intern_string("unix", 4)));
+	CB_DEFINE_EXPORT(spec, "unix", ident_unix);
 }
 
 static int unix_time(size_t argc, struct cb_value *argv,
@@ -22,6 +22,5 @@ static int unix_time(size_t argc, struct cb_value *argv,
 
 void cb_time_instantiate(struct cb_module *mod)
 {
-	cb_hashmap_set(mod->global_scope, ident_unix,
-			cb_cfunc_new(ident_unix, 0, unix_time));
+	CB_SET_EXPORT(mod, ident_unix, cb_cfunc_new(ident_unix, 0, unix_time));
 }

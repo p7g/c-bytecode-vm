@@ -7,12 +7,16 @@
 #include "hashmap.h"
 #include "module.h"
 
+#include "modules/fs.h"
 #include "modules/time.h"
+#include "modules/strings.h"
 #include "modules/structs.h"
 
 static const struct cb_builtin_module_spec builtins[] = {
 	{"time", cb_time_build_spec, cb_time_instantiate},
 	{"structs", cb_structs_build_spec, cb_structs_instantiate},
+	{"_fs", cb_fs_build_spec, cb_fs_instantiate},
+	{"_string", cb_strings_build_spec, cb_strings_instantiate},
 };
 const struct cb_builtin_module_spec *cb_builtin_modules = builtins;
 const size_t cb_builtin_module_count = sizeof(builtins) / sizeof(builtins[0]);

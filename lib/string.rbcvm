@@ -4,9 +4,13 @@ import fn;
 import iter;
 import op;
 
+import _string;
+
 export let chars = string_chars;
 export let from_chars = string_from_chars;
 export let bytes = string_bytes;
+export let buf = _string.buf;
+export let resize_buf = _string.resize_buf;
 
 export function parse_integer(str, base) {
   let sum = 0;

@@ -1,0 +1,43 @@
+import arraylist;
+import fn;
+import string;
+
+import _fs;
+
+let BLOCK_SIZE = 4096;
+
+export function read_file(name) {
+	let f = _fs.fopen(name, "rb");
+	let bufs = arraylist.new();
+	let buf;
+	let nread;
+
+	while (!_fs.feof(f)) {
+		arraylist.push(bufs, (buf = string.buf(4096)));
+		nread = _fs.fread(buf, BLOCK_SIZE, f);
+		if (nread != BLOCK_SIZE) {
+			string.resize_buf(buf, nread);
+		}
+	}
+
+	return fn.apply(string_concat, arraylist.to_array(bufs));
+}
+
+export function directory_entries(path) {
+	let dirp = _fs.opendir(path);
+
+	return function next() {
+		if (dirp == null) {
+			return null;
+		}
+		let ent = _fs.readdir(dirp);
+		if (ent == null) {
+			_fs.closedir(dirp);
+			dirp = null;
+			return null;
+		} else if (ent == "." || ent == "..") {
+			return next();
+		}
+		return ent;
+	};
+}

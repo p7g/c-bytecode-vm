@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "agent.h"
+#include "builtin_modules.h"
 #include "intrinsics.h"
 #include "module.h"
 #include "str.h"
@@ -11,20 +12,14 @@
 static size_t ident_new, ident_fields, ident_spec,
 		ident_name, ident_get, ident_set;
 
-#define DEFINE_EXPORT(SPEC, NAME, VAR) \
-	cb_modspec_add_export((SPEC), \
-		((VAR) = cb_agent_intern_string((NAME), sizeof((NAME)) - 1)))
-#define SET_EXPORT(MOD, NAME, VAL) \
-	cb_hashmap_set((MOD)->global_scope, (NAME), (VAL));
-
 void cb_structs_build_spec(cb_modspec *spec)
 {
-	DEFINE_EXPORT(spec, "new", ident_new);
-	DEFINE_EXPORT(spec, "fields", ident_fields);
-	DEFINE_EXPORT(spec, "spec", ident_spec);
-	DEFINE_EXPORT(spec, "name", ident_name);
-	DEFINE_EXPORT(spec, "get", ident_get);
-	DEFINE_EXPORT(spec, "set", ident_set);
+	CB_DEFINE_EXPORT(spec, "new", ident_new);
+	CB_DEFINE_EXPORT(spec, "fields", ident_fields);
+	CB_DEFINE_EXPORT(spec, "spec", ident_spec);
+	CB_DEFINE_EXPORT(spec, "name", ident_name);
+	CB_DEFINE_EXPORT(spec, "get", ident_get);
+	CB_DEFINE_EXPORT(spec, "set", ident_set);
 }
 
 static int make_struct_spec(size_t argc, struct cb_value *argv,
@@ -141,15 +136,15 @@ static int set_struct_field(size_t argc, struct cb_value *argv,
 
 void cb_structs_instantiate(struct cb_module *mod)
 {
-	SET_EXPORT(mod, ident_new, cb_cfunc_new(ident_new, 1, make_struct_spec));
-	SET_EXPORT(mod, ident_fields,
+	CB_SET_EXPORT(mod, ident_new, cb_cfunc_new(ident_new, 1, make_struct_spec));
+	CB_SET_EXPORT(mod, ident_fields,
 			cb_cfunc_new(ident_fields, 1, get_spec_fields));
-	SET_EXPORT(mod, ident_spec,
+	CB_SET_EXPORT(mod, ident_spec,
 			cb_cfunc_new(ident_spec, 1, get_struct_spec));
-	SET_EXPORT(mod, ident_name,
+	CB_SET_EXPORT(mod, ident_name,
 			cb_cfunc_new(ident_name, 1, get_spec_name));
-	SET_EXPORT(mod, ident_get,
+	CB_SET_EXPORT(mod, ident_get,
 			cb_cfunc_new(ident_get, 2, get_struct_field));
-	SET_EXPORT(mod, ident_set,
+	CB_SET_EXPORT(mod, ident_set,
 			cb_cfunc_new(ident_set, 3, set_struct_field));
 }

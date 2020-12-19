@@ -647,3 +647,35 @@ void cb_value_mark(struct cb_value *val)
 		break;
 	}
 }
+
+inline struct cb_value cb_int(int64_t v)
+{
+	struct cb_value out;
+	out.type = CB_VALUE_INT;
+	out.val.as_int = v;
+	return out;
+}
+
+inline struct cb_value cb_double(double v)
+{
+	struct cb_value out;
+	out.type = CB_VALUE_DOUBLE;
+	out.val.as_double = v;
+	return out;
+}
+
+inline struct cb_value cb_bool(int v)
+{
+	struct cb_value out;
+	out.type = CB_VALUE_BOOL;
+	out.val.as_bool = v;
+	return out;
+}
+
+inline struct cb_value cb_char(uint32_t v)
+{
+	struct cb_value out;
+	out.type = CB_VALUE_CHAR;
+	out.val.as_char = v;
+	return out;
+}
