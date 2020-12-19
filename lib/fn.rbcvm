@@ -1,5 +1,8 @@
 import array;
 
+let _apply = apply;
+export let apply = _apply;
+
 export function identity(n) {
     return n;
 }
