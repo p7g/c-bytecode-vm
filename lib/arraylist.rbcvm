@@ -122,3 +122,13 @@ export function find(self, func) {
 
   return get(self, index);
 }
+
+export function some(self, f) {
+    return -1 != find_index(self, f);
+}
+
+export function contains(self, a) {
+    return some(self, function (b) {
+        return a == b;
+    });
+}
