@@ -1,0 +1,59 @@
+#!./cbcvm
+
+import array;
+import arraylist;
+import fs;
+import hashmap;
+import iter;
+import module;
+import path;
+import string;
+
+let tests_by_file = hashmap.new();
+
+iter.foreach(fs.directory_entries("tests"), function (path) {
+    path = path.join("tests", path);
+    if (fs.isfile(path) && path.ext(path) == "rbcvm") {
+        let tests = arraylist.new();
+        module.import_(path, path);
+        iter.foreach(module.exports(path), function (export_) {
+            if (string.startswith(export_, "test")) {
+                arraylist.push(tests, export_);
+            }
+        });
+        hashmap.set(tests_by_file, path, arraylist.to_array(tests));
+    }
+});
+
+let ntests = 0;
+iter.foreach(hashmap.values(tests_by_file), function (tests) {
+    ntests = ntests + array.length(tests);
+});
+println("Collected", ntests, "tests");
+
+let failed = arraylist.new();
+
+iter.foreach(hashmap.entries(tests_by_file), function (entry) {
+    let filename = entry[0];
+    let tests = entry[1];
+
+    print(filename, "");
+    iter.foreach(tests, function (test) {
+        test = module.get(filename, test);
+        let result = pcall(function () {
+            test();
+            return true;
+        });
+        if (result) {
+            print('.');
+        } else {
+            print('F');
+            arraylist.push(failed, test);
+        }
+    });
+    print('\n');
+});
+
+if (arraylist.length(failed) == 0) {
+    println("All tests passed");
+}

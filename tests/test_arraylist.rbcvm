@@ -1,0 +1,5 @@
+import arraylist;
+import test;
+
+export function test_new() {
+}

@@ -1,16 +1,24 @@
 export let new = array_new;
 export let length = array_length;
 
-export function find(self, func) {
+export function find_index(self, func) {
   let len = length(self);
 
   for (let i = 0; i < len; i = i + 1) {
     if (func(self[i], i, self)) {
-      return self[i];
+      return i;
     }
   }
 
-  return null;
+  return -1;
+}
+
+export function find(self, func) {
+    let idx = find_index(self, func);
+    if (idx >= 0) {
+        return self[idx];
+    }
+    return null;
 }
 
 export function foreach(self, func) {

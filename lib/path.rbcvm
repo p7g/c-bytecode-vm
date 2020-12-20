@@ -1,0 +1,29 @@
+import string;
+
+export function join(a, b) {
+    return string_concat(a, "/", b);
+}
+
+export function dirname(path) {
+    let slash_pos = string.rindex(path, '/');
+    if (slash_pos == -1) {
+        return ".";
+    }
+    return string.slice(path, 0, slash_pos);
+}
+
+export function basename(path) {
+    let slash_pos = string.rindex(path, '/');
+    if (slash_pos == -1) {
+        return path;
+    }
+    return string.slice(path, slash_pos + 1, string.length(path));
+}
+
+export function ext(path) {
+    let dot_pos = string.rindex(path, '.');
+    if (dot_pos == -1) {
+        return "";
+    }
+    return string.slice(path, dot_pos + 1, string.length(path));
+}

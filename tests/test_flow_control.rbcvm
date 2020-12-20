@@ -1,0 +1,53 @@
+import array;
+import test;
+
+export function test_if() {
+    let n;
+    if (true) {
+        n = 1;
+    } else {
+        n = 2;
+    }
+    test.assert(n == 1);
+    if (false) {
+        n = 3;
+    } else {
+        n = 4;
+    }
+    test.assert(n == 4);
+}
+
+export function test_while() {
+    let ns = array.new(10);
+    let i = 0;
+    while (i < 10) {
+        ns[i] = 10 - i;
+        i = i + 1;
+    }
+    test.assert(ns = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+}
+
+export function test_break() {
+    while (false) {
+        break;
+        test.assert(false);
+    }
+}
+
+export function test_continue() {
+    let n = 1;
+    for (let i = 1; i <= 5; i = i + 1) {
+        if (i == 3) {
+            continue;
+        }
+        n = n * i;
+    }
+    test.assert(n == 40);
+}
+
+export function test_return() {
+    test.assert(function () {
+        return 123;
+        return 234;
+    }() == 123);
+}
