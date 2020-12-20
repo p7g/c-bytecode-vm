@@ -177,6 +177,12 @@ inline size_t cb_agent_reserve_modspec_id()
 	return id;
 }
 
+inline void cb_agent_unreserve_modspec_id(size_t id)
+{
+	assert(id == agent.next_module_id - 1);
+	agent.next_module_id -= 1;
+}
+
 inline const cb_modspec *cb_agent_get_modspec(size_t id)
 {
 	assert(id < agent.next_module_id);

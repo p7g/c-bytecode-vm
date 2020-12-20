@@ -605,6 +605,36 @@ static int bytecode_finalize(struct bytecode *bc)
 	return 0;
 }
 
+struct bytecode_snapshot {
+	size_t len, label_addr_len;
+
+	struct pending_address *pending_addresses;
+};
+
+static void bytecode_snapshot(const struct bytecode *bc,
+		struct bytecode_snapshot *snap)
+{
+	snap->len = bc->len;
+	snap->label_addr_len = bc->label_addr_len;
+	snap->pending_addresses = bc->pending_addresses;
+}
+
+static void bytecode_restore(struct bytecode *bc,
+		struct bytecode_snapshot *snap)
+{
+	struct pending_address *tmp;
+
+	bc->len = snap->len;
+	bc->label_addr_len = snap->label_addr_len;
+
+	while (bc->pending_addresses
+			&& bc->pending_addresses != snap->pending_addresses) {
+		tmp = bc->pending_addresses;
+		bc->pending_addresses = tmp->next;
+		free(tmp);
+	}
+}
+
 struct function_state {
 	size_t start_label;
 	size_t end_label;
@@ -829,14 +859,18 @@ static int compile_expression(struct cstate *);
 static int compile(struct cstate *state, size_t name_id, int final)
 {
 	struct token *tok;
+	struct bytecode_snapshot before;
 
+	bytecode_snapshot(state->bytecode, &before);
 	state->modspec = cb_modspec_new(name_id);
 
 	APPEND(OP_INIT_MODULE);
 	APPEND_SIZE_T(cb_modspec_id(state->modspec));
 
-	while ((tok = PEEK()) && tok->type != TOK_EOF)
-		X(compile_statement(state));
+	while ((tok = PEEK()) && tok->type != TOK_EOF) {
+		if (compile_statement(state))
+			goto err;
+	}
 
 	EXPECT(TOK_EOF);
 
@@ -851,6 +885,11 @@ static int compile(struct cstate *state, size_t name_id, int final)
 	}
 
 	return 0;
+
+err:
+	bytecode_restore(state->bytecode, &before);
+	cb_agent_unreserve_modspec_id(cb_modspec_id(state->modspec));
+	return 1;
 }
 
 static int compile_statement(struct cstate *state)

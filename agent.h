@@ -16,6 +16,7 @@ ssize_t cb_agent_get_string_id(const char *str, size_t len);
 cb_str cb_agent_get_string(size_t id);
 void cb_agent_add_modspec(cb_modspec *spec);
 size_t cb_agent_reserve_modspec_id();
+void cb_agent_unreserve_modspec_id(size_t id);
 const cb_modspec *cb_agent_get_modspec(size_t id);
 cb_modspec *cb_agent_get_modspec_by_name(size_t name);
 size_t cb_agent_modspec_count(void);

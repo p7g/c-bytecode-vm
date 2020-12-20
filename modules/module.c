@@ -110,25 +110,24 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 		f = fopen(path, "rb");
 		if (!f) {
 			perror("import");
-			retval = 1;
 			goto err;
 		}
 	} else {
 		/* FIXME: Keep track of current file directory so pwd can be set */
 		f = cb_agent_resolve_import(import_name, NULL, &path);
-		retval = 1;
 		if (!f)
 			goto err;
 	}
 
 	pc = cb_bytecode_len(cb_vm_state.bytecode);
-	/* Compile the module */
-	cb_compile_module(cb_vm_state.bytecode, import_name, f, path);
+	if (cb_compile_module(cb_vm_state.bytecode, import_name, f, path))
+		goto err;
 
 	/* Make room in cb_vm_state for new module */
 	nmodules = cb_agent_modspec_count();
 	cb_vm_state.modules = realloc((old_modules_ptr = cb_vm_state.modules),
 			nmodules * sizeof(struct cb_module));
+	cb_module_zero(&cb_vm_state.modules[nmodules - 1]);
 	/* Patch all existing frames to point at the new modules */
 	if (cb_vm_state.modules != old_modules_ptr) {
 		for (struct cb_frame *current = cb_vm_state.frame;
@@ -143,8 +142,12 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 	frame.parent = cb_vm_state.frame;
 	frame.bp = cb_vm_state.sp;
 	retval = cb_eval(pc, &frame);
+	goto end;
 
 err:
+	retval = 1;
+
+end:
 	if (path)
 		free(path);
 	return retval;

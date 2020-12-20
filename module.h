@@ -23,5 +23,6 @@ size_t cb_modspec_n_exports(const cb_modspec *spec);
 
 void cb_module_free(struct cb_module *module);
 int cb_module_is_zero(struct cb_module m);
+void cb_module_zero(struct cb_module *m);
 
 #endif

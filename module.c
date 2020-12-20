@@ -93,6 +93,12 @@ int cb_module_is_zero(struct cb_module m)
 	return m.global_scope == 0 && m.spec == 0;
 }
 
+void cb_module_zero(struct cb_module *m)
+{
+	m->global_scope = 0;
+	m->spec = 0;
+}
+
 void cb_module_free(struct cb_module *module)
 {
 	/* modspec belongs to agent, we can't free it here */
