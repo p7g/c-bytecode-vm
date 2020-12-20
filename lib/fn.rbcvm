@@ -34,16 +34,3 @@ export function compose(functions) {
 }
 
 export let chain = compose([compose, array.reversed]);
-
-export function bind(fn, slf) {
-    return function() {
-        let args = arguments();
-        let args_len = array.length(args);
-        let all_args = array.new(args_len + 1);
-        all_args[0] = slf;
-        for (let i = 0; i < args_len; i = i + 1) {
-            all_args[i + 1] = args[i];
-        }
-        return apply(fn, all_args);
-    };
-}

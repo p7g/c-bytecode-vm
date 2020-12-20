@@ -46,7 +46,6 @@
 	X(now, 0) \
 	X(read_file_bytes, 1) \
 	X(toint, 1) \
-	X(arguments, 0) \
 	X(__gc_collect, 0) \
 	X(pcall, 1)
 
@@ -494,27 +493,6 @@ static int toint(size_t argc, struct cb_value *argv, struct cb_value *result)
 				cb_value_type_friendly_name(arg.type));
 		return 1;
 	}
-
-	return 0;
-}
-
-static int arguments(size_t argc, struct cb_value *argv,
-		struct cb_value *result)
-{
-	struct cb_frame *f = cb_vm_state.frame;
-	if (!f) {
-		fprintf(stderr, "arguments: Cannot get arguments without frame\n");
-		return 1;
-	}
-
-	size_t nargs = cb_vm_state.sp - argc - 3;
-	size_t start = f->bp + 1;
-	result->type = CB_VALUE_ARRAY;
-	result->val.as_array = cb_array_new(nargs);
-	result->val.as_array->len = nargs;
-
-	for (size_t i = 0; i < nargs; i += 1)
-		result->val.as_array->values[i] = cb_vm_state.stack[start + i];
 
 	return 0;
 }
