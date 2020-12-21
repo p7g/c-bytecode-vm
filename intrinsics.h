@@ -4,15 +4,17 @@
 #include <stdio.h>
 
 #include "agent.h"
+#include "error.h"
 #include "hashmap.h"
 #include "value.h"
 
 #define CB_EXPECT_TYPE(TYPE, VAL) ({ \
 		if ((VAL).type != (TYPE)) { \
-			fprintf(stderr, "%s: expected %s argument, got %s\n", \
+			cb_error_set(cb_value_from_fmt( \
+					"%s: expected %s argument, got %s", \
 					__func__, \
 					cb_value_type_friendly_name(TYPE), \
-					cb_value_type_of(&(VAL))); \
+					cb_value_type_of(&(VAL)))); \
 			return 1; \
 		} \
 	})
