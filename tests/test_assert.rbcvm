@@ -6,5 +6,3 @@ export function test_assert() {
         test.assert(false);
     })[0]);
 }
-
-test_assert();

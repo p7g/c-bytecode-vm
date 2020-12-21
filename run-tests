@@ -38,17 +38,14 @@ iter.foreach(hashmap.entries(tests_by_file), function (entry) {
     let tests = entry[1];
 
     print(filename, "");
-    iter.foreach(tests, function (test) {
+    iter.foreach(tests, function run_test(test) {
         test = module.get(filename, test);
-        let result = pcall(function () {
-            test();
-            return true;
-        });
-        if (result) {
+        let result = pcall(test);
+        if (result[0]) {
             print('.');
         } else {
             print('F');
-            arraylist.push(failed, test);
+            arraylist.push(failed, [test, result[1]]);
         }
     });
     print('\n');
@@ -56,4 +53,11 @@ iter.foreach(hashmap.entries(tests_by_file), function (entry) {
 
 if (arraylist.length(failed) == 0) {
     println("All tests passed");
+} else {
+    arraylist.foreach(failed, function (data) {
+        let test = data[0];
+        let error = data[1];
+
+        println(string.concat(tostring(test), ": ", tostring(error)));
+    });
 }
