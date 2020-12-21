@@ -2,9 +2,9 @@ import test;
 
 export function test_assert() {
     test.assert(!false);
-    test.assert(null == pcall(function () {
+    test.assert(false == pcall(function () {
         test.assert(false);
-    }), "Failed asserts raise errors");
+    })[0]);
 }
 
 test_assert();
