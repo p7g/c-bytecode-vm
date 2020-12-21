@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
 		return 1;
 
 	cb_intrinsics_set_argv(argc, argv);
-	if (argc < 2) {
+	if (!fname) {
 		result = cb_repl();
 	} else {
 		result = run_file(fname);
