@@ -170,6 +170,42 @@ const char *cb_value_type_name(enum cb_value_type type)
 	}
 }
 
+/* See Py_ReprEnter in cpython/Objects/object.c for the inspiration of this */
+static struct repr_stack {
+	struct repr_stack *next;
+	cb_gc_header *obj;
+} *repr_stack = NULL;
+
+int repr_enter(cb_gc_header *obj)
+{
+	struct repr_stack *tmp;
+
+	for (tmp = repr_stack; tmp; tmp = tmp->next) {
+		if (tmp->obj == obj)
+			return 1;
+	}
+
+	tmp = malloc(sizeof(struct repr_stack));
+	tmp->next = repr_stack;
+	tmp->obj = obj;
+	repr_stack = tmp;
+
+	return 0;
+}
+
+void repr_leave(cb_gc_header *obj)
+{
+	struct repr_stack *tmp, **prev;
+
+	for (prev = &repr_stack, tmp = repr_stack;
+			tmp && tmp->obj != obj;
+			prev = &tmp->next, tmp = tmp->next);
+	if (tmp != NULL) {
+		*prev = tmp->next;
+		free(tmp);
+	}
+}
+
 char *cb_value_to_string(struct cb_value *val)
 {
 	size_t len;
@@ -255,6 +291,15 @@ char *cb_value_to_string(struct cb_value *val)
 		size_t array_len = val->val.as_array->len;
 		size_t element_lens[array_len];
 		char *elements[array_len];
+
+		if (repr_enter(&val->val.as_array->gc_header)) {
+			len = sizeof("[...]") - 1;
+			buf = malloc(len + 1);
+			buf[len] = 0;
+			memcpy(buf, "[...]", len);
+			break;
+		}
+
 		len = 2; /* square brackets around elements */
 		for (int i = 0; i < array_len; i += 1) {
 			elements[i] = cb_value_to_string(
@@ -277,6 +322,7 @@ char *cb_value_to_string(struct cb_value *val)
 		}
 		*ptr++ = ']';
 		assert(ptr == buf + len);
+		repr_leave(&val->val.as_array->gc_header);
 		break;
 	}
 
@@ -297,6 +343,15 @@ char *cb_value_to_string(struct cb_value *val)
 			name_len = cb_strlen(n);
 		}
 		len = name_len + 2;
+
+		if (repr_enter(&val->val.as_struct->gc_header)) {
+			len += 3;  /* for "..." */
+			buf = malloc(len + 1);
+			buf[len] = 0;
+			memcpy(buf, name, name_len);
+			memcpy(buf + name_len, "{...}", 5);
+			break;
+		}
 
 		for (int i = 0; i < struct_len; i += 1) {
 			elements[i] = cb_value_to_string(&s->fields[i]);
@@ -330,6 +385,7 @@ char *cb_value_to_string(struct cb_value *val)
 		}
 		*ptr++ = '}';
 		assert(ptr == buf + len);
+		repr_leave(&val->val.as_struct->gc_header);
 		break;
 	}
 

@@ -252,7 +252,6 @@ function search(nfa, word) {
 export function compile(exp) {
     let with_concat = insert_explicit_concat_operator(exp);
     let postfix_exp = to_postfix(with_concat);
-    println(with_concat, postfix_exp);
     return to_nfa(postfix_exp);
 }
 
