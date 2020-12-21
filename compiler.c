@@ -889,8 +889,7 @@ static int compile(struct cstate *state, size_t name_id, int final)
 		APPEND(OP_END_MODULE);
 		cb_agent_add_modspec(state->modspec);
 	}
-	// FIXME: is this fine?
-	// state->modspec = NULL;
+	state->modspec = NULL;
 
 	if (final) {
 		APPEND(OP_HALT);
@@ -2283,12 +2282,11 @@ int cb_compile_module(cb_bytecode *bc, cb_str name, FILE *f, const char *path)
 	return result;
 }
 
-cb_modspec *cb_compile_string(cb_bytecode *bc, const char *name,
-		const char *code, cb_modspec *modspec)
+int cb_compile_string(cb_bytecode *bc, const char *name, const char *code,
+		cb_modspec *modspec)
 {
 	int result;
 	size_t name_id;
-	cb_modspec *retval;
 	struct cstate state = cstate_default(0);
 
 	name_id = cb_agent_intern_string(name, strlen(name));
@@ -2299,14 +2297,9 @@ cb_modspec *cb_compile_string(cb_bytecode *bc, const char *name,
 	state.modspec = modspec;
 
 	result = compile(&state, name_id, 1);
-	if (result) {
-		retval = NULL;
-	} else {
-		retval = state.modspec;
-		state.modspec = NULL;
-	}
+	state.modspec = NULL;
 	cstate_free(state);
-	return retval;
+	return result;
 }
 
 int cb_compile_file(const char *name, const char *path,
