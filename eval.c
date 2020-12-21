@@ -10,6 +10,7 @@
 #include "cbcvm.h"
 #include "compiler.h"
 #include "disassemble.h"
+#include "error.h"
 #include "eval.h"
 #include "hashmap.h"
 #include "intrinsics.h"
@@ -56,29 +57,6 @@ void cb_vm_deinit(void)
 	free(cb_vm_state.stack);
 	cb_vm_state.sp = 0;
 	cb_gc_collect();
-}
-
-void print_stack_function(struct cb_value func)
-{
-	struct cb_user_function current_function;
-	const cb_modspec *modspec;
-	size_t name;
-
-	name = func.val.as_function->name;
-	fprintf(stderr, "\tin ");
-	if (func.val.as_function->type == CB_FUNCTION_USER) {
-		current_function = func.val.as_function->value.as_user;
-		if (current_function.module_id != -1) {
-			modspec = cb_agent_get_modspec(
-					current_function.module_id);
-			fprintf(stderr, "%s.", cb_strptr(cb_agent_get_string(
-							cb_modspec_name(
-								modspec))));
-		}
-	}
-	fprintf(stderr, "%s\n", name == -1
-			? "<anonymous>"
-			: cb_strptr(cb_agent_get_string(name)));
 }
 
 static void add_upvalue(struct cb_upvalue *uv)
@@ -218,12 +196,11 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 	})
 
 #define RET_WITH_TRACE() ({ \
-		if (frame->is_function) \
-			print_stack_function(cb_vm_state.stack[frame->bp]); \
+		cb_traceback_add_frame(frame); \
 		goto end; \
 	})
 #define ERROR(MSG, ...) ({ \
-		fprintf(stderr, (MSG), ##__VA_ARGS__); \
+		cb_error_set(cb_value_from_fmt((MSG), ##__VA_ARGS__)); \
 		retval = 1; \
 		RET_WITH_TRACE(); \
 	})
@@ -253,6 +230,16 @@ DO_OP_MAX:
 DO_OP_HALT:
 end:
 	cb_vm_state.frame = cb_vm_state.frame->parent;
+	if (retval && !cb_vm_state.frame) {
+		fprintf(stderr, "Traceback (most recent call last):\n");
+		struct cb_traceback *tb;
+		for (tb = cb_error_tb(); tb; tb = tb->next)
+			cb_traceback_print(stderr, tb);
+		char *as_str = cb_value_to_string(cb_error_value());
+		fprintf(stderr, "Uncaught error: %s\n", as_str);
+		free(as_str);
+		cb_error_recover();
+	}
 	return retval;
 
 DO_OP_CONST_INT: {
@@ -501,7 +488,7 @@ DO_OP_LOAD_GLOBAL: {
 	value = cb_hashmap_get(GLOBALS(), id);
 
 	if (value == NULL)
-		ERROR("Unbound global '%s'\n",
+		ERROR("Unbound global '%s'",
 				cb_strptr(cb_agent_get_string(id)));
 
 	PUSH(*value);
@@ -565,7 +552,7 @@ DO_OP_BIND_LOCAL: {
 	func = POP();
 	if (func.type != CB_VALUE_FUNCTION
 			|| func.val.as_function->type != CB_FUNCTION_USER)
-		ERROR("Can only bind upvalues to user functions\n");
+		ERROR("Can only bind upvalues to user functions");
 
 	uv = NULL;
 	for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
@@ -602,7 +589,7 @@ DO_OP_BIND_UPVALUE: {
 	assert(CB_VALUE_IS_USER_FN(self));
 	func = POP();
 	if (!CB_VALUE_IS_USER_FN(&func))
-		ERROR("Can only bind upvalues to user functions\n");
+		ERROR("Can only bind upvalues to user functions");
 
 	cb_function_add_upvalue(&func.val.as_function->value.as_user,
 		self->val.as_function->value.as_user.upvalues[upvalue_idx]);
@@ -682,18 +669,18 @@ DO_OP_NEW_ARRAY_WITH_VALUES: {
 #define EXPECT_INT_INDEX(V) ({ \
 		struct cb_value v = (V); \
 		if (v.type != CB_VALUE_INT) \
-			ERROR("Array index must be integer, got %s\n", \
+			ERROR("Array index must be integer, got %s", \
 					cb_value_type_friendly_name(v.type)); \
 		v.val.as_int; \
 	})
 #define ARRAY_PTR(ARR, IDX) ({ \
 		struct cb_value _arr = (ARR); \
 		if (_arr.type != CB_VALUE_ARRAY) \
-			ERROR("Can only index arrays, got %s\n", \
+			ERROR("Can only index arrays, got %s", \
 					cb_value_type_friendly_name(_arr.type)); \
 		size_t _idx = EXPECT_INT_INDEX(IDX); \
 		if (_idx >= _arr.val.as_array->len) \
-			ERROR("Index %zu greater than array length %zu\n", \
+			ERROR("Index %zu greater than array length %zu", \
 					_idx, _arr.val.as_array->len); \
 		&_arr.val.as_array->values[_idx]; \
 	})
@@ -744,7 +731,7 @@ DO_OP_NOT_EQUAL: {
 		int _ok; \
 		double _result = cb_value_cmp(&(A), &(B), &_ok); \
 		if (!_ok) \
-			ERROR("Cannot compare values of types %s and %s\n", \
+			ERROR("Cannot compare values of types %s and %s", \
 					cb_value_type_friendly_name((A).type), \
 					cb_value_type_friendly_name((B).type)); \
 		_result; \
@@ -805,10 +792,10 @@ DO_OP_GREATER_THAN_EQUAL: {
 		b = POP(); \
 		a = POP(); \
 		if (a.type != CB_VALUE_INT) \
-			ERROR("Bitwise operands must be integers, got %s\n", \
+			ERROR("Bitwise operands must be integers, got %s", \
 					cb_value_type_friendly_name(a.type)); \
 		if (b.type != CB_VALUE_INT) \
-			ERROR("Bitwise operands must be integers, got %s\n", \
+			ERROR("Bitwise operands must be integers, got %s", \
 					cb_value_type_friendly_name(b.type)); \
 		result.type = CB_VALUE_INT; \
 		result.val.as_int = a.val.as_int OP b.val.as_int; \
@@ -831,7 +818,7 @@ DO_OP_BITWISE_NOT: {
 	struct cb_value a;
 	a = POP();
 	if (a.type != CB_VALUE_INT)
-		ERROR("Bitwise operands must be integers, got %s\n",
+		ERROR("Bitwise operands must be integers, got %s",
 				cb_value_type_friendly_name(a.type));
 	a.val.as_int = ~a.val.as_int;
 	PUSH(a);
@@ -857,7 +844,7 @@ DO_OP_NEG: {
 	} else if (a.type == CB_VALUE_DOUBLE) {
 		a.val.as_double = -a.val.as_double;
 	} else {
-		ERROR("Operand for negation must be int or double, got %s\n",
+		ERROR("Operand for negation must be int or double, got %s",
 				cb_value_type_friendly_name(a.type));
 	}
 	PUSH(a);
@@ -914,13 +901,13 @@ DO_OP_LOAD_STRUCT: {
 	size_t fname = READ_SIZE_T();
 	struct cb_value recv = POP();
 	if (recv.type != CB_VALUE_STRUCT)
-		ERROR("Cannot get field of non-struct type %s\n",
+		ERROR("Cannot get field of non-struct type %s",
 				cb_value_type_friendly_name(recv.type));
 	struct cb_struct *s = recv.val.as_struct;
 	struct cb_value *val = cb_struct_get_field(s, fname);
 	if (!val) {
 
-		ERROR("No such field '%s' on struct '%s'\n",
+		ERROR("No such field '%s' on struct '%s'",
 				cb_strptr(cb_agent_get_string(fname)),
 				cb_strptr(cb_agent_get_string(s->spec->name)));
 	}
@@ -933,11 +920,11 @@ DO_OP_LOAD_STRUCT: {
 	struct cb_value val = POP(); \
 	struct cb_value recv = POP(); \
 	if (recv.type != CB_VALUE_STRUCT) \
-		ERROR("Cannot set field of non-struct type %s\n", \
+		ERROR("Cannot set field of non-struct type %s", \
 				cb_value_type_friendly_name(recv.type)); \
 	struct cb_struct *s = recv.val.as_struct; \
 	if (cb_struct_set_field(s, fname, val)) { \
-		ERROR("No such field '%s' on struct '%s'\n", \
+		ERROR("No such field '%s' on struct '%s'", \
 				cb_strptr(cb_agent_get_string(fname)), \
 				cb_strptr(cb_agent_get_string(s->spec->name))); \
 	} \
@@ -960,7 +947,7 @@ DO_OP_NEW_STRUCT: {
 	struct cb_value struct_obj;
 	struct cb_value spec_obj = POP();
 	if (spec_obj.type != CB_VALUE_STRUCT_SPEC) {
-		ERROR("Cannot instantiate struct from %s object\n",
+		ERROR("Cannot instantiate struct from %s object",
 				cb_value_type_friendly_name(spec_obj.type));
 	}
 	struct_obj.type = CB_VALUE_STRUCT;

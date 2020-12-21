@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
@@ -5,6 +6,7 @@
 #include <time.h>
 
 #include "agent.h"
+#include "error.h"
 #include "eval.h"
 #include "gc.h"
 #include "hashmap.h"
@@ -132,7 +134,7 @@ static int array_new(size_t argc, struct cb_value *argv,
 	len = len_val.val.as_int;
 
 	if (len < 0) {
-		fprintf(stderr, "array_new: Invalid length\n");
+		cb_error_set(cb_value_from_string("array_new: Invalid length"));
 		return 1;
 	}
 
@@ -184,7 +186,8 @@ static int string_from_chars(size_t argc, struct cb_value *argv,
 
 	for (int i = 0; i < len; i += 1) {
 		if (arr.val.as_array->values[i].type != CB_VALUE_CHAR) {
-			fprintf(stderr, "string_from_chars: Expected array of chars\n");
+			cb_error_set(cb_value_from_string(
+					"string_from_chars: Expected array of chars\n"));
 			free(str);
 			return 1;
 		}
@@ -489,8 +492,8 @@ static int toint(size_t argc, struct cb_value *argv, struct cb_value *result)
 	else if (arg.type == CB_VALUE_CHAR)
 		result->val.as_int = (intptr_t) arg.val.as_char;
 	else {
-		fprintf(stderr, "int: Cannot convert value of type %s to int\n",
-				cb_value_type_friendly_name(arg.type));
+		cb_error_set(cb_value_from_fmt("int: Cannot convert value of type %s to int",
+				cb_value_type_friendly_name(arg.type)));
 		return 1;
 	}
 
@@ -510,13 +513,23 @@ static int pcall(size_t argc, struct cb_value *argv,
 {
 	int failed;
 	size_t sp;
+	struct cb_array *arr;
 
 	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
+	result->type = CB_VALUE_ARRAY;
+	arr = result->val.as_array = cb_array_new(2);
+	arr->len = 2;
 
 	sp = cb_vm_state.sp;
-	failed = cb_value_call(argv[0], argv + 1, argc - 1, result);
+	failed = cb_value_call(argv[0], argv + 1, argc - 1, &arr->values[1]);
 	cb_vm_state.sp = sp;
-	if (failed)
-		result->type = CB_VALUE_NULL;
+
+	arr->values[0].type = CB_VALUE_BOOL;
+	arr->values[0].val.as_bool = !failed;
+	if (failed) {
+		assert(cb_error_p());
+		arr->values[1] = *cb_error_value();
+		cb_error_recover();
+	}
 	return 0;
 }

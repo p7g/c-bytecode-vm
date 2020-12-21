@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "builtin_modules.h"
+#include "error.h"
 #include "eval.h"
 #include "hashmap.h"
 #include "intrinsics.h"
@@ -32,8 +33,8 @@ static int get_exports(size_t argc, struct cb_value *argv,
 
 	spec = cb_agent_get_modspec_by_name(id);
 	if (!spec) {
-		fprintf(stderr, "exports: No module '%s'\n",
-				cb_strptr(modname));
+		cb_error_set(cb_value_from_fmt("exports: No module '%s'",
+				cb_strptr(modname)));
 		return 1;
 	}
 
@@ -66,24 +67,26 @@ static int get_export(size_t argc, struct cb_value *argv,
 
 	spec = cb_agent_get_modspec_by_name(modname_id);
 	if (!spec) {
-		fprintf(stderr, "exports: No module '%s'\n",
-				cb_strptr(modname));
+		cb_error_set(cb_value_from_fmt("exports: No module '%s'",
+				cb_strptr(modname)));
 		return 1;
 	}
 
 	export_name_id = cb_agent_get_string_id(cb_strptr(export_name),
 			cb_strlen(export_name));
 	if (export_name_id == -1) {
-		fprintf(stderr, "get: Module '%s' has no export '%s'\n",
-				cb_strptr(modname), cb_strptr(export_name));
+		cb_error_set(cb_value_from_fmt(
+				"get: Module '%s' has no export '%s'",
+				cb_strptr(modname), cb_strptr(export_name)));
 		return 1;
 	}
 
 	mod = &cb_vm_state.modules[cb_modspec_id(spec)];
 	val = cb_hashmap_get(mod->global_scope, export_name_id);
 	if (!val) {
-		fprintf(stderr, "get: Module '%s' has no export '%s'\n",
-				cb_strptr(modname), cb_strptr(export_name));
+		cb_error_set(cb_value_from_fmt(
+				"get: Module '%s' has no export '%s'",
+				cb_strptr(modname), cb_strptr(export_name)));
 		return 1;
 	}
 

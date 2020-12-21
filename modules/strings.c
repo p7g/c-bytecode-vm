@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "builtin_modules.h"
+#include "error.h"
 #include "intrinsics.h"
 #include "module.h"
 #include "str.h"
@@ -15,7 +16,7 @@ static int make_buf(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 	CB_EXPECT_TYPE(CB_VALUE_INT, argv[0]);
 	if (argv[0].val.as_int < 0) {
-		fprintf(stderr, "buf: Invalid buf length\n");
+		cb_error_set(cb_value_from_string("buf: Invalid buf length"));
 		return 1;
 	}
 
@@ -38,7 +39,8 @@ static int resize_buf(size_t argc, struct cb_value *argv,
 	str = &argv[0].val.as_string->string;
 	len = argv[1].val.as_int;
 	if (len < 0) {
-		fprintf(stderr, "resize_buf: Invalid buf length\n");
+		cb_error_set(cb_value_from_string(
+					"resize_buf: Invalid buf length"));
 		return 1;
 	}
 
@@ -68,7 +70,8 @@ static int char_at(size_t argc, struct cb_value *argv, struct cb_value *result)
 	CB_EXPECT_TYPE(CB_VALUE_INT, argv[1]);
 	pos = argv[1].val.as_int;
 	if (pos < 0 || cb_strlen(strval) < pos) {
-		fprintf(stderr, "char_at: String index out of range\n");
+		cb_error_set(cb_value_from_string(
+					"char_at: String index out of range"));
 		return 1;
 	}
 	result->type = CB_VALUE_CHAR;

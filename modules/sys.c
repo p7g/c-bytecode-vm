@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "builtin_modules.h"
+#include "error.h"
 #include "intrinsics.h"
 #include "module.h"
 #include "value.h"
@@ -17,7 +18,8 @@ static int panic(size_t argc, struct cb_value *argv, struct cb_value *result)
 	cb_str msg;
 
 	msg = CB_EXPECT_STRING(argv[0]);
-	fprintf(stderr, "%.*s\n", (int) cb_strlen(msg), cb_strptr(msg));
+	cb_error_set(cb_value_from_fmt("%.*s", (int) cb_strlen(msg),
+				cb_strptr(msg)));
 	return 1;
 }
 

@@ -37,6 +37,8 @@ struct {
 
 	/* size of this array is based on number of modspecs in agent */
 	struct cb_module *modules;
+
+	struct cb_error *error;
 } cb_vm_state;
 
 void cb_vm_init(cb_bytecode *bytecode);

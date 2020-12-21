@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <inttypes.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -112,8 +113,10 @@ struct cb_value cb_cfunc_new(size_t name, size_t arity,
 
 inline struct cb_array *cb_array_new(size_t len)
 {
-	return cb_malloc(sizeof(struct cb_array)
+	struct cb_array *mem = cb_malloc(sizeof(struct cb_array)
 			+ sizeof(struct cb_value) * len, NULL);
+	mem->len = len;
+	return mem;
 }
 
 static void deinit_string(void *s_ptr)
@@ -734,4 +737,31 @@ inline struct cb_value cb_char(uint32_t v)
 	out.type = CB_VALUE_CHAR;
 	out.val.as_char = v;
 	return out;
+}
+
+struct cb_value cb_value_from_string(const char *str)
+{
+	struct cb_value retval;
+	struct cb_string *sobj = cb_string_new();
+	sobj->string = cb_str_from_cstr(str, strlen(str));
+	retval.type = CB_VALUE_STRING;
+	retval.val.as_string = sobj;
+	return retval;
+}
+
+struct cb_value cb_value_from_fmt(const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	size_t len = vsnprintf(NULL, 0, fmt, args);
+	va_end(args);
+	char *str = malloc(sizeof(char) * len + 1);
+	va_start(args, fmt);
+	vsnprintf(str, len + 1, fmt, args);
+	str[len] = 0;
+	va_end(args);
+
+	struct cb_value ret = cb_value_from_string(str);
+	free(str);
+	return ret;
 }

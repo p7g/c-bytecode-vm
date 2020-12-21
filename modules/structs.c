@@ -3,6 +3,7 @@
 
 #include "agent.h"
 #include "builtin_modules.h"
+#include "error.h"
 #include "intrinsics.h"
 #include "module.h"
 #include "str.h"
@@ -99,9 +100,9 @@ static int get_struct_field(size_t argc, struct cb_value *argv,
 			cb_agent_intern_string(cb_strptr(fname),
 				cb_strlen(fname)));
 	if (fvalue == NULL) {
-		fprintf(stderr, "Value '%s' has no field '%s'\n",
+		cb_error_set(cb_value_from_fmt("Value '%s' has no field '%s'",
 				(as_str = cb_value_to_string(&argv[0])),
-				cb_strptr(fname));
+				cb_strptr(fname)));
 		free(as_str);
 		return 1;
 	}
@@ -123,9 +124,9 @@ static int set_struct_field(size_t argc, struct cb_value *argv,
 	fname_id = cb_agent_intern_string(cb_strptr(fname), cb_strlen(fname));
 	retval = cb_struct_set_field(argv[0].val.as_struct, fname_id, argv[2]);
 	if (retval) {
-		fprintf(stderr, "Value '%s' has no field '%s'\n",
+		cb_error_set(cb_value_from_fmt("Value '%s' has no field '%s'",
 				(as_str = cb_value_to_string(&argv[0])),
-				cb_strptr(fname));
+				cb_strptr(fname)));
 		free(as_str);
 		return 1;
 	}

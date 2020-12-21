@@ -3,6 +3,7 @@
 
 #include "agent.h"
 #include "cbcvm.h"
+#include "error.h"
 #include "eval.h"
 #include "gc.h"
 #include "hashmap.h"
@@ -71,14 +72,15 @@ static void mark(void)
 	/* Roots:
 	 * - stack
 	 * - globals
+	 * - vm state error
 	 */
 
 	DEBUG_LOG("marking stack values");
 	for (i = 0; i < cb_vm_state.sp; i += 1)
 		cb_value_mark(&cb_vm_state.stack[i]);
 
+	DEBUG_LOG("marking module global scopes");
 	if (cb_vm_state.modules) {
-		DEBUG_LOG("marking module global scopes");
 		for (i = 0; i < cb_agent_modspec_count(); i += 1) {
 			mod = &cb_vm_state.modules[i];
 			if (!mod)
@@ -89,6 +91,9 @@ static void mark(void)
 			cb_hashmap_mark_contents(mod->global_scope);
 		}
 	}
+
+	DEBUG_LOG("marking error");
+	cb_error_mark();
 }
 
 static void sweep(void)

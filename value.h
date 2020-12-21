@@ -111,6 +111,8 @@ struct cb_value cb_int(int64_t);
 struct cb_value cb_double(double);
 struct cb_value cb_bool(int);
 struct cb_value cb_char(uint32_t);
+struct cb_value cb_value_from_string(const char *str);
+struct cb_value cb_value_from_fmt(const char *fmt, ...);
 
 const char *cb_value_type_name(enum cb_value_type type);
 const char *cb_value_type_of(struct cb_value *val);
