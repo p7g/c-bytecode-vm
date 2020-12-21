@@ -6,6 +6,7 @@
 
 #include "agent.h"
 #include "alloc.h"
+#include "cbcvm.h"
 #include "eval.h"
 #include "str.h"
 #include "struct.h"
@@ -36,12 +37,12 @@ static void adjust_refcount(struct cb_value *value, int amount)
 		return;
 	}
 
-#ifdef DEBUG_GC
-	char *as_str = cb_value_to_string(value);
-	printf("GC: adjusted refcount by %d for object at %p: %s\n",
-			amount, header, as_str);
-	free(as_str);
-#endif
+	if (cb_options.debug_gc) {
+		char *as_str = cb_value_to_string(value);
+		printf("GC: adjusted refcount by %d for object at %p: %s\n",
+				amount, header, as_str);
+		free(as_str);
+	}
 
 	cb_gc_adjust_refcount(header, amount);
 }
@@ -628,16 +629,14 @@ int cb_value_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 
 void cb_value_mark(struct cb_value *val)
 {
-#ifdef DEBUG_GC
 #define GC_LOG(F) ({ \
-		char *as_str = cb_value_to_string(val); \
-		printf("GC: marked value at %p: %s\n", (cb_gc_header *) (F), \
-				as_str); \
-		free(as_str); \
+		if (cb_options.debug_gc) { \
+			char *as_str = cb_value_to_string(val); \
+			printf("GC: marked value at %p: %s\n", \
+					(cb_gc_header *) (F), as_str); \
+			free(as_str); \
+		} \
 	})
-#else
-#define GC_LOG(F)
-#endif
 	switch (val->type) {
 	case CB_VALUE_INT:
 	case CB_VALUE_DOUBLE:

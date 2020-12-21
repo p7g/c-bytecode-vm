@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -10,13 +11,21 @@
 
 int cb_disassemble(cb_bytecode *bytecode)
 {
-	size_t i, len;
+	return cb_disassemble_range(bytecode, 0, cb_bytecode_len(bytecode));
+}
+
+int cb_disassemble_range(cb_bytecode *bytecode, size_t start, size_t end)
+{
+	size_t i;
 	int result;
 
-	i = 0;
-	len = cb_bytecode_len(bytecode);
+	assert(start < end);
+	assert(start >= 0);
+	assert(end <= cb_bytecode_len(bytecode));
 
-	while (i < len) {
+	i = start;
+
+	while (i < end) {
 		result = cb_disassemble_one(bytecode, i);
 		if (result < 0)
 			return 1;

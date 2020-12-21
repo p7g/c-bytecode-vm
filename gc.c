@@ -1,19 +1,18 @@
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "agent.h"
+#include "cbcvm.h"
 #include "eval.h"
 #include "gc.h"
 #include "hashmap.h"
 #include "module.h"
 #include "value.h"
 
-#ifdef DEBUG_GC
-# include <stdio.h>
-
-# define DEBUG_LOG(MSG, ...) printf("GC: " MSG "\n", ##__VA_ARGS__)
-#else
-# define DEBUG_LOG(MSG, ...)
-#endif
+#define DEBUG_LOG(MSG, ...) ({ \
+		if (cb_options.debug_gc) \
+			printf("GC: " MSG "\n", ##__VA_ARGS__); \
+	})
 
 #define GC_HINT_THRESHOLD 2048
 #define GC_INITIAL_THRESHOLD (1024 * 1024)
@@ -119,9 +118,7 @@ static void sweep(void)
 
 void cb_gc_collect(void)
 {
-#ifdef DEBUG_GC
 	size_t before = amount_allocated;
-#endif
 	DEBUG_LOG("start; allocated=%zu", amount_allocated);
 	hint = 0;
 	mark();

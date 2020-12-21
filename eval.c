@@ -7,7 +7,9 @@
 
 #include "agent.h"
 #include "builtin_modules.h"
+#include "cbcvm.h"
 #include "compiler.h"
+#include "disassemble.h"
 #include "eval.h"
 #include "hashmap.h"
 #include "intrinsics.h"
@@ -15,10 +17,6 @@
 #include "value.h"
 #include "str.h"
 #include "struct.h"
-
-#ifdef DEBUG_VM
-# include "disassemble.h"
-#endif
 
 #define STACK_MAX 30000
 #define STACK_INIT_SIZE 1024
@@ -166,7 +164,6 @@ int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 	return ret;
 }
 
-#ifdef DEBUG_VM
 static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame)
 {
 	size_t _name;
@@ -199,7 +196,6 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 	}
 	printf("\n\n");
 }
-#endif
 
 int cb_eval(size_t pc, struct cb_frame *frame)
 {
@@ -213,20 +209,13 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 #undef TABLE_ENTRY
 
 #define NEXT() (cb_bytecode_get(cb_vm_state.bytecode, pc++))
-#ifdef DEBUG_VM
 # define DISPATCH() ({ \
-		debug_state(cb_vm_state.bytecode, pc, frame); \
+		if (cb_options.debug_vm) \
+			debug_state(cb_vm_state.bytecode, pc, frame); \
 		size_t _next = NEXT(); \
 		assert(_next >= 0 && _next < OP_MAX); \
 		goto *dispatch_table[_next]; \
 	})
-#else
-# define DISPATCH() ({ \
-		size_t _next = NEXT(); \
-		assert(_next < OP_MAX); \
-		goto *dispatch_table[_next]; \
-	})
-#endif
 
 #define RET_WITH_TRACE() ({ \
 		if (frame->is_function) \
