@@ -54,11 +54,10 @@ static int get_export(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	cb_str modname, export_name;
-	ssize_t modname_id, export_name_id, export_id;
+	ssize_t modname_id, export_name_id;
 	cb_modspec *spec;
 	struct cb_module *mod;
 	struct cb_value *val;
-	int ok;
 
 	modname = CB_EXPECT_STRING(argv[0]);
 	export_name = CB_EXPECT_STRING(argv[1]);
@@ -79,7 +78,6 @@ static int get_export(size_t argc, struct cb_value *argv,
 				cb_strptr(modname), cb_strptr(export_name));
 		return 1;
 	}
-	export_id = cb_modspec_get_export_id(spec, export_name_id, &ok);
 
 	mod = &cb_vm_state.modules[cb_modspec_id(spec)];
 	val = cb_hashmap_get(mod->global_scope, export_name_id);

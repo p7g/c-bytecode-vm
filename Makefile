@@ -1,5 +1,5 @@
 CFLAGS+=-g -std=gnu11 -Wall -I$(CURDIR)
-LDFLAGS+=-lm
+LDFLAGS+=-lm -lreadline
 
 ifeq ($(TARGET),release)
 	CFLAGS+=-DNDEBUG -O3 -flto

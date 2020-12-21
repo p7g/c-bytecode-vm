@@ -451,7 +451,7 @@ struct bytecode {
 	struct pending_address *pending_addresses;
 };
 
-static struct bytecode *bytecode_new()
+struct bytecode *cb_bytecode_new()
 {
 	struct bytecode *bc;
 
@@ -683,7 +683,7 @@ struct cstate {
 static struct cstate cstate_default(int with_bytecode)
 {
 	return (struct cstate) {
-		.bytecode = with_bytecode ? bytecode_new() : NULL,
+		.bytecode = with_bytecode ? cb_bytecode_new() : NULL,
 		.input = NULL,
 		.filename = "<script>",
 		.did_peek = 0,
@@ -860,12 +860,20 @@ static int compile(struct cstate *state, size_t name_id, int final)
 {
 	struct token *tok;
 	struct bytecode_snapshot before;
+	int had_module;
 
 	bytecode_snapshot(state->bytecode, &before);
-	state->modspec = cb_modspec_new(name_id);
 
-	APPEND(OP_INIT_MODULE);
-	APPEND_SIZE_T(cb_modspec_id(state->modspec));
+	if (state->modspec) {
+		had_module = 1;
+		APPEND(OP_ENTER_MODULE);
+		APPEND_SIZE_T(cb_modspec_id(state->modspec));
+	} else {
+		had_module = 0;
+		state->modspec = cb_modspec_new(name_id);
+		APPEND(OP_INIT_MODULE);
+		APPEND_SIZE_T(cb_modspec_id(state->modspec));
+	}
 
 	while ((tok = PEEK()) && tok->type != TOK_EOF) {
 		if (compile_statement(state))
@@ -875,9 +883,14 @@ static int compile(struct cstate *state, size_t name_id, int final)
 	EXPECT(TOK_EOF);
 
 	assert(state->modspec && "Missing modspec while compiling");
-	APPEND(OP_END_MODULE);
-	cb_agent_add_modspec(state->modspec);
-	state->modspec = NULL;
+	if (had_module) {
+		APPEND(OP_EXIT_MODULE);
+	} else {
+		APPEND(OP_END_MODULE);
+		cb_agent_add_modspec(state->modspec);
+	}
+	// FIXME: is this fine?
+	// state->modspec = NULL;
 
 	if (final) {
 		APPEND(OP_HALT);
@@ -2268,6 +2281,32 @@ int cb_compile_module(cb_bytecode *bc, cb_str name, FILE *f, const char *path)
 
 	cstate_free(state);
 	return result;
+}
+
+cb_modspec *cb_compile_string(cb_bytecode *bc, const char *name,
+		const char *code, cb_modspec *modspec)
+{
+	int result;
+	size_t name_id;
+	cb_modspec *retval;
+	struct cstate state = cstate_default(0);
+
+	name_id = cb_agent_intern_string(name, strlen(name));
+	state.bytecode = bc;
+	state.input = code;
+	state.lex_state = lex_state_new(name);
+	state.filename = name;
+	state.modspec = modspec;
+
+	result = compile(&state, name_id, 1);
+	if (result) {
+		retval = NULL;
+	} else {
+		retval = state.modspec;
+		state.modspec = NULL;
+	}
+	cstate_free(state);
+	return retval;
 }
 
 int cb_compile_file(const char *name, const char *path,
