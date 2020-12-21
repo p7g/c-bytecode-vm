@@ -52,7 +52,7 @@ int run_file(const char *filename)
 static const char *help = (
 	"Usage:\n"
 	"\tcbcvm [options]\n"
-	"\tcbcvm [options] <file> [...]\n"
+	"\tcbcvm [options] <file> [<arg>]...\n"
 	"\tcbcvm -h | --help\n"
 	"\n"
 	"Options:\n"
