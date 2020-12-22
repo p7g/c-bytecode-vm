@@ -801,6 +801,7 @@ static struct token next(struct cstate *state, int *ok)
 		struct token *tok = PEEK(); \
 		tok && tok->type != TOK_EOF && tok->type == (TYPE); \
 	})
+#define MAYBE_CONSUME(TYPE) (MATCH_P(TYPE) ? (NEXT(), 1) : 0)
 #define EXPECT(TYPE) ({ \
 		struct token *_tok = PEEK(); \
 		enum token_type typ = (TYPE); \
@@ -958,32 +959,35 @@ static int compile_let_statement(struct cstate *state, int export)
 	size_t name_id, binding_id;
 
 	EXPECT(TOK_LET);
-	name = EXPECT(TOK_IDENT);
-	name_id = intern_ident(state, &name);
-	if (MATCH_P(TOK_EQUAL)) {
-		EXPECT(TOK_EQUAL);
-		X(compile_expression(state));
-	} else {
-		APPEND(OP_CONST_NULL);
-	}
-	EXPECT(TOK_SEMICOLON);
 
-	if (state->is_global) {
-		APPEND(OP_DECLARE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-		APPEND(OP_STORE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-		if (export)
-			export_name(state, name_id);
-		else
+	do {
+		name = EXPECT(TOK_IDENT);
+		name_id = intern_ident(state, &name);
+		if (MATCH_P(TOK_EQUAL)) {
+			EXPECT(TOK_EQUAL);
+			X(compile_expression(state));
+		} else {
+			APPEND(OP_CONST_NULL);
+		}
+
+		if (state->is_global) {
+			APPEND(OP_DECLARE_GLOBAL);
+			APPEND_SIZE_T(name_id);
+			APPEND(OP_STORE_GLOBAL);
+			APPEND_SIZE_T(name_id);
+			if (export)
+				export_name(state, name_id);
+			else
+				APPEND(OP_POP);
+		} else {
+			assert(state->scope != NULL);
+			binding_id = scope_add_binding(state->scope, name_id, 0);
+			APPEND(OP_STORE_LOCAL);
+			APPEND_SIZE_T(binding_id);
 			APPEND(OP_POP);
-	} else {
-		assert(state->scope != NULL);
-		binding_id = scope_add_binding(state->scope, name_id, 0);
-		APPEND(OP_STORE_LOCAL);
-		APPEND_SIZE_T(binding_id);
-		APPEND(OP_POP);
-	}
+		}
+	} while (MAYBE_CONSUME(TOK_COMMA));
+	EXPECT(TOK_SEMICOLON);
 
 	return 0;
 }
