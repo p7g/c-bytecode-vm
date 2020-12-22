@@ -839,9 +839,8 @@ static struct token next(struct cstate *state, int *ok)
 #define X(V) ({ if (V) return 1; })
 
 static int compile_statement(struct cstate *);
-static int compile_let_statement(struct cstate *, size_t *name_out, int leave);
-static int compile_function_statement(struct cstate *, size_t *name_out,
-		int leave);
+static int compile_let_statement(struct cstate *, int export);
+static int compile_function_statement(struct cstate *, int export);
 static int compile_if_statement(struct cstate *);
 static int compile_for_statement(struct cstate *);
 static int compile_while_statement(struct cstate *);
@@ -850,8 +849,7 @@ static int compile_continue_statement(struct cstate *);
 static int compile_return_statement(struct cstate *);
 static int compile_export_statement(struct cstate *);
 static int compile_import_statement(struct cstate *);
-static int compile_struct_statement(struct cstate *, size_t *name_out,
-		int leave);
+static int compile_struct_statement(struct cstate *, int export);
 static int compile_expression_statement(struct cstate *);
 
 static int compile_expression(struct cstate *);
@@ -908,10 +906,10 @@ static int compile_statement(struct cstate *state)
 {
 	switch (PEEK()->type) {
 	case TOK_LET:
-		X(compile_let_statement(state, NULL, 0));
+		X(compile_let_statement(state, 0));
 		break;
 	case TOK_FUNCTION:
-		X(compile_function_statement(state, NULL, 0));
+		X(compile_function_statement(state, 0));
 		break;
 	case TOK_IF:
 		X(compile_if_statement(state));
@@ -938,7 +936,7 @@ static int compile_statement(struct cstate *state)
 		X(compile_import_statement(state));
 		break;
 	case TOK_STRUCT:
-		X(compile_struct_statement(state, NULL, 0));
+		X(compile_struct_statement(state, 0));
 		break;
 	default:
 		X(compile_expression_statement(state));
@@ -948,8 +946,13 @@ static int compile_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_let_statement(struct cstate *state, size_t *name_out,
-		int leave)
+static void export_name(struct cstate *state, size_t name)
+{
+	APPEND(OP_EXPORT);
+	APPEND_SIZE_T(cb_modspec_add_export(state->modspec, name));
+}
+
+static int compile_let_statement(struct cstate *state, int export)
 {
 	struct token name;
 	size_t name_id, binding_id;
@@ -957,8 +960,6 @@ static int compile_let_statement(struct cstate *state, size_t *name_out,
 	EXPECT(TOK_LET);
 	name = EXPECT(TOK_IDENT);
 	name_id = intern_ident(state, &name);
-	if (name_out)
-		*name_out = name_id;
 	if (MATCH_P(TOK_EQUAL)) {
 		EXPECT(TOK_EQUAL);
 		X(compile_expression(state));
@@ -972,7 +973,9 @@ static int compile_let_statement(struct cstate *state, size_t *name_out,
 		APPEND_SIZE_T(name_id);
 		APPEND(OP_STORE_GLOBAL);
 		APPEND_SIZE_T(name_id);
-		if (!leave)
+		if (export)
+			export_name(state, name_id);
+		else
 			APPEND(OP_POP);
 	} else {
 		assert(state->scope != NULL);
@@ -1121,15 +1124,14 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	return 0;
 }
 
-static int compile_function_statement(struct cstate *state, size_t *name_out,
-		int leave)
+static int compile_function_statement(struct cstate *state, int export)
 {
 	size_t name;
 
 	X(compile_function(state, &name));
-	if (name_out)
-		*name_out = name;
-	if (!leave || !state->is_global)
+	if (export && state->is_global)
+		export_name(state, name);
+	else
 		APPEND(OP_POP);
 
 	return 0;
@@ -1348,7 +1350,6 @@ static int compile_return_statement(struct cstate *state)
 static int compile_export_statement(struct cstate *state)
 {
 	struct token tok;
-	size_t name;
 
 	tok = EXPECT(TOK_EXPORT);
 	assert(state->modspec && "modspec not present while compiling");
@@ -1359,18 +1360,15 @@ static int compile_export_statement(struct cstate *state)
 	}
 
 	if (MATCH_P(TOK_LET)) {
-		X(compile_let_statement(state, &name, 1));
+		X(compile_let_statement(state, 1));
 	} else if (MATCH_P(TOK_FUNCTION)) {
-		X(compile_function_statement(state, &name, 1));
+		X(compile_function_statement(state, 1));
 	} else if (MATCH_P(TOK_STRUCT)) {
-		X(compile_struct_statement(state, &name, 1));
+		X(compile_struct_statement(state, 1));
 	} else {
 		ERROR_AT_P(PEEK(), "Can only export function, let, and struct declarations");
 		return 1;
 	}
-
-	APPEND(OP_EXPORT);
-	APPEND_SIZE_T(cb_modspec_add_export(state->modspec, name));
 
 	return 0;
 }
@@ -1508,16 +1506,15 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 	return 0;
 }
 
-static int compile_struct_statement(struct cstate *state, size_t *name_out,
-		int leave)
+static int compile_struct_statement(struct cstate *state, int export)
 {
 	size_t name_id;
 
 	X(compile_struct_decl(state, &name_id));
 
-	if (name_out)
-		*name_out = name_id;
-	if (!leave || !state->is_global)
+	if (export && state->is_global)
+		export_name(state, name_id);
+	else
 		APPEND(OP_POP);
 
 	return 0;
