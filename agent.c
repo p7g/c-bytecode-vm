@@ -231,7 +231,8 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 	ssize_t i, j;
 	FILE *f;
 
-	for (i = -1; i < MAX_IMPORT_PATHS && agent.import_paths[i]; i += 1) {
+	for (i = -1; i < MAX_IMPORT_PATHS && (i == -1 || agent.import_paths[i]);
+			i += 1) {
 		if (i == -1 && !pwd)
 			continue;
 		path[MAX_IMPORT_PATH_LEN - 1] = 0;
