@@ -8,10 +8,6 @@ else ifeq ($(TARGET),profile)
 	CFLAGS+=-DPROFILE -pg -O3 -flto --coverage
 endif
 
-ifneq ($(shell uname -s),Darwin)
-	SANITIZERS=$(SANITIZERS),memory
-endif
-
 ifneq ($(TARGET),release)
 	CFLAGS+=-fsanitize=$(SANITIZERS) -fno-omit-frame-pointer
 endif
