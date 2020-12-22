@@ -705,6 +705,34 @@ void cstate_free(struct cstate state)
 	cb_hashmap_free(state.imported);
 }
 
+struct cstate *cb_compile_state_new(const char *name, cb_modspec *modspec,
+		cb_bytecode *bc)
+{
+	struct cstate *st;
+
+	st = malloc(sizeof(struct cstate));
+	*st = cstate_default(0);
+	st->bytecode = bc;
+	st->lex_state.filename = name;
+	st->filename = name;
+	st->modspec = modspec;
+
+	return st;
+}
+
+void cb_compile_state_free(struct cstate *st)
+{
+	st->modspec = NULL; /* FIXME: This modspec-freeing mess seems bad */
+	cstate_free(*st);
+	free(st);
+}
+
+void cb_compile_state_reset(struct cstate *st, const char *code)
+{
+	st->lex_state = lex_state_new(st->lex_state.filename);
+	st->input = code;
+}
+
 static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 {
 	struct binding *binding;
@@ -2283,24 +2311,11 @@ int cb_compile_module(cb_bytecode *bc, cb_str name, FILE *f, const char *path)
 	return result;
 }
 
-int cb_compile_string(cb_bytecode *bc, const char *name, const char *code,
+int cb_compile_string(struct cstate *state, const char *code,
 		cb_modspec *modspec)
 {
-	int result;
-	size_t name_id;
-	struct cstate state = cstate_default(0);
-
-	name_id = cb_agent_intern_string(name, strlen(name));
-	state.bytecode = bc;
-	state.input = code;
-	state.lex_state = lex_state_new(name);
-	state.filename = name;
-	state.modspec = modspec;
-
-	result = compile(&state, name_id, 1);
-	state.modspec = NULL;
-	cstate_free(state);
-	return result;
+	return compile(state, cb_agent_intern_string(state->filename,
+				strlen(state->filename)), 1);
 }
 
 int cb_compile_file(const char *name, const char *path,

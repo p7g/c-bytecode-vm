@@ -43,6 +43,7 @@ struct {
 
 void cb_vm_init(cb_bytecode *bytecode);
 void cb_vm_deinit(void);
+void cb_vm_grow_modules_array(size_t new_size);
 
 int cb_eval(size_t pc, struct cb_frame *frame);
 int cb_run(void);

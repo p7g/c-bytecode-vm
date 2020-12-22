@@ -59,6 +59,23 @@ void cb_vm_deinit(void)
 	cb_gc_collect();
 }
 
+void cb_vm_grow_modules_array(size_t new_size)
+{
+	struct cb_module *old_modules_ptr;
+
+	cb_vm_state.modules = realloc((old_modules_ptr = cb_vm_state.modules),
+			new_size * sizeof(struct cb_module));
+	cb_module_zero(&cb_vm_state.modules[new_size - 1]);
+	/* Patch all existing frames to point at the new modules */
+	if (cb_vm_state.modules != old_modules_ptr) {
+		for (struct cb_frame *current = cb_vm_state.frame;
+				current; current = current->parent) {
+			current->module = cb_vm_state.modules
+					+ (current->module - old_modules_ptr);
+		}
+	}
+}
+
 static void add_upvalue(struct cb_upvalue *uv)
 {
 	if (cb_vm_state.upvalues_idx >= cb_vm_state.upvalues_size) {

@@ -98,8 +98,7 @@ static int get_export(size_t argc, struct cb_value *argv,
 static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	cb_str import_name;
-	size_t nmodules, pc;
-	struct cb_module *old_modules_ptr;
+	size_t pc;
 	FILE *f;
 	char *path = NULL;
 	int retval = 0;
@@ -125,18 +124,7 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 		goto err;
 
 	/* Make room in cb_vm_state for new module */
-	nmodules = cb_agent_modspec_count();
-	cb_vm_state.modules = realloc((old_modules_ptr = cb_vm_state.modules),
-			nmodules * sizeof(struct cb_module));
-	cb_module_zero(&cb_vm_state.modules[nmodules - 1]);
-	/* Patch all existing frames to point at the new modules */
-	if (cb_vm_state.modules != old_modules_ptr) {
-		for (struct cb_frame *current = cb_vm_state.frame;
-				current; current = current->parent) {
-			current->module = cb_vm_state.modules
-					+ (current->module - old_modules_ptr);
-		}
-	}
+	cb_vm_grow_modules_array(cb_agent_modspec_count());
 
 	frame.is_function = 0;
 	frame.module = NULL;

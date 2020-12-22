@@ -13,17 +13,18 @@
 
 int cb_repl(void)
 {
+	cb_compile_state *compile_state;
 	cb_modspec *modspec;
 	char *line;
 	cb_bytecode *bytecode;
 	int result, did_init_vm;
-	size_t pc = 0, ident_repl;
+	size_t pc = 0;
 	struct cb_frame frame;
 	struct cb_module *mod;
 
-	ident_repl = cb_agent_intern_string("<repl>", 6);
-	modspec = cb_modspec_new(ident_repl);
 	bytecode = cb_bytecode_new();
+	modspec = cb_modspec_new(cb_agent_intern_string("<repl>", 6));
+	compile_state = cb_compile_state_new("<repl>", modspec, bytecode);
 	did_init_vm = 0;
 	cb_agent_add_modspec(modspec);
 
@@ -36,7 +37,8 @@ int cb_repl(void)
 			continue;
 		add_history(line);
 		pc = cb_bytecode_len(bytecode);
-		result = cb_compile_string(bytecode, "<repl>", line, modspec);
+		cb_compile_state_reset(compile_state, line);
+		result = cb_compile_string(compile_state, line, modspec);
 		if (cb_options.disasm && !result)
 			result = cb_disassemble_range(bytecode, pc,
 					cb_bytecode_len(bytecode));
@@ -60,6 +62,7 @@ int cb_repl(void)
 
 	if (did_init_vm)
 		cb_vm_deinit();
-
+	cb_compile_state_free(compile_state);
+	cb_bytecode_free(bytecode);
 	return 0;
 }

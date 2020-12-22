@@ -6,6 +6,7 @@
 
 #include "agent.h"
 #include "builtin_modules.h"
+#include "eval.h"
 #include "module.h"
 #include "str.h"
 
@@ -159,6 +160,8 @@ static void maybe_grow_modules()
 		agent.modules = realloc(agent.modules,
 				agent.modules_size * sizeof(cb_modspec *));
 	}
+	if (cb_vm_state.modules)
+		cb_vm_grow_modules_array(agent.next_module_id + 1);
 }
 
 inline void cb_agent_add_modspec(cb_modspec *spec)
