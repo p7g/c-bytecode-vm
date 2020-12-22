@@ -1,10 +1,19 @@
 CFLAGS+=-g -std=gnu11 -Wall -I$(CURDIR)
 LDFLAGS+=-lm -lreadline
+SANITIZERS+=address,undefined
 
 ifeq ($(TARGET),release)
 	CFLAGS+=-DNDEBUG -O3 -flto
 else ifeq ($(TARGET),profile)
 	CFLAGS+=-DPROFILE -pg -O3 -flto --coverage
+endif
+
+ifneq ($(shell uname -s),Darwin)
+	SANITIZERS=$(SANITIZERS),memory
+endif
+
+ifneq ($(TARGET),release)
+	CFLAGS+=-fsanitize=$(SANITIZERS) -fno-omit-frame-pointer
 endif
 
 cbcvm: *.c *.h modules/*.c modules/*.h
