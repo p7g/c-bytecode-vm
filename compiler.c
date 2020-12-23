@@ -727,10 +727,13 @@ void cb_compile_state_free(struct cstate *st)
 	free(st);
 }
 
-void cb_compile_state_reset(struct cstate *st, const char *code)
+void cb_compile_state_reset(struct cstate *st, const char *code,
+		cb_modspec *modspec)
 {
 	st->lex_state = lex_state_new(st->lex_state.filename);
 	st->input = code;
+	st->modspec = modspec;
+	st->did_peek = 0;
 }
 
 static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
@@ -927,7 +930,8 @@ static int compile(struct cstate *state, size_t name_id, int final)
 
 err:
 	bytecode_restore(state->bytecode, &before);
-	cb_agent_unreserve_modspec_id(cb_modspec_id(state->modspec));
+	if (!had_module)
+		cb_agent_unreserve_modspec_id(cb_modspec_id(state->modspec));
 	return 1;
 }
 
@@ -2314,8 +2318,7 @@ int cb_compile_module(cb_bytecode *bc, cb_str name, FILE *f, const char *path)
 	return result;
 }
 
-int cb_compile_string(struct cstate *state, const char *code,
-		cb_modspec *modspec)
+int cb_compiler_resume(struct cstate *state)
 {
 	return compile(state, cb_agent_intern_string(state->filename,
 				strlen(state->filename)), 1);

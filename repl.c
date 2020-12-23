@@ -37,8 +37,9 @@ int cb_repl(void)
 			continue;
 		add_history(line);
 		pc = cb_bytecode_len(bytecode);
-		cb_compile_state_reset(compile_state, line);
-		result = cb_compile_string(compile_state, line, modspec);
+		cb_compile_state_reset(compile_state, line, modspec);
+		result = cb_compiler_resume(compile_state);
+		free(line);
 		if (cb_options.disasm && !result)
 			result = cb_disassemble_range(bytecode, pc,
 					cb_bytecode_len(bytecode));
@@ -57,7 +58,6 @@ int cb_repl(void)
 		frame.module = NULL;
 		frame.parent = NULL;
 		result = cb_eval(pc, &frame);
-		free(line);
 	}
 
 	if (did_init_vm)
