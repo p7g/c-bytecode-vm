@@ -77,9 +77,9 @@ function run(ops, tape) {
 }
 
 let args = argv();
-if (array.length(args) != 3) {
+if (array.length(args) != 1) {
     println("Usage: ./cbcvm bf3.rbcvm <program>");
 } else {
-    let it = iter.from_array(string.chars(read_file(args[2])));
+    let it = iter.from_array(string.chars(read_file(args[0])));
     run(parse(it), tape_new());
 }
