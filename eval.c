@@ -269,9 +269,13 @@ DO_OP_CONST_INT: {
 
 DO_OP_CONST_DOUBLE: {
 	struct cb_value val;
-	size_t bytes = READ_SIZE_T();
+	union {
+		double as_double;
+		size_t as_size_t;
+	} doubleval;
+	doubleval.as_size_t = READ_SIZE_T();
 	val.type = CB_VALUE_DOUBLE;
-	val.val.as_double = *(double *) &bytes; /* 😨 */
+	val.val.as_double = doubleval.as_double;
 	PUSH(val);
 	DISPATCH();
 }

@@ -1757,9 +1757,12 @@ static int compile_identifier_expression(struct cstate *state)
 static int compile_double_expression(struct cstate *state)
 {
 	struct token tok;
-	double doub;
 	char *buf;
 	size_t len;
+	union {
+		double as_double;
+		size_t as_size_t;
+	} val;
 
 	tok = EXPECT(TOK_DOUBLE);
 
@@ -1770,11 +1773,11 @@ static int compile_double_expression(struct cstate *state)
 	memcpy(buf, tok_start(state, &tok), len);
 	buf[len] = 0;
 
-	doub = strtod(buf, NULL);
+	val.as_double = strtod(buf, NULL);
 	free(buf);
 
 	APPEND(OP_CONST_DOUBLE);
-	APPEND_SIZE_T(*(size_t *) &doub); /* 😨 */
+	APPEND_SIZE_T(val.as_size_t);
 
 	return 0;
 }
