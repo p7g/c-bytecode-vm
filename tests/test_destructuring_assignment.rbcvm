@@ -1,0 +1,10 @@
+import test;
+
+export function test_destructuring_assignment() {
+    let a = 1, [b, c] = [2, 3], d = 4;
+
+    test.assert(a == 1);
+    test.assert(b == 2);
+    test.assert(c == 3);
+    test.assert(d == 4);
+}

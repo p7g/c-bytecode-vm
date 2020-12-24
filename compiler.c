@@ -985,38 +985,91 @@ static void export_name(struct cstate *state, size_t name)
 	APPEND_SIZE_T(cb_modspec_add_export(state->modspec, name));
 }
 
+static int declare_name(struct cstate *state, size_t name_id, int export)
+{
+	size_t binding_id;
+
+	if (state->is_global) {
+		APPEND(OP_DECLARE_GLOBAL);
+		APPEND_SIZE_T(name_id);
+		APPEND(OP_STORE_GLOBAL);
+		APPEND_SIZE_T(name_id);
+		if (export)
+			export_name(state, name_id);
+		else
+			APPEND(OP_POP);
+	} else {
+		assert(state->scope != NULL);
+		binding_id = scope_add_binding(state->scope, name_id, 0);
+		APPEND(OP_STORE_LOCAL);
+		APPEND_SIZE_T(binding_id);
+		APPEND(OP_POP);
+	}
+
+	return 0;
+}
+
+#define MAX_DESTRUCTURE_ASSIGN 32
+
+static int destructuring_assignment(struct cstate *state, int export)
+{
+	struct token tok;
+	size_t name_ids[MAX_DESTRUCTURE_ASSIGN], i, nassigns;
+
+	nassigns = 0;
+	EXPECT(TOK_LEFT_BRACKET);
+	while (!MAYBE_CONSUME(TOK_RIGHT_BRACKET)) {
+		if (nassigns)
+			EXPECT(TOK_COMMA);
+		if (MAYBE_CONSUME(TOK_RIGHT_BRACKET))
+			break;
+		tok = EXPECT(TOK_IDENT);
+		name_ids[nassigns++] = intern_ident(state, &tok);
+		if (nassigns == MAX_DESTRUCTURE_ASSIGN) {
+			ERROR_AT(tok, "Too many destructuring assignment targets");
+			return 1;
+		}
+	}
+
+	EXPECT(TOK_EQUAL);
+	X(compile_expression(state));
+
+	for (i = 0; i < nassigns; i += 1) {
+		APPEND(OP_DUP);
+		APPEND(OP_CONST_INT);
+		APPEND_SIZE_T(i);
+		APPEND(OP_ARRAY_GET);
+		X(declare_name(state, name_ids[i], export));
+	}
+
+	APPEND(OP_POP);
+
+	return 0;
+}
+
+#undef MAX_DESTRUCTURE_ASSIGN
+
 static int compile_let_statement(struct cstate *state, int export)
 {
 	struct token name;
-	size_t name_id, binding_id;
+	size_t name_id;
 
 	EXPECT(TOK_LET);
 
 	do {
-		name = EXPECT(TOK_IDENT);
-		name_id = intern_ident(state, &name);
-		if (MATCH_P(TOK_EQUAL)) {
-			EXPECT(TOK_EQUAL);
-			X(compile_expression(state));
+		if (MATCH_P(TOK_LEFT_BRACKET)) {
+			X(destructuring_assignment(state, export));
 		} else {
-			APPEND(OP_CONST_NULL);
-		}
+			name = EXPECT(TOK_IDENT);
+			name_id = intern_ident(state, &name);
+			if (MATCH_P(TOK_EQUAL)) {
+				EXPECT(TOK_EQUAL);
+				X(compile_expression(state));
+			} else {
+				APPEND(OP_CONST_NULL);
+			}
 
-		if (state->is_global) {
-			APPEND(OP_DECLARE_GLOBAL);
-			APPEND_SIZE_T(name_id);
-			APPEND(OP_STORE_GLOBAL);
-			APPEND_SIZE_T(name_id);
-			if (export)
-				export_name(state, name_id);
-			else
-				APPEND(OP_POP);
-		} else {
-			assert(state->scope != NULL);
-			binding_id = scope_add_binding(state->scope, name_id, 0);
-			APPEND(OP_STORE_LOCAL);
-			APPEND_SIZE_T(binding_id);
-			APPEND(OP_POP);
+			X(declare_name(state, name_id, export));
 		}
 	} while (MAYBE_CONSUME(TOK_COMMA));
 	EXPECT(TOK_SEMICOLON);
