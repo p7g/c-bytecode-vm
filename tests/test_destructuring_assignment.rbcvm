@@ -1,10 +1,21 @@
 import test;
 
-export function test_destructuring_assignment() {
+export function test_destructuring_array_assignment() {
     let a = 1, [b, c] = [2, 3], d = 4;
 
     test.assert(a == 1);
     test.assert(b == 2);
     test.assert(c == 3);
     test.assert(d == 4);
+}
+
+export function test_destructuring_struct_assignment() {
+    struct test { b, c }
+
+    let a = 1, { b, c: d } = test { b=2, c=3 }, c = 4;
+
+    test.assert(a == 1);
+    test.assert(b == 2);
+    test.assert(d == 3);
+    test.assert(c == 4);
 }

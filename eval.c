@@ -927,7 +927,6 @@ DO_OP_LOAD_STRUCT: {
 	struct cb_struct *s = recv.val.as_struct;
 	struct cb_value *val = cb_struct_get_field(s, fname);
 	if (!val) {
-
 		ERROR("No such field '%s' on struct '%s'",
 				cb_strptr(cb_agent_get_string(fname)),
 				cb_strptr(cb_agent_get_string(s->spec->name)));

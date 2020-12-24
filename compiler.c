@@ -1011,7 +1011,7 @@ static int declare_name(struct cstate *state, size_t name_id, int export)
 
 #define MAX_DESTRUCTURE_ASSIGN 32
 
-static int destructuring_assignment(struct cstate *state, int export)
+static int destructuring_array_assignment(struct cstate *state, int export)
 {
 	struct token tok;
 	size_t name_ids[MAX_DESTRUCTURE_ASSIGN], i, nassigns;
@@ -1047,6 +1047,49 @@ static int destructuring_assignment(struct cstate *state, int export)
 	return 0;
 }
 
+static int destructuring_struct_assignment(struct cstate *state, int export)
+{
+	struct token tok;
+	size_t name_ids[MAX_DESTRUCTURE_ASSIGN];
+	ssize_t aliases[MAX_DESTRUCTURE_ASSIGN] = { -1 };
+	size_t i, nassigns;
+
+	nassigns = 0;
+	EXPECT(TOK_LEFT_BRACE);
+	while (!MAYBE_CONSUME(TOK_RIGHT_BRACE)) {
+		if (nassigns)
+			EXPECT(TOK_COMMA);
+		if (MAYBE_CONSUME(TOK_RIGHT_BRACKET))
+			break;
+		tok = EXPECT(TOK_IDENT);
+		name_ids[nassigns++] = intern_ident(state, &tok);
+		if (nassigns == MAX_DESTRUCTURE_ASSIGN) {
+			ERROR_AT(tok, "Too many destructuring assignment targets");
+			return 1;
+		}
+		if (MAYBE_CONSUME(TOK_COLON)) {
+			tok = EXPECT(TOK_IDENT);
+			aliases[nassigns - 1] = intern_ident(state, &tok);
+		}
+	}
+
+	EXPECT(TOK_EQUAL);
+	X(compile_expression(state));
+
+	for (i = 0; i < nassigns; i += 1) {
+		APPEND(OP_DUP);
+		APPEND(OP_LOAD_STRUCT);
+		APPEND_SIZE_T(name_ids[i]);
+		X(declare_name(state,
+				aliases[i] == -1 ? name_ids[i] : aliases[i],
+				export));
+	}
+
+	APPEND(OP_POP);
+
+	return 0;
+}
+
 #undef MAX_DESTRUCTURE_ASSIGN
 
 static int compile_let_statement(struct cstate *state, int export)
@@ -1058,7 +1101,9 @@ static int compile_let_statement(struct cstate *state, int export)
 
 	do {
 		if (MATCH_P(TOK_LEFT_BRACKET)) {
-			X(destructuring_assignment(state, export));
+			X(destructuring_array_assignment(state, export));
+		} else if (MATCH_P(TOK_LEFT_BRACE)) {
+			X(destructuring_struct_assignment(state, export));
 		} else {
 			name = EXPECT(TOK_IDENT);
 			name_id = intern_ident(state, &name);
