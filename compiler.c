@@ -1011,81 +1011,124 @@ static int declare_name(struct cstate *state, size_t name_id, int export)
 
 #define MAX_DESTRUCTURE_ASSIGN 32
 
-static int destructuring_array_assignment(struct cstate *state, int export)
+enum assignment_pattern_type {
+	PATTERN_IDENT,
+	PATTERN_ARRAY,
+	PATTERN_STRUCT
+};
+
+struct assignment_pattern {
+	enum assignment_pattern_type type;
+	union {
+		size_t ident;
+		struct {
+			size_t nassigns,
+			       name_ids[MAX_DESTRUCTURE_ASSIGN];
+		} array;
+		struct {
+			size_t nassigns,
+			       name_ids[MAX_DESTRUCTURE_ASSIGN];
+			ssize_t aliases[MAX_DESTRUCTURE_ASSIGN];
+		} struct_;
+	} p;
+};
+
+static int parse_assignment_pattern(struct cstate *state,
+		struct assignment_pattern *pattern)
 {
 	struct token tok;
-	size_t name_ids[MAX_DESTRUCTURE_ASSIGN], i, nassigns;
+	size_t nassigns;
 
-	nassigns = 0;
-	EXPECT(TOK_LEFT_BRACKET);
-	while (!MAYBE_CONSUME(TOK_RIGHT_BRACKET)) {
-		if (nassigns)
-			EXPECT(TOK_COMMA);
-		if (MAYBE_CONSUME(TOK_RIGHT_BRACKET))
-			break;
+	if (MATCH_P(TOK_IDENT)) {
+		pattern->type = PATTERN_IDENT;
 		tok = EXPECT(TOK_IDENT);
-		name_ids[nassigns++] = intern_ident(state, &tok);
-		if (nassigns == MAX_DESTRUCTURE_ASSIGN) {
-			ERROR_AT(tok, "Too many destructuring assignment targets");
-			return 1;
+		pattern->p.ident = intern_ident(state, &tok);
+	} else if (MATCH_P(TOK_LEFT_BRACKET)) {
+		nassigns = 0;
+		EXPECT(TOK_LEFT_BRACKET);
+		while (!MAYBE_CONSUME(TOK_RIGHT_BRACKET)) {
+			if (nassigns)
+				EXPECT(TOK_COMMA);
+			if (MAYBE_CONSUME(TOK_RIGHT_BRACKET))
+				break;
+			tok = EXPECT(TOK_IDENT);
+			pattern->p.array.name_ids[nassigns++] =
+					intern_ident(state, &tok);
+			if (nassigns == MAX_DESTRUCTURE_ASSIGN) {
+				ERROR_AT(tok, "Too many destructuring assignment targets");
+				return 1;
+			}
 		}
+		pattern->type = PATTERN_ARRAY;
+		pattern->p.array.nassigns = nassigns;
+	} else if (MATCH_P(TOK_LEFT_BRACE)) {
+		nassigns = 0;
+		EXPECT(TOK_LEFT_BRACE);
+		while (!MAYBE_CONSUME(TOK_RIGHT_BRACE)) {
+			if (nassigns)
+				EXPECT(TOK_COMMA);
+			if (MAYBE_CONSUME(TOK_RIGHT_BRACKET))
+				break;
+			tok = EXPECT(TOK_IDENT);
+			pattern->p.struct_.name_ids[nassigns++] =
+					intern_ident(state, &tok);
+			if (nassigns == MAX_DESTRUCTURE_ASSIGN) {
+				ERROR_AT(tok, "Too many destructuring assignment targets");
+				return 1;
+			}
+			if (MAYBE_CONSUME(TOK_COLON)) {
+				tok = EXPECT(TOK_IDENT);
+				pattern->p.struct_.aliases[nassigns - 1] =
+						intern_ident(state, &tok);
+			} else {
+				pattern->p.struct_.aliases[nassigns - 1] = -1;
+			}
+		}
+		pattern->type = PATTERN_STRUCT;
+		pattern->p.struct_.nassigns = nassigns;
 	}
-
-	EXPECT(TOK_EQUAL);
-	X(compile_expression(state));
-
-	for (i = 0; i < nassigns; i += 1) {
-		APPEND(OP_DUP);
-		APPEND(OP_CONST_INT);
-		APPEND_SIZE_T(i);
-		APPEND(OP_ARRAY_GET);
-		X(declare_name(state, name_ids[i], export));
-	}
-
-	APPEND(OP_POP);
 
 	return 0;
 }
 
-static int destructuring_struct_assignment(struct cstate *state, int export)
+/* Expects the source value to be on the stack already, and does not leave the
+   value on the stack. */
+static int compile_assignment_pattern(struct cstate *state,
+		struct assignment_pattern *pat, int export)
 {
-	struct token tok;
-	size_t name_ids[MAX_DESTRUCTURE_ASSIGN];
-	ssize_t aliases[MAX_DESTRUCTURE_ASSIGN] = { -1 };
-	size_t i, nassigns;
+	size_t i;
 
-	nassigns = 0;
-	EXPECT(TOK_LEFT_BRACE);
-	while (!MAYBE_CONSUME(TOK_RIGHT_BRACE)) {
-		if (nassigns)
-			EXPECT(TOK_COMMA);
-		if (MAYBE_CONSUME(TOK_RIGHT_BRACKET))
-			break;
-		tok = EXPECT(TOK_IDENT);
-		name_ids[nassigns++] = intern_ident(state, &tok);
-		if (nassigns == MAX_DESTRUCTURE_ASSIGN) {
-			ERROR_AT(tok, "Too many destructuring assignment targets");
-			return 1;
+	switch (pat->type) {
+	case PATTERN_IDENT:
+		X(declare_name(state, pat->p.ident, export));
+		break;
+	case PATTERN_ARRAY:
+		for (i = 0; i < pat->p.array.nassigns; i += 1) {
+			APPEND(OP_DUP);
+			APPEND(OP_CONST_INT);
+			APPEND_SIZE_T(i);
+			APPEND(OP_ARRAY_GET);
+			X(declare_name(state, pat->p.array.name_ids[i], export));
 		}
-		if (MAYBE_CONSUME(TOK_COLON)) {
-			tok = EXPECT(TOK_IDENT);
-			aliases[nassigns - 1] = intern_ident(state, &tok);
+		APPEND(OP_POP);
+		break;
+	case PATTERN_STRUCT:
+		for (i = 0; i < pat->p.struct_.nassigns; i += 1) {
+			APPEND(OP_DUP);
+			APPEND(OP_LOAD_STRUCT);
+			APPEND_SIZE_T(pat->p.struct_.name_ids[i]);
+			X(declare_name(state,
+					pat->p.struct_.aliases[i] == -1
+						? pat->p.struct_.name_ids[i]
+						: pat->p.struct_.aliases[i],
+					export));
 		}
+		APPEND(OP_POP);
+		break;
+	default:
+		fprintf(stderr, "Bad assignment pattern type");
+		return 1;
 	}
-
-	EXPECT(TOK_EQUAL);
-	X(compile_expression(state));
-
-	for (i = 0; i < nassigns; i += 1) {
-		APPEND(OP_DUP);
-		APPEND(OP_LOAD_STRUCT);
-		APPEND_SIZE_T(name_ids[i]);
-		X(declare_name(state,
-				aliases[i] == -1 ? name_ids[i] : aliases[i],
-				export));
-	}
-
-	APPEND(OP_POP);
 
 	return 0;
 }
@@ -1094,28 +1137,19 @@ static int destructuring_struct_assignment(struct cstate *state, int export)
 
 static int compile_let_statement(struct cstate *state, int export)
 {
-	struct token name;
-	size_t name_id;
+	struct assignment_pattern pat;
 
 	EXPECT(TOK_LET);
 
 	do {
-		if (MATCH_P(TOK_LEFT_BRACKET)) {
-			X(destructuring_array_assignment(state, export));
-		} else if (MATCH_P(TOK_LEFT_BRACE)) {
-			X(destructuring_struct_assignment(state, export));
+		X(parse_assignment_pattern(state, &pat));
+		if (MATCH_P(TOK_EQUAL)) {
+			EXPECT(TOK_EQUAL);
+			X(compile_expression(state));
 		} else {
-			name = EXPECT(TOK_IDENT);
-			name_id = intern_ident(state, &name);
-			if (MATCH_P(TOK_EQUAL)) {
-				EXPECT(TOK_EQUAL);
-				X(compile_expression(state));
-			} else {
-				APPEND(OP_CONST_NULL);
-			}
-
-			X(declare_name(state, name_id, export));
+			APPEND(OP_CONST_NULL);
 		}
+		X(compile_assignment_pattern(state, &pat, export));
 	} while (MAYBE_CONSUME(TOK_COMMA));
 	EXPECT(TOK_SEMICOLON);
 
