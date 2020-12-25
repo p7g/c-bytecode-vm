@@ -32,3 +32,24 @@ export function test_param_destructuring() {
     test.assert(d == 4);
     test.assert(e == 5);
 }
+
+export function test_destructuring_array_assignment_expression() {
+    let a, b, c;
+
+    [a, b, c] = [1, 2, 3];
+    test.assert(a == 1);
+    test.assert(b == 2);
+    test.assert(c == 3);
+}
+
+export function test_destructuring_struct_assignment_expression() {
+    let d, e, f;
+
+    { d, e, f } = struct { d, e, f } {
+        d = 1, e = 2, f = 3,
+    };
+
+    test.assert(d == 1);
+    test.assert(e == 2);
+    test.assert(f == 3);
+}

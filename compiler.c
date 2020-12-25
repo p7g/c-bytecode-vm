@@ -680,6 +680,32 @@ struct cstate {
 	cb_hashmap *imported;
 };
 
+struct cstate_snapshot {
+	struct bytecode_snapshot bytecode;
+	int did_peek;
+	struct token peeked;
+	lex_state lex_state;
+	int is_global;
+};
+
+static void cstate_snapshot(struct cstate *st, struct cstate_snapshot *snap)
+{
+	bytecode_snapshot(st->bytecode, &snap->bytecode);
+	snap->did_peek = st->did_peek;
+	snap->peeked = st->peeked;
+	snap->lex_state = st->lex_state;
+	snap->is_global = st->is_global;
+}
+
+static void cstate_restore(struct cstate *st, struct cstate_snapshot *snap)
+{
+	bytecode_restore(st->bytecode, &snap->bytecode);
+	st->did_peek = snap->did_peek;
+	st->peeked = snap->peeked;
+	st->lex_state = snap->lex_state;
+	st->is_global = snap->is_global;
+}
+
 static struct cstate cstate_default(int with_bytecode)
 {
 	return (struct cstate) {
@@ -698,7 +724,7 @@ static struct cstate cstate_default(int with_bytecode)
 }
 
 /* NOTE: does not free bytecode or input */
-void cstate_free(struct cstate state)
+static void cstate_free(struct cstate state)
 {
 	if (state.modspec)
 		cb_modspec_free(state.modspec);
@@ -1034,24 +1060,30 @@ struct assignment_pattern {
 };
 
 static int parse_assignment_pattern(struct cstate *state,
-		struct assignment_pattern *pattern)
+		struct assignment_pattern *pattern, int dry_run)
 {
+#define _EXPECT(T) ({ \
+		if (dry_run && !MATCH_P(T)) \
+			return 1; \
+		EXPECT(T); \
+	})
+
 	struct token tok;
 	size_t nassigns;
 
 	if (MATCH_P(TOK_IDENT)) {
 		pattern->type = PATTERN_IDENT;
-		tok = EXPECT(TOK_IDENT);
+		tok = _EXPECT(TOK_IDENT);
 		pattern->p.ident = intern_ident(state, &tok);
 	} else if (MATCH_P(TOK_LEFT_BRACKET)) {
 		nassigns = 0;
-		EXPECT(TOK_LEFT_BRACKET);
+		_EXPECT(TOK_LEFT_BRACKET);
 		while (!MAYBE_CONSUME(TOK_RIGHT_BRACKET)) {
 			if (nassigns)
-				EXPECT(TOK_COMMA);
+				_EXPECT(TOK_COMMA);
 			if (MAYBE_CONSUME(TOK_RIGHT_BRACKET))
 				break;
-			tok = EXPECT(TOK_IDENT);
+			tok = _EXPECT(TOK_IDENT);
 			pattern->p.array.name_ids[nassigns++] =
 					intern_ident(state, &tok);
 			if (nassigns == MAX_DESTRUCTURE_ASSIGN) {
@@ -1089,6 +1121,8 @@ static int parse_assignment_pattern(struct cstate *state,
 	}
 
 	return 0;
+
+#undef _EXPECT
 }
 
 /* Expects the source value to be on the stack already, and does not leave the
@@ -1142,7 +1176,7 @@ static int compile_let_statement(struct cstate *state, int export)
 	EXPECT(TOK_LET);
 
 	do {
-		X(parse_assignment_pattern(state, &pat));
+		X(parse_assignment_pattern(state, &pat, 0));
 		if (MATCH_P(TOK_EQUAL)) {
 			EXPECT(TOK_EQUAL);
 			X(compile_expression(state));
@@ -1227,7 +1261,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 				break;
 		}
 		bindings[num_params] = scope_add_binding(&inner_scope, -1, 0);
-		X(parse_assignment_pattern(state, &param_patterns[num_params++]));
+		X(parse_assignment_pattern(state, &param_patterns[num_params++], 0));
 	}
 	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
@@ -1822,10 +1856,49 @@ static int compile_int_expression(struct cstate *state)
 	return 0;
 }
 
+static int store_name(struct cstate *state, size_t name)
+{
+	struct binding binding;
+
+	if (!resolve_binding(state, name, &binding)) {
+		APPEND(OP_STORE_GLOBAL);
+		APPEND_SIZE_T(name);
+	} else {
+		if (binding.is_upvalue) {
+			assert(state->function_state != NULL);
+			APPEND(OP_STORE_UPVALUE);
+		} else {
+			APPEND(OP_STORE_LOCAL);
+		}
+		APPEND_SIZE_T(binding.index);
+	}
+
+	return 0;
+}
+
+static int load_name(struct cstate *state, size_t name)
+{
+	struct binding binding;
+
+	if (resolve_binding(state, name, &binding)) {
+		if (binding.is_upvalue) {
+			assert(state->function_state != NULL);
+			APPEND(OP_LOAD_UPVALUE);
+		} else {
+			APPEND(OP_LOAD_LOCAL);
+		}
+		APPEND_SIZE_T(binding.index);
+	} else {
+		APPEND(OP_LOAD_GLOBAL);
+		APPEND_SIZE_T(name);
+	}
+
+	return 0;
+}
+
 static int compile_identifier_expression(struct cstate *state)
 {
 	struct token tok, export;
-	struct binding binding;
 	size_t name;
 	int ok;
 	cb_modspec *module;
@@ -1870,32 +1943,9 @@ static int compile_identifier_expression(struct cstate *state)
 	if (MATCH_P(TOK_EQUAL)) {
 		NEXT();
 		X(compile_expression(state));
-		if (!resolve_binding(state, name, &binding)) {
-			APPEND(OP_STORE_GLOBAL);
-			APPEND_SIZE_T(name);
-			return 0;
-		}
-		if (binding.is_upvalue) {
-			assert(state->function_state != NULL);
-			APPEND(OP_STORE_UPVALUE);
-		} else {
-			APPEND(OP_STORE_LOCAL);
-		}
-		APPEND_SIZE_T(binding.index);
-		return 0;
-	}
-
-	if (resolve_binding(state, name, &binding)) {
-		if (binding.is_upvalue) {
-			assert(state->function_state != NULL);
-			APPEND(OP_LOAD_UPVALUE);
-		} else {
-			APPEND(OP_LOAD_LOCAL);
-		}
-		APPEND_SIZE_T(binding.index);
+		X(store_name(state, name));
 	} else {
-		APPEND(OP_LOAD_GLOBAL);
-		APPEND_SIZE_T(name);
+		X(load_name(state, name));
 	}
 
 	return 0;
@@ -2003,30 +2053,75 @@ static int compile_parenthesized_expression(struct cstate *state)
 	return 0;
 }
 
+static int compile_struct_destructuring_assignment(struct cstate *state)
+{
+	struct assignment_pattern pat;
+	size_t i, dest_name;
+
+	X(parse_assignment_pattern(state, &pat, 0));
+	assert(pat.type == PATTERN_STRUCT);
+
+	EXPECT(TOK_EQUAL);
+	X(compile_expression(state));
+
+	for (i = 0; i < pat.p.struct_.nassigns; i += 1) {
+		APPEND(OP_DUP);
+		APPEND(OP_LOAD_STRUCT);
+		APPEND_SIZE_T(pat.p.struct_.name_ids[i]);
+		dest_name = pat.p.struct_.aliases[i] == -1
+			? pat.p.struct_.name_ids[i]
+			: pat.p.struct_.aliases[i];
+		X(store_name(state, dest_name));
+		APPEND(OP_POP);
+	}
+
+	return 0;
+}
+
 static int compile_array_expression(struct cstate *state)
 {
-	size_t num_elements;
+	size_t num_elements, i;
 	int first_elem;
+	struct cstate_snapshot snapshot;
+	struct assignment_pattern pat;
+	struct token tok;
 
-	num_elements = 0;
-	first_elem = 1;
+	cstate_snapshot(state, &snapshot);
 
-	EXPECT(TOK_LEFT_BRACKET);
-	while (!MATCH_P(TOK_RIGHT_BRACKET)) {
-		if (first_elem) {
-			first_elem = 0;
-		} else {
-			EXPECT(TOK_COMMA);
-			if (MATCH_P(TOK_RIGHT_BRACKET))
-				break;
-		}
-		num_elements += 1;
+	if (!parse_assignment_pattern(state, &pat, 1) && MATCH_P(TOK_EQUAL)) {
+		assert(pat.type == PATTERN_ARRAY);
+		tok = EXPECT(TOK_EQUAL);
+
 		X(compile_expression(state));
-	}
-	EXPECT(TOK_RIGHT_BRACKET);
+		for (i = 0; i < pat.p.array.nassigns; i += 1) {
+			APPEND(OP_DUP);
+			APPEND(OP_CONST_INT);
+			APPEND_SIZE_T(i);
+			APPEND(OP_ARRAY_GET);
+			X(store_name(state, pat.p.array.name_ids[i]));
+			APPEND(OP_POP);
+		}
+	} else {
+		cstate_restore(state, &snapshot);
+		num_elements = 0;
+		first_elem = 1;
 
-	APPEND(OP_NEW_ARRAY_WITH_VALUES);
-	APPEND_SIZE_T(num_elements);
+		EXPECT(TOK_LEFT_BRACKET);
+		while (!MATCH_P(TOK_RIGHT_BRACKET)) {
+			if (first_elem) {
+				first_elem = 0;
+			} else {
+				EXPECT(TOK_COMMA);
+				if (MATCH_P(TOK_RIGHT_BRACKET))
+					break;
+			}
+			num_elements += 1;
+			X(compile_expression(state));
+		}
+		EXPECT(TOK_RIGHT_BRACKET);
+		APPEND(OP_NEW_ARRAY_WITH_VALUES);
+		APPEND_SIZE_T(num_elements);
+	}
 
 	return 0;
 }
@@ -2104,6 +2199,9 @@ static int nud(struct cstate *state)
 		break;
 	case TOK_STRUCT:
 		X(compile_struct_decl(state, NULL));
+		break;
+	case TOK_LEFT_BRACE:
+		X(compile_struct_destructuring_assignment(state));
 		break;
 
 	default:
