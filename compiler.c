@@ -327,7 +327,7 @@ end:
 
 struct binding {
 	struct binding *next;
-	size_t name;
+	ssize_t name;
 	size_t index;
 	int is_upvalue;
 };
@@ -373,7 +373,7 @@ static void scope_free(struct scope s)
 #undef FREE_LIST
 }
 
-static size_t scope_add_binding(struct scope *s, size_t name, int upvalue)
+static size_t scope_add_binding(struct scope *s, ssize_t name, int upvalue)
 {
 	size_t id;
 	struct binding *new_binding;
@@ -1156,12 +1156,16 @@ static int compile_let_statement(struct cstate *state, int export)
 	return 0;
 }
 
+#define MAX_PARAMS 32
+
 static int compile_function(struct cstate *state, size_t *name_out)
 {
 	int first_param, old_is_global;
-	struct token name, param;
+	struct token name;
+	struct assignment_pattern param_patterns[MAX_PARAMS];
+	size_t bindings[MAX_PARAMS];
 	size_t name_id, binding_id;
-	size_t num_params, local_count_pos;
+	size_t num_params, num_params_pos, local_count_pos;
 	struct scope inner_scope, *old_scope;
 	struct function_state fstate, *old_fstate;
 	size_t free_var;
@@ -1179,8 +1183,35 @@ static int compile_function(struct cstate *state, size_t *name_out)
 		name_id = (size_t) -1;
 	}
 
+	start_label = LABEL();
+	end_label = LABEL();
+	APPEND(OP_NEW_FUNCTION);
+	APPEND_SIZE_T(name_id);
+	num_params_pos = cb_bytecode_len(state->bytecode);
+	APPEND_SIZE_T(0);
+	ADDR_OF(start_label);
+
+	if (state->is_global && name_id != -1) {
+		APPEND(OP_DECLARE_GLOBAL);
+		APPEND_SIZE_T(name_id);
+		APPEND(OP_STORE_GLOBAL);
+		APPEND_SIZE_T(name_id);
+	} else if (name_id != -1) {
+		assert(state->scope != NULL);
+		binding_id = scope_add_binding(state->scope, name_id, 0);
+		APPEND(OP_STORE_LOCAL);
+		APPEND_SIZE_T(binding_id);
+	}
+
+	APPEND(OP_JUMP);
+	ADDR_OF(end_label);
+
 	inner_scope = scope_new();
 	inner_scope.parent = state->scope;
+	old_is_global = state->is_global;
+	state->is_global = 0;
+	old_scope = state->scope;
+	state->scope = &inner_scope;
 
 	num_params = 0;
 	first_param = 1;
@@ -1195,45 +1226,23 @@ static int compile_function(struct cstate *state, size_t *name_out)
 			if (MATCH_P(TOK_RIGHT_PAREN))
 				break;
 		}
-		num_params += 1;
-		param = EXPECT(TOK_IDENT);
-		scope_add_binding(&inner_scope, intern_ident(state, &param), 0);
+		bindings[num_params] = scope_add_binding(&inner_scope, -1, 0);
+		X(parse_assignment_pattern(state, &param_patterns[num_params++]));
 	}
 	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
-
-	start_label = LABEL();
-	end_label = LABEL();
-	APPEND(OP_NEW_FUNCTION);
-	APPEND_SIZE_T(name_id);
-	APPEND_SIZE_T(num_params);
-	ADDR_OF(start_label);
-
-	if (state->is_global && name_id != -1) {
-		APPEND(OP_DECLARE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-		APPEND(OP_STORE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-	} else if (name_id != -1) {
-		assert(state->scope != NULL);
-		binding_id = scope_add_binding(state->scope, name_id,
-				0);
-		APPEND(OP_STORE_LOCAL);
-		APPEND_SIZE_T(binding_id);
-	}
-
-	APPEND(OP_JUMP);
-	ADDR_OF(end_label);
-
-	old_is_global = state->is_global;
-	state->is_global = 0;
-	old_scope = state->scope;
-	state->scope = &inner_scope;
+	UPDATE(num_params_pos, num_params);
 
 	MARK(start_label);
 	APPEND(OP_ALLOCATE_LOCALS);
 	local_count_pos = cb_bytecode_len(state->bytecode);
 	APPEND_SIZE_T(0);
+
+	for (i = num_params - 1; i >= 0; i -= 1) {
+		APPEND(OP_LOAD_LOCAL);
+		APPEND_SIZE_T(bindings[i]);
+		X(compile_assignment_pattern(state, &param_patterns[i], 0));
+	}
 
 	fstate = (struct function_state) {
 		.start_label = start_label,
@@ -1291,6 +1300,8 @@ static int compile_function(struct cstate *state, size_t *name_out)
 
 	return 0;
 }
+
+#undef MAX_PARAMS
 
 static int compile_function_statement(struct cstate *state, int export)
 {
