@@ -47,9 +47,7 @@ export function parse_float(str) {
   let integer_chars = iter.collect(iter.take_while(chars, fn.curry(op.ne, '.')));
   sum = sum + parse_integer(from_chars(integer_chars), 10);
 
-  iter.foreach(iter.enumerate(chars), function(ic) {
-    let i = ic[0];
-    let c = ic[1];
+  iter.foreach(iter.enumerate(chars), function([i, c]) {
     sum = sum + tofloat(char.to_digit(c)) / 10 ** (i + 1);
   });
 

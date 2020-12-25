@@ -36,9 +36,7 @@ function grow(self) {
     if (!bucket) {
       return;
     }
-    array.foreach(assoclist.entries(bucket), function(entry) {
-      set(self, entry[0], entry[1]);
-    });
+    extend(self, assoclist.entries(bucket));
   });
 }
 
@@ -157,11 +155,11 @@ export function size(self) {
 }
 
 export function keys(self) {
-  return iter.map(entries(self), function (e) { return e[0]; });
+  return iter.map(entries(self), function ([k]) { return k; });
 }
 
 export function values(self) {
-  return iter.map(entries(self), function (e) { return e[1]; });
+  return iter.map(entries(self), function ([_, v]) { return v; });
 }
 
 export function make_with_hash_function(hash, init_fn) {
@@ -191,7 +189,7 @@ export function from_entries(entries) {
 }
 
 export function extend(map, entries) {
-  iter.foreach(entries, function(entry) {
-    set(map, entry[0], entry[1]);
+  iter.foreach(entries, function([k, v]) {
+    set(map, k, v);
   });
 }

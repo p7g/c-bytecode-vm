@@ -4,8 +4,8 @@ export let new = arraylist.new;
 export let length = arraylist.length;
 
 function get_entry(self, key) {
-  return arraylist.find(self, function(entry) {
-    return entry[0] == key;
+  return arraylist.find(self, function([k]) {
+    return k == key;
   });
 }
 
