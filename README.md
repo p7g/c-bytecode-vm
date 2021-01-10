@@ -4,135 +4,392 @@
 
 [![TODOs](https://badgen.net/https/api.tickgit.com/badgen/github.com/p7g/c-bytecode-vm)](https://www.tickgit.com/browse?repo=github.com/p7g/c-bytecode-vm)
 
-This is a C translation of [rust-bytecode-vm]. The goal here is to see what (if
-any) performance improvement there is to be had with a C implementation.
+This is a small, weakly and dynamically typed, interpreted programming language
+that doesn't really have a name. My goal is to see how close I can get to a
+"real" programming language like Python while implementing everything on my own.
 
-[rust-bytecode-vm]: https://github.com/p7g/rust-bytecode-vm
+One of the goals I have with this language is to keep the built-in stuff
+(implemented in C) to a minimum. You'll probably be able to tell throughout the
+rest of this document.
 
-Some factors that I think could play a part:
+To try any of these examples, clone the repository, run `make` (only MacOS and
+Linux are supported right now), and start the repl by running `./cbcvm`. Use the
+`--help` flag to see how to otherwise use the CLI.
 
-- More obvious allocations
-- Garbage collection
-- Computed gotos for main interpreter loop
+Without further ado, here is an overview of the language:
 
-At the same time, I would like to keep this implementation as simple as
-possible. There are probably many areas of rust-bytecode-vm that are more
-complex than they need to be. On the other hand, a C implementation with no
-dependencies will need its own implementations of dynamic arrays and hashmaps,
-which will likely more than make up for complexity savings elsewhere.
+## Comments
 
-## Plan
+There are only line comments. They start with a `#` and end at the next newline.
 
-The evaluation of a program will be formally broken down into the following
-parts:
+## Primitive Types
 
-1. Lexing, parsing, and Code generation ([compiler.c])
-1. Bytecode interpretation
-   1. Virtual machine ([eval.c])
-   1. Language runtime ([value.c])
-1. Garbage collection ([gc.c])
+Objects of a primitive type are immutable and passed around by value; if you
+access a variable bound to a number, you get a copy of its value. These values
+are stored directly on the (VM's) stack.
 
-[compiler.c]: https://github.com/p7g/c-bytecode-vm/blob/master/compiler.c
-[eval.c]: https://github.com/p7g/c-bytecode-vm/blob/master/eval.c
-[value.c]: https://github.com/p7g/c-bytecode-vm/blob/master/value.c
-[gc.c]: https://github.com/p7g/c-bytecode-vm/blob/master/gc.c
+The primitive types are the following:
 
-### Lexing, Parsing, and Code Generation
+### Integer
 
-The lexer and parser is written by hand. This allows us to skip some
-dependencies, and makes it simpler to provide useful errors to the user at
-parse-time.
+A signed, 64-bit integer. The semantics are those in C. There are no safeguards
+to prevent overflow (which is undefined behaviour for signed integers). All this
+to say: There are no guarantees beyond those you get when writing C. This is
+something I plan to address some day.
 
-The parser is a simple recursive-descent parser, like the one in
-rust-bytecode-vm. This has served its purpose well there; parsing doesn't take
-long enough to be worth worrying about.
+Examples:
+```js
+1234
+0xabCdef
+-6
+```
 
-For simplicity's sake, a parse or compile error will result in the (almost)
-immediate termination of the program. During parsing, any identifiers and
-string literals will be interned in the agent, which is just a global instance.
-Interned strings are stored globally so the interpreter will have access to
-them as well.
+### Double
 
-The set of op codes is nearly the same as those defined in rust-bytecode-vm.
-Hopefully this will provide a more apples-to-apples comparison.
+A double-precision floating point value. Same disclaimer as for integers.
 
-Code is generated in one pass. This is a departure from rust-bytecode-vm,
-which parses the source into an AST, and later traverses it to compile the
-bytecode. This likely won't make a huge performance difference for non-trivial
-applications. An interesting implication of this is that a for loop requires
-more jumps than in rust-bytecode-vm.
+Examples:
+```js
+1.1
+0.123
+123.
+-156.3
+```
 
-A requirement is to support the same programs as rust-bytecode-vm.
+To be honest, supporting a trailing decimal is not intentional and I sort of
+want to make that not work.
 
-### Bytecode Interpretation
+### Char
 
-The interpretation of bytecode is the job of the virtual machine, which
-delegates business logic to the language runtime. As an example, upon reaching
-an "add" opcode, the virtual machine would retrieve two values from the stack,
-call into the runtime to sum them or report an error, and then push the result
-back onto the stack.
+A single character. Stored as an unsigned 32-bit integer, though there is no
+UTF-8 support at this time. This is on the list of things to do.
 
-I haven't been very good at keeping to this, but it is a goal to pull that
-logic out of the interpreter loop where possible.
+Examples:
+```c
+'a'
+'\n'
+'\''
+```
 
-#### Virtual Machine
+This one seems uncommon for dynamic languages for whatever reason. Personally, I
+like to have the guarantee that a char needs no allocations without having to
+assume certain optimizations exist. This means that a dumb language like this
+one won't suffer quite as much when processing strings.
 
-The architecture of the virtual machine is similar to that of rust-bytecode-vm.
-As opposed to a single massive switch statement, computed gotos are used.
-Thanks to this, there are many branching points within the interpreter loop
-rather than one, which should result in better usage of the CPU's branch
-predictor (or so they say).
+### Bool
 
-Initially, I planned to try to support compilers without GNU C extensions, but
-that didn't happen. Maybe eventually that will be a goal, but for now GNU
-extensions are used all over the place (turns out they're pretty nice).
+True or false.
 
-For profiling and debugging purposes, each opcode's handler _should_ be its own
-function. Ideally the compiler will inline these functions where necessary.
-This is entirely not the case right now.
+Examples:
+```js
+true
+false
+```
 
-#### Runtime
+### Null
 
-The runtime will mainly consist of a set of functions that operate on language
-values. This includes comparison, allocation and deallocation, and operations
-like addition and array indexing.
+A sentinel value used to represent the absence of a value.
 
-Values captured by a closure will use upvalues, as in rust-bytecode-vm. This
-means that until a value has escaped its scope, it remains on the stack. The
-upvalue at this point contains an integer index onto the stack, where it exists
-alongside adjacent locals. Once the value escapes, the value is retrieved from
-the stack and stored in the upvalue structure. These states are called "open"
-and "closed" respectively. When a function returns, any upvalues pointing to
-locals in its scope are closed before the stack is truncated to return to the
-caller.
+Example: `null`
 
-#### Garbage Collection
+### String
 
-This interpreter will use a tracing garbage collector. This type of collector
-marks all accessible objects, then collects any that have not been marked.
+A sequence of C `char` values represented as a "fat pointer"; a C char pointer
+with an associated length. As previously mentioned, UTF-8 support is something
+I plan to do.
 
-This means we must keep track of all objects that have been allocated. To do
-so, each value will have a header which contains garbage collection
-information. A field of this header will be a pointer to the next object,
-forming a linked list. This list will be traversed to collect garbage.
+Examples:
+```js
+"hello"
+"\""
+"this
+spans
+multiple
+lines"
+```
 
-To mark any accessible objects, we need to define the "roots". In this case,
-the roots will be as follows:
+## Composite Data Types
 
-- Values on the stack, and all values accessible from those values
-- Upvalues stored in the interpreter state, and any value accessible from there
-- Each module's global scope, as well as the global scope for any files that
-  are not modules (this is new with c-bytecode-vm)
+There are two native types for aggregating values:
 
-A collection can happen on any allocation. As such, we need a way to prevent
-objects being used from C code (i.e. inaccessible according to the garbage
-collector) from being collected.
+### Array
 
-CPython uses a refcounting GC to avoid this issue. A C extension must increment
-and decrement a refcount on each object. Only when this value reaches 0 is it
-collectible. This results in more cluttered extension code. The MRI Ruby
-interpreter, on the other hand, traces the C stack to find values in use.
+A fixed-length, heap-allocated, mutable series of values. Array elements are
+accessed using brackets (`[]`).
 
-To keep things simple, the GC header on every object will also contain a ref
-count. When C code uses on object, it will increment this count, which will
-prevent an object from being collected, even if it was not marked.
+Examples:
+```js
+[1, "hello", null]
+[]
+[1,]
+
+some_array[3]
+```
+
+Accessing a index that is out of range will panic.
+
+### Struct
+
+Essentially an array with named indices. A struct has a "struct spec" associated
+with it, but it has no "identity"; two structs of the same spec with identical
+values are considered equal.
+
+If a key is not specified when instantiating a struct spec, it is assigned null.
+
+Struct fields are accessed using a `:`.
+
+Examples:
+
+```c
+struct test { a, b }
+test { a = 1 }
+
+test:a
+```
+
+Accessing a struct field that does not exist results in a panic at run-time.
+
+An anonymous struct can be declared and instantiated in one expression:
+```c
+println(struct { a = 123 });
+```
+
+### Function
+
+Functions are closures. This means they can capture variables in the scope where
+they are defined. As such I think it's (somewhat) reasonable to consider them a
+composite data type.
+
+A function is defined like so:
+```js
+function my_function(a, b, c) {
+  return a + b * c;
+}
+```
+
+A function declaration can also appear as an expression, in which case it will
+not be associated with its name in the scope where it's defined. The name allows
+it to call itself recursively.
+
+Calling a function looks like this:
+```js
+my_function(1, 2, 3)
+```
+
+You can pass more arguments than the function declares, but not less.
+
+A function can return a single value. A bare `return` statement will return the
+value `null`.
+
+## The Userdata Type
+
+Userdata values are opaque and can store anything at the C level. These are only
+useful for C extensions. Code in the hosted language cannot do anything with the
+value other than move it around.
+
+An example use-case is storing `FILE *` values, as seen in the `fs` standard
+library module.
+
+## Variable Declarations and Scoping Rules
+
+### Syntax
+
+A variable declaration uses the `let` keyword, like this:
+
+```js
+let a = 123;
+let b;
+let c = 3, d;
+```
+
+If no initializer is provided, the variable is initialized with `null`.
+
+Structs and arrays can be destructured like so:
+
+```js
+let { a } = struct { a = 123, b = 234 };
+let [b, c] = [1, 2, 3];
+```
+
+If a field is destructured that doesn't exist on the struct or if more elements
+are destructured from an array than the array contains, the program will panic.
+
+Any fields/elements which aren't matched on are ignored.
+
+### Scoping Rules
+
+Variables are scoped to their function, regardless of where the declaration is.
+This is similar to how Python behaves, however there is no need for a `global`
+or `nonlocal` statement equivalent, since declarations are explicit.
+
+If a variable exists in the current function with a given name, references to
+that name will refer to that variable. If not, the compiler will check for the
+variable in the parent (lexical) scopes one by one. If it finds the variable in
+a parent scope, that variable will be closed-over by the current function. If it
+is not found, it is assumed to be a global variable.
+
+Global variables only exist in the module in which they're defined.
+
+Variables in a function's closure are references to a variable elsewhere. This
+means that if multiple functions close over the same variable, they will see the
+updates made by the others. Those changes would also be visible in the scope
+where the variable was originally defined.
+
+## Flow Control
+
+A selection of the usual constructs are available. In all cases the braces
+surrounding the block are required.
+
+### If Statement
+
+Works as you would expect:
+```js
+if (true) {
+} else if (false) {
+} else {
+}
+```
+
+### While Loop
+
+Works as you would expect:
+```js
+while (true) {}
+```
+
+### For Loop
+
+The `for` loop is like a C for loop. The language has no native iteration
+protocol, but see the "Iteration" section below for more on that.
+
+```js
+for (let a = 0; a < 10; a = a + 1) {}
+```
+
+Any of the initializer, condition, or whatever the third part is called can be
+omitted.
+
+## Errors and Error Handling
+
+There is a pretty rudimentary error system that looks a bit like Lua's. It works
+much like exceptions in JavaScript, but without any special syntax for it (just
+special intrinsic functions).
+
+To raise an error, the `panic` intrinsic function is used. Any value can be
+passed to it as the error value.
+
+The VM will unwind the call stack until the error state is recovered or it
+reaches the top of the stack, at which point the program will exit. To recover
+from an error state, the `pcall` intrinsic is used, like so:
+
+```js
+let [ok, value] = pcall(function () {
+  this_might_fail();
+  return "success";
+});
+```
+
+## Module System
+
+The module system works like Python's, but much more rudimentary.
+
+A module is imported using an `import` statement:
+```js
+import test;
+```
+
+Upon encountering this statement, the compiler will search for a module with
+that name. If a built-in module exists with that name, it's imported. If not,
+the compiler will search for a file called (in this case) `test.rbcvm` in each
+of the paths defined in the `CBCVM_PATH` environment variable. This variable
+should be a colon-separated list of directories. Once it finds a module with
+that name, any imports of that name will result in the same module being
+imported.
+
+Once a module is imported, its exports can be accessed by prefixing their name
+with the module name and a dot, like `test.assert`. There is currently no way to
+alias an imported module, nor is there a way to create individual bindings for
+its exports while importing.
+
+Note that the module name in an expression like `test.assert` is not resolved
+like a variable; it is looked up in the list of imported modules directly. This
+means that the following will not work:
+```js
+import test;
+let t = test;
+```
+
+## Garbage Collection
+
+c-bytecode-vm has a tracing (mark-and-sweep) garbage collector with some
+(potentially-flawed) reference-counting extensions. Such a GC is immune to
+cycles, at the expense of taking longer to collect.
+
+The ref-counting mechanism is to allow C extensions to make sure a value is not
+collected while they are using it. This works, but it could be unergonomic since
+an incremented ref on an array does not apply to its contents, for example.
+
+## Intrinsic Functions
+
+Here are some of the intrinsic functions that likely won't be going anywhere, at
+least for now:
+- `print`: Write a string representation of some values to stdout without a
+  trailing newline.
+- `println`: Write a string representation of some values to stdout _with_ a
+  trailing newline.
+- `tostring`: Get a string representation of a given value.
+- `type_of`: Get the type of a value as a string.
+- `ord`: Convert a character to an integer.
+- `chr`: Convert an integer to a character.
+- `tofloat`: Convert an integer to a double. This should be renamed.
+- `upvalues`: Returns the values of the current function's closure as an array.
+- `apply`: Passes an array of values to a function as individual arguments.
+- `toint`: Converts a double to an integer, or does what `ord` does to a char.
+- `__gc_collect`: Have the garbage collector run immediately. It has a scary
+  name because it seems like a scary thing to do.
+- `pcall`: Call a function, catching any errors raised during its execution and
+  returning whether it succeeded.
+
+## Standard Library
+
+It would be a bit excessive to document the whole standard library here. The
+plan is to write a system for generating documentation based on code eventually.
+
+Instead, I'll document some idioms that have appeared in the standard library.
+
+### Iteration
+
+This language has no generators, nor any built-in iteration protocol. The way
+this is done in the standard library (see the [iter] module) is using closures.
+
+[iter]: https://github.com/p7g/c-bytecode-vm/blob/master/lib/iter.rbcvm
+
+This is easiest to illustrate with an example:
+```js
+function range(to) {
+  let i = 0;
+
+  return function next() {
+    if (i == to) {
+      return null;
+    }
+    let val = i;
+    i = i + 1;
+    return val;
+  };
+}
+
+test.assert(iter.collect(range(10)) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+```
+
+Using constructs like these, iteration can be performed like in JavaScript:
+```js
+iter.foreach(range(10), function (n) {
+  println(n);
+});
+```
+
+Of course, the same issues in trying to exit the loop prematurely exist.
+
+Modules that declare "types" that can be iterated over should export an `iter`
+function that returns this kind of iterator.
