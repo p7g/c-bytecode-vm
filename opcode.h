@@ -60,6 +60,7 @@
 	X(OP_STORE_STRUCT) \
 	X(OP_ADD_STRUCT_FIELD) \
 	X(OP_NEW_STRUCT_SPEC) \
+	X(OP_ROT_2) \
 	X(OP_MAX)
 
 enum cb_opcode {

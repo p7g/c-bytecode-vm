@@ -2126,6 +2126,57 @@ static int compile_array_expression(struct cstate *state)
 	return 0;
 }
 
+static int compile_anonymous_struct_literal(struct cstate *state)
+{
+#define MAX_FIELDS 64
+	struct token field;
+	size_t fields[MAX_FIELDS], num_fields, name;
+	int first_field, i;
+
+	num_fields = 0;
+	first_field = 1;
+	name = cb_agent_intern_string("<anonymous>", 11);
+
+	EXPECT(TOK_STRUCT);
+	EXPECT(TOK_LEFT_BRACE);
+	while (!MATCH_P(TOK_RIGHT_BRACE)) {
+		if (first_field) {
+			first_field = 0;
+		} else {
+			EXPECT(TOK_COMMA);
+			/* support trailing comma */
+			if (MATCH_P(TOK_RIGHT_BRACE))
+				break;
+		}
+		field = EXPECT(TOK_IDENT);
+		fields[num_fields++] = intern_ident(state, &field);
+		if (num_fields == MAX_FIELDS) {
+			ERROR_AT(field, "Too many struct fields");
+			return 1;
+		}
+		EXPECT(TOK_EQUAL);
+		X(compile_expression(state));
+	}
+	EXPECT(TOK_RIGHT_BRACE);
+
+	APPEND(OP_NEW_STRUCT_SPEC);
+	APPEND_SIZE_T(name);
+	APPEND_SIZE_T(num_fields);
+
+	for (i = 0; i < num_fields; i += 1)
+		APPEND_SIZE_T(fields[i]);
+
+	APPEND(OP_NEW_STRUCT);
+	for (i = num_fields - 1; i >= 0; i -= 1) {
+		APPEND(OP_ROT_2);
+		APPEND(OP_ADD_STRUCT_FIELD);
+		APPEND_SIZE_T(fields[i]);
+	}
+
+	return 0;
+#undef MAX_FIELDS
+}
+
 static int compile_expression_inner(struct cstate *, int rbp);
 
 static int compile_unary_expression(struct cstate *state)
@@ -2198,7 +2249,7 @@ static int nud(struct cstate *state)
 		X(compile_function(state, NULL));
 		break;
 	case TOK_STRUCT:
-		X(compile_struct_decl(state, NULL));
+		X(compile_anonymous_struct_literal(state));
 		break;
 	case TOK_LEFT_BRACE:
 		X(compile_struct_destructuring_assignment(state));

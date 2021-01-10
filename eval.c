@@ -963,6 +963,8 @@ DO_OP_STORE_STRUCT: {
 	DISPATCH();
 }
 
+#undef DO_STORE_STRUCT_FIELD
+
 DO_OP_NEW_STRUCT: {
 	struct cb_value struct_obj;
 	struct cb_value spec_obj = POP();
@@ -990,6 +992,15 @@ DO_OP_NEW_STRUCT_SPEC: {
 				field_id);
 	}
 	PUSH(val);
+	DISPATCH();
+}
+
+DO_OP_ROT_2: {
+	struct cb_value a, b;
+	a = POP();
+	b = POP();
+	PUSH(a);
+	PUSH(b);
 	DISPATCH();
 }
 }
