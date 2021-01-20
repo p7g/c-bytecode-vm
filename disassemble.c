@@ -128,16 +128,23 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 		return WITH_ARGS(1);
 
 	case OP_NEW_FUNCTION: {
-		size_t arg1, arg2, arg3;
+		size_t arg1, arg2, arg3, nopt, tmp;
 		arg1 = NEXT_USIZE();
 		arg2 = NEXT_USIZE();
 		arg3 = NEXT_USIZE();
-		printf("%s(\"%s\", %zu, %zu)\n", cb_opcode_name(op),
+		nopt = NEXT_USIZE();
+		printf("%s(\"%s\", %zu, %zu, %zu", cb_opcode_name(op),
 				(arg1 == (size_t) -1)
 				? "<anonymous>"
 				: cb_strptr(cb_agent_get_string(arg1)),
-				arg2, arg3);
-		return WITH_ARGS(3);
+				arg2, arg3, nopt);
+		if (nopt > 0) {
+			tmp = nopt;
+			while (tmp--)
+				printf(", %zu", NEXT_USIZE());
+		}
+		fputs(")\n", stdout);
+		return WITH_ARGS(4 + nopt);
 	}
 
 	case OP_LOAD_FROM_MODULE: {

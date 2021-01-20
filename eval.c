@@ -456,7 +456,7 @@ DO_OP_CALL: {
 				func->value.as_user.module_id];
 		else
 			next_frame.module = NULL;
-		if (cb_eval(func->value.as_user.address, &next_frame)) {
+		if (cb_eval(cb_ufunc_entry(func, num_args), &next_frame)) {
 			retval = 1;
 			RET_WITH_TRACE();
 		}
@@ -535,18 +535,19 @@ DO_OP_STORE_GLOBAL: {
 }
 
 DO_OP_NEW_FUNCTION: {
-	size_t name, arity, address;
+	size_t name, arity, address, nopt, i;
 	struct cb_function *func;
 	struct cb_value func_val;
 
 	name = READ_SIZE_T();
 	arity = READ_SIZE_T();
 	address = READ_SIZE_T();
+	nopt = READ_SIZE_T();
 
 	func = cb_function_new();
 	func->type = CB_FUNCTION_USER;
 	func->name = name;
-	func->arity = arity;
+	func->arity = arity - nopt;
 	func->value.as_user = (struct cb_user_function) {
 		.address = address,
 		.upvalues = NULL,
@@ -555,7 +556,13 @@ DO_OP_NEW_FUNCTION: {
 		.module_id = frame->module
 			? cb_modspec_id(frame->module->spec)
 			: -1,
+		.optargs = (struct cb_function_optargs) {
+			.count = nopt,
+		},
 	};
+
+	for (i = 0; i < nopt; i += 1)
+		func->value.as_user.optargs.addrs[i] = READ_SIZE_T();
 
 	func_val.type = CB_VALUE_FUNCTION;
 	func_val.val.as_function = func;

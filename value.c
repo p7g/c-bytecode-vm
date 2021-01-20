@@ -111,6 +111,18 @@ struct cb_value cb_cfunc_new(size_t name, size_t arity,
 	return func_val;
 }
 
+size_t cb_ufunc_entry(const struct cb_function *func, size_t num_args)
+{
+	const struct cb_user_function *ufunc;
+
+	assert(func->type == CB_FUNCTION_USER);
+	ufunc = &func->value.as_user;
+
+	if (num_args >= func->arity + ufunc->optargs.count)
+		return ufunc->address;
+	return ufunc->optargs.addrs[num_args - func->arity];
+}
+
 inline struct cb_array *cb_array_new(size_t len)
 {
 	struct cb_array *mem = cb_malloc(sizeof(struct cb_array)

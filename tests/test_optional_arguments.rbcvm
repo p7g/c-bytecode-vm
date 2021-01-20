@@ -1,0 +1,16 @@
+import test;
+
+function test_optional_arguments() {
+    function has_optargs(req, a=3, b=2) {
+        return req + a * b;
+    }
+
+    let [ok, msg] = pcall(function() {
+        has_optargs();
+    });
+    test.assert(!ok && msg == "Too few arguments to function 'has_optargs'\n");
+
+    test.assert(has_optargs(1) == 7);
+    test.assert(has_optargs(1, 4) == 9);
+    test.assert(has_optargs(1, 4, 5) == 21);
+}
