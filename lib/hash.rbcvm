@@ -1,4 +1,7 @@
 import array;
+import docs;
+
+let doc = docs.module("hash", "Hashing functions.");
 
 let FNV_OFFSET_BASIS_32 = 2166136261;
 let FNV_PRIME_32 = 16777619;
@@ -15,10 +18,26 @@ export function fnv1a(bytes) {
   return hash;
 }
 
+doc:add(
+  "function",
+  "fnv1a(bytes)",
+  "Applies the 32bit FNV-1a hashing algorithm to an array of bytes.",
+);
+
 export function int(n) {
   return n;
 }
 
+doc:add("function", "int(n)", "A hashing function for integer values.");
+
 export function char(c) {
   return int(ord(c));
 }
+
+doc:add("function", "char(c)", "A hashing function for character values.");
+
+export function string(str) {
+  return fnv1a(string_bytes(str));
+}
+
+doc:add("function", "string(s)", "A hash function for strings.");

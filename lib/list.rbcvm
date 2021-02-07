@@ -1,5 +1,8 @@
 import array;
 import box;
+import docs;
+
+let doc = docs.module("list", "A linked list implementation.");
 
 struct Node {
   car, cdr
@@ -8,6 +11,8 @@ struct Node {
 export function new() {
   return box.new(null);
 }
+
+doc:add("function", "new()", "Create a new, empty linked list.");
 
 export function length(self) {
   let current = box.get(self);
@@ -21,10 +26,18 @@ export function length(self) {
   return len;
 }
 
+doc:add("function", "length(list)", "Get the length of the list.
+
+Note that this is O(n) (i.e. requires traversing the entire list).");
+
 export function prepend(self, value) {
   let current = box.get(self);
   box.set(self, Node{car=value, cdr=current});
 }
+
+doc:add("function", "prepend(list, value)", "Add a value to the front of the list.
+
+This function is O(1) (i.e. takes the same time regardless of the length of the list).");
 
 export function append(self, value) {
   let current = box.get(self);
@@ -42,6 +55,10 @@ export function append(self, value) {
   prev:cdr = [value, null];
 }
 
+doc:add("function", "append(list, value)", "Add a value to the end of the list.
+
+Like `length`, this function is O(n).");
+
 export function foreach(self, func) {
   let current = box.get(self);
 
@@ -50,6 +67,8 @@ export function foreach(self, func) {
     current = current:cdr;
   }
 }
+
+doc:add("function", "foreach(list, func)", "Call `func` for every element of `list`.");
 
 export function find(self, func) {
   let current = box.get(self);
@@ -63,6 +82,14 @@ export function find(self, func) {
   return null;
 }
 
+doc:add(
+  "function",
+  "find(list, func)",
+  "Return the first element of `list` that satisfies the predicate `func`.
+
+If none is found, this function returns `null`.",
+);
+
 export function reverse(self) {
   let new_list = new();
 
@@ -72,6 +99,8 @@ export function reverse(self) {
 
   return new_list;
 }
+
+doc:add("function", "reverse(list)", "Make a new linked list that is the reverse of `list`.");
 
 export function map(self, func) {
   let new_list = new();
@@ -83,6 +112,12 @@ export function map(self, func) {
   return reverse(new_list);
 }
 
+doc:add(
+  "function",
+  "map(list, func)",
+  "Create a new linked list where every element is calculated by calling `func` on the old element.",
+);
+
 export function to_array(self) {
   let arr = array.new(length(self));
 
@@ -92,3 +127,5 @@ export function to_array(self) {
 
   return arr;
 }
+
+doc:add("function", "to_array(list)", "Create a new array with the elements of `list`.");

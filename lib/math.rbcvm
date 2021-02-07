@@ -1,3 +1,7 @@
+import docs;
+
+let doc = docs.module("math", "Math functions.");
+
 export function abs(n) {
     if (n < 0) {
         return -n;
@@ -5,14 +9,22 @@ export function abs(n) {
     return n;
 }
 
+doc:add("function", "abs(n)", "Calculate the absolute value of `n`.");
+
 export function sqrt(n) {
     return n ** 0.5;
 }
+
+doc:add("function", "sqrt(n)", "Calculate the square root of `n`.");
 
 export function shift_left(a, b) {
     return toint(a * 2 ** b);
 }
 
+doc:add("function", "shift_left(a, b)", "Shift `a` to the left by `b` bits.");
+
 export function shift_right(a, b) {
     return toint(a / 2 ** b);
 }
+
+doc:add("function", "shift_right(a, b)", "Shift `a` to the right by `b` bits.");

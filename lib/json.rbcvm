@@ -1,10 +1,12 @@
 import array;
 import arraylist;
 import char;
+import docs;
 import hashmap;
 import result;
 import string;
 
+let doc = docs.module("json", "A partial implementation of a JSON parser.");
 
 let T_LEFT_BRACE = 0;
 let T_RIGHT_BRACE = 1;
@@ -20,6 +22,17 @@ let T_NULL = 10;
 
 export let E_UNEXPECTED_TOKEN = 0;
 export let E_INVALID_JSON = 1;
+
+doc:add(
+  "constant",
+  "E_UNEXPECTED_TOKEN",
+  "An error returned when an unexpected token is encountered.",
+);
+doc:add(
+  "constant",
+  "E_INVALID_JSON",
+  "An error returned when the input string is not able to be parsed.",
+);
 
 struct Token {
   type, value
@@ -276,3 +289,8 @@ export function parse(input) {
 
   return data;
 }
+
+doc:add("function", "parse(input)", "Parse the string `input` as JSON.
+
+The returned value is a `result`, for historical reasons (lol). See the `result`
+module for more information.");

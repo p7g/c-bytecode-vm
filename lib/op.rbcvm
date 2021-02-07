@@ -1,59 +1,93 @@
+import docs;
+
+let doc = docs.module("op", "Functions that wrap operators.");
+
 export function eq(a, b) {
   return a == b;
 }
+
+doc:add("function", "eq(a, b)", "Performs `a == b`.");
 
 export function ne(a, b) {
   return a != b;
 }
 
+doc:add("function", "ne(a, b)", "Performs `a != b`.");
+
 export function lt(a, b) {
   return a < b;
 }
+
+doc:add("function", "lt(a, b)", "Performs `a < b`.");
 
 export function lte(a, b) {
   return a <= b;
 }
 
+doc:add("function", "lte(a, b)", "Performs `a <= b`.");
+
 export function gt(a, b) {
   return a > b;
 }
+
+doc:add("function", "gt(a, b)", "Performs `a > b`.");
 
 export function gte(a, b) {
   return a >= b;
 }
 
+doc:add("function", "gte(a, b)", "Performs `a >= b`.");
+
 export function add(a, b) {
   return a + b;
 }
+
+doc:add("function", "add(a, b)", "Performs `a + b`.");
 
 export function sub(a, b) {
   return a - b;
 }
 
+doc:add("function", "sub(a, b)", "Performs `a - b`.");
+
 export function neg(a) {
   return -a;
 }
+
+doc:add("function", "neg(a)", "Performs `-a`.");
 
 export function mul(a, b) {
   return a * b;
 }
 
+doc:add("function", "mul(a, b)", "Performs `a * b`.");
+
 export function div(a, b) {
   return a / b;
 }
+
+doc:add("function", "div(a, b)", "Performs `a / b`.");
 
 export function mod(a, b) {
   return a % b;
 }
 
+doc:add("function", "mod(a, b)", "Performs `a % b`.");
+
 export function band(a, b) {
   return a & b;
 }
+
+doc:add("function", "band(a, b)", "Performs `a & b`.");
 
 export function bor(a, b) {
   return a | b;
 }
 
+doc:add("function", "bor(a, b)", "Performs `a | b`.");
+
 export function bxor(a, b) {
   return a ^ b;
 }
+
+doc:add("function", "bxor(a, b)", "Performs `a ^ b`.");

@@ -352,10 +352,11 @@ least for now:
 
 ## Standard Library
 
-It would be a bit excessive to document the whole standard library here. The
-plan is to write a system for generating documentation based on code eventually.
+Standard library documentation lives in the source code. The generated markdown
+file can be found
+[here](https://github.com/p7g/c-bytecode-vm/blob/master/docs/stdlib.md).
 
-Instead, I'll document some idioms that have appeared in the standard library.
+Here are some idioms that have appeared in the standard library:
 
 ### Iteration
 

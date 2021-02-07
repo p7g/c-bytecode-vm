@@ -1,8 +1,11 @@
 import array;
 import arraylist;
 import assoclist;
+import docs;
 import hash;
 import iter;
+
+let doc = docs.module("hashmap", "An implementation of a hash map.");
 
 let INITIAL_CAPACITY = toint(2 ** 3);
 let LOAD_FACTOR = 0.7;
@@ -15,11 +18,7 @@ struct HashMap {
 
 # members
 
-function hash_string(str) {
-  return hash.fnv1a(string_bytes(str));
-}
-
-let default_hash = hash_string;
+let default_hash = hash.string;
 
 function do_hash(self, key) {
   return self:hash_fn(key) & self:cap - 1;
@@ -51,13 +50,23 @@ export function with_capacity(capacity) {
   };
 }
 
+doc:add("function", "with_capacity(n)", "Create a new hashmap with `n` buckets.");
+
 export function new() {
   return with_capacity(INITIAL_CAPACITY);
 }
 
+doc:add("function", "new()", "Create a hashmap in the default configuration.");
+
 export function set_hash_function(self, func) {
   self:hash_fn = func;
 }
+
+doc:add(
+  "function",
+  "set_hash_function(map, func)",
+  "Set the hash function used by `map` to `func`.",
+);
 
 export function with_hash_function(hash_function) {
   let m = new();
@@ -65,10 +74,18 @@ export function with_hash_function(hash_function) {
   return m;
 }
 
+doc:add(
+  "function",
+  "with_hash_function(func)",
+  "Create a new hash map that uses `func` as its hash function.",
+);
+
 export function clear(self) {
   self:buckets = array.new(self:capacity);
   self:load = 0;
 }
+
+doc:add("function", "clear(map)", "Delete all values from the map.");
 
 export function get(self, key) {
   let hashed = do_hash(self, key);
@@ -80,6 +97,8 @@ export function get(self, key) {
 
   return assoclist.get(bucket, key);
 }
+
+doc:add("function", "get(map, key)", "Get the value associated with `key` from `map`.");
 
 export function set(self, key, value) {
   let hashed = do_hash(self, key);
@@ -98,6 +117,12 @@ export function set(self, key, value) {
   }
 }
 
+doc:add(
+  "function",
+  "set(map, key, value)",
+  "Set the value associated with `key` in `map` to `value`.",
+);
+
 export function delete(self, key) {
   let hashed = do_hash(self, key);
   let bucket = self:buckets[hashed];
@@ -115,6 +140,8 @@ export function delete(self, key) {
   return false;
 }
 
+doc:add("function", "delete(map, key)", "Delete `key` from `map`.");
+
 export function has(self, key) {
   let hashed = do_hash(self, key);
   let bucket = self:buckets[hashed];
@@ -124,6 +151,8 @@ export function has(self, key) {
 
   return assoclist.has(bucket, key);
 }
+
+doc:add("function", "has(map, key)", "Check if `map` has a value for `key`.");
 
 export function entries(self) {
   let len = array.length(self:buckets);
@@ -148,19 +177,27 @@ export function entries(self) {
   };
 }
 
+doc:add("function", "entries(map)", "Get an iterator over the key-value pairs in `map`.");
+
 export function size(self) {
   let n = 0;
   iter.foreach(entries(self), function () { n = n + 1; });
   return n;
 }
 
+doc:add("function", "size(map)", "Count the number of values in `map`.");
+
 export function keys(self) {
   return iter.map(entries(self), function ([k]) { return k; });
 }
 
+doc:add("function", "keys(map)", "Get an iterator over the keys in `map`.");
+
 export function values(self) {
   return iter.map(entries(self), function ([_, v]) { return v; });
 }
+
+doc:add("function", "values(map)", "Get an iterator over the values in `map`.");
 
 export function make_with_hash_function(hash, init_fn) {
   let map = new();
@@ -173,9 +210,25 @@ export function make_with_hash_function(hash, init_fn) {
   return map;
 }
 
+doc:add(
+  "function",
+  "make_with_hash_function(hash, init)",
+  "Make a new hashmap with `hash` as its hash functions, and call `init` to
+initialize the map.
+
+The `init` function receives a function that can be called with a key and value
+to set them on the new map.",
+);
+
 export function make(init_fn) {
   return make_with_hash_function(default_hash, init_fn);
 }
+
+doc:add(
+  "function",
+  "make(init)",
+  "Call `make_with_hash_function` with the default hash function and `init`.",
+);
 
 export function from_entries_with_hash_function(hash, entries) {
   let map = new();
@@ -184,12 +237,31 @@ export function from_entries_with_hash_function(hash, entries) {
   return map;
 }
 
+doc:add(
+  "function",
+  "from_entries_with_hash_function(hash, entries)",
+  "Create a new hashmap with `hash` as its hash function, and populate it from
+the iterator of key-value pairs `entries`.",
+);
+
 export function from_entries(entries) {
   return from_entries_with_hash_function(default_hash, entries);
 }
+
+doc:add(
+  "function",
+  "from_entries(entries)",
+  "Call `from_entries_with_hash_function` with the default hash function and `entries`.",
+);
 
 export function extend(map, entries) {
   iter.foreach(entries, function([k, v]) {
     set(map, k, v);
   });
 }
+
+doc:add(
+  "function",
+  "extend(map, entries)",
+  "Add each key-value pair in the `entries` iterator to `map`.",
+);

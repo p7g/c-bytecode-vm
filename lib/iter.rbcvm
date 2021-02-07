@@ -1,5 +1,8 @@
 import array;
 import arraylist;
+import docs;
+
+let doc = docs.module("iter", "Lazy iterators.");
 
 let idx = 0;
 
@@ -25,14 +28,18 @@ export function from_array(array) {
   };
 }
 
-export function count() {
-  let i = 0;
+doc:add("function", "from_array(array)", "Create an iterator from array `array`.");
+
+export function count(n) {
+  let i = n;
   return function() {
     let val = i;
     i = i + 1;
     return val;
   };
 }
+
+doc:add("function", "count(n)", "Create an iterator that counts up from `n` indefinitely.");
 
 export function range(to) {
   let i = 0;
@@ -45,6 +52,8 @@ export function range(to) {
     return val;
   };
 }
+
+doc:add("function", "range(to)", "Create an iterator that counts from 0 to `to`.");
 
 export function enumerate(_it) {
   let it = ensure_iterable(_it);
@@ -61,12 +70,20 @@ export function enumerate(_it) {
   };
 }
 
+doc:add("function", "enumerate(it)", "Create an iterator that yields pairs of index and value from `it`.");
+
 export function foreach(_it, fn) {
   let it = ensure_iterable(_it);
   for (let val; (val = it()) != null;) {
     fn(val);
   }
 }
+
+doc:add(
+  "function",
+  "foreach(it, fn)",
+  "Call the function `fn` for every element of `it`. This evaluates the iterator.",
+);
 
 export function collect(_it) {
   let it = ensure_iterable(_it);
@@ -79,6 +96,12 @@ export function collect(_it) {
   return arraylist.to_array(dest);
 }
 
+doc:add(
+  "function",
+  "collect(it)",
+  "Evaluate an iterator, returning an array of the values it yields.",
+);
+
 export function map(_it, fn) {
   let it = ensure_iterable(_it);
   return function() {
@@ -89,6 +112,12 @@ export function map(_it, fn) {
     return fn(val);
   };
 }
+
+doc:add(
+  "function",
+  "map(it, fn)",
+  "Return a new iterator that yields the values of `it` applied to `fn`.",
+);
 
 export function take(_it, n) {
   let it = ensure_iterable(_it);
@@ -102,6 +131,14 @@ export function take(_it, n) {
   };
 }
 
+doc:add(
+  "function",
+  "take(it, n)",
+  "Create an iterator that evaluates the first `n` elements of `it`.
+
+Note that evaluating this iterator partially evalutaes `it`.",
+);
+
 export function drop(_it, n) {
   let it = ensure_iterable(_it);
   for (let i = 0; i < n; i = i + 1) {
@@ -110,6 +147,15 @@ export function drop(_it, n) {
 
   return it;
 }
+
+doc:add(
+  "function",
+  "drop(it, n)",
+  "Create an iterator that ignores the first `n` elements of `it`.
+
+Note that calling this function immediately evaluates and drops the first `n`
+values of `it`.",
+);
 
 export function take_while(_it, pred) {
   let it = ensure_iterable(_it);
@@ -130,6 +176,12 @@ export function take_while(_it, pred) {
   };
 }
 
+doc:add(
+  "function",
+  "take_while(it, pred)",
+  "Create an iterator that yields the values of `it` until `pred` returns false.",
+);
+
 export function zip(_a, _b) {
   let a = ensure_iterable(_a);
   let b = ensure_iterable(_b);
@@ -143,6 +195,8 @@ export function zip(_a, _b) {
     return [val_a, val_b];
   };
 }
+
+doc:add("function", "zip(a, b)", "Create an iterator that joins `a` and `b` pair-wise.");
 
 export function flat(_it) {
   let it = ensure_iterable(_it);
@@ -164,3 +218,5 @@ export function flat(_it) {
     return next();
   };
 }
+
+doc:add("function", "flat(it)", "Flattens an iterator of iterators.");

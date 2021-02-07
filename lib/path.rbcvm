@@ -1,8 +1,13 @@
+import docs;
 import string;
+
+let doc = docs.module("path", "Utilities for manipulating filesystem paths.");
 
 export function join(a, b) {
     return string_concat(a, "/", b);
 }
+
+doc:add("function", "join(a, b)", "Join the paths `a` and `b` with a '/'.");
 
 export function dirname(path) {
     let slash_pos = string.rindex(path, '/');
@@ -12,6 +17,14 @@ export function dirname(path) {
     return string.slice(path, 0, slash_pos);
 }
 
+doc:add(
+    "function",
+    "dirname(path)",
+    "Return the portion of `path` that is before the last '/'.
+
+If there is no '/' in `path`, '.' is returned.",
+);
+
 export function basename(path) {
     let slash_pos = string.rindex(path, '/');
     if (slash_pos == -1) {
@@ -20,6 +33,14 @@ export function basename(path) {
     return string.slice(path, slash_pos + 1, string.length(path));
 }
 
+doc:add(
+    "function",
+    "basename(path)",
+    "Get the portion of `path` after the last '/'.
+
+If there is no '/' in `path`, the same string is returned.",
+);
+
 export function ext(path) {
     let dot_pos = string.rindex(path, '.');
     if (dot_pos == -1) {
@@ -27,3 +48,5 @@ export function ext(path) {
     }
     return string.slice(path, dot_pos + 1, string.length(path));
 }
+
+doc:add("function", "ext(path)", "Get the extension of `path`, without the '.'.");

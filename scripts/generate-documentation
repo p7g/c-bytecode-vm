@@ -1,0 +1,25 @@
+#!./cbcvm
+
+import array;
+import arraylist;
+import assoclist;
+import box;
+import char;
+import docs;
+import fn;
+import fs;
+import hash;
+import hashmap;
+import iter;
+import json;
+import list;
+import math;
+import obj;
+import op;
+import path;
+import re;
+import result;
+import string;
+import test;
+
+docs.generate(docs.print_generator(docs.single_page_markdown()));

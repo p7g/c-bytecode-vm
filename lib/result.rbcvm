@@ -1,5 +1,12 @@
+import docs;
+
+let doc = docs.module("result", "A result type. Probably rendered obsolete by panicking.");
+
 export let OK = "ok";
 export let ERROR = "error";
+
+doc:add("constant", "OK", "A sentinel value representing a successful result.");
+doc:add("constant", "ERROR", "A sentinel value representing an unsuccessful result.");
 
 struct Result { state, value }
 struct Error { data, code }
@@ -8,17 +15,29 @@ export function ok(data) {
   return Result{state=OK, value=data};
 }
 
+doc:add("function", "ok(value)", "Create a successful result containing `value`.");
+
 export function error(code, data) {
   return Result{state=ERROR, value=Error{data=data, code=code}};
 }
+
+doc:add(
+  "function",
+  "error(code, value)",
+  "Create a failed result with error code `code` and data `value`.",
+);
 
 export function is_ok(result) {
   return result:state == OK;
 }
 
+doc:add("function", "is_ok(result)", "Check if `result` was successful.");
+
 export function is_error(result) {
   return result:state == ERROR;
 }
+
+doc:add("function", "is_error(result)", "Check if `result` was unsuccessful.");
 
 export function code(result) {
   if (is_ok(result)) {
@@ -27,12 +46,16 @@ export function code(result) {
   return result:value:code;
 }
 
+doc:add("function", "code(result)", "Get the error code from `result`.");
+
 export function data(result) {
   if (is_ok(result)) {
     return result:value;
   }
   return result:value:data;
 }
+
+doc:add("function", "data(result)", "Get the value from `result`.");
 
 export function map(result, fn) {
   if (is_ok(result)) {
@@ -41,9 +64,23 @@ export function map(result, fn) {
   return result;
 }
 
+doc:add(
+  "function",
+  "map(result, fn)",
+  "Return a new result where the value has been processed by `fn` if the result
+was successful.",
+);
+
 export function map_error(result, fn) {
   if (is_error(result)) {
     return fn(result);
   }
   return result;
 }
+
+doc:add(
+  "function",
+  "map_error(result, fn)",
+  "Return a new result where the value has been processed by `fn` if the result
+was unsuccessful.",
+);

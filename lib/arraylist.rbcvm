@@ -1,4 +1,7 @@
 import array;
+import docs;
+
+let doc = docs.module("arraylist", "A growable array.");
 
 struct ArrayList {
   length,
@@ -11,29 +14,56 @@ export function from_array(len, array) {
   return ArrayList{length=len, array=array};
 }
 
+doc:add(
+  "function",
+  "from_array(len, array)",
+  "Create a new arraylist from `array`. The `len` argument should be the length
+of `array`.",
+);
+
 export function with_capacity(cap) {
   return from_array(0, array.new(cap));
 }
+
+doc:add(
+  "function",
+  "with_capacity(cap)",
+  "Create an empty arraylist with the given initial capacity.",
+);
 
 export function new() {
   return with_capacity(INITIAL_SIZE);
 }
 
+doc:add(
+  "function",
+  "new()",
+  "Create an empty arraylist with default initial capacity.",
+);
+
 export function length(self) {
   return self:length;
 }
+
+doc:add("function", "length(list)", "Get the number of items in `list`.");
 
 export function capacity(self) {
   return array.length(self:array);
 }
 
+doc:add("function", "capacity(list)", "Get the maximum number of items `list` can hold.");
+
 export function get(self, idx) {
   return self:array[idx];
 }
 
+doc:add("function", "get(list, idx)", "Get the element of `list` at index `idx`.");
+
 export function set(self, idx, value) {
   self:array[idx] = value;
 }
+
+doc:add("function", "set(list, idx, value)", "Set the element of `list` at index `idx` to `value`.");
 
 export function delete(self, index) {
   let len = self:length;
@@ -42,6 +72,13 @@ export function delete(self, index) {
     set(self, i - 1, get(self, i));
   }
 }
+
+doc:add(
+  "function",
+  "delete(list, idx)",
+  "Remove the element at index `idx` from `list`. This involves shuffling all
+elements after `idx` leftward, so it's not very efficient.",
+);
 
 export function to_array(self) {
   let new_array = array.new(self:length);
@@ -52,6 +89,8 @@ export function to_array(self) {
 
   return new_array;
 }
+
+doc:add("function", "to_array(list)", "Copy the elements of `list` into a fixed-length array.");
 
 export function push(self, value) {
   let next_idx = self:length;
@@ -70,6 +109,12 @@ export function push(self, value) {
   self:length = next_idx + 1;
 }
 
+doc:add(
+  "function",
+  "push(list, value)",
+  "Push `value` on to the end of `list`, growing it if necessary.",
+);
+
 export function pop(self) {
   if (self:length <= 0) {
     return null;
@@ -79,6 +124,12 @@ export function pop(self) {
   return self:array[i];
 }
 
+doc:add(
+  "function",
+  "pop(list)",
+  "Remove and return the last element of `list`.",
+);
+
 export function foreach(self, func) {
   let len = self:length;
   let array = self:array;
@@ -87,6 +138,12 @@ export function foreach(self, func) {
     func(array[i], i, self);
   }
 }
+
+doc:add(
+  "function",
+  "foreach(list, func)",
+  "Call `func` for each element of `list`.",
+);
 
 export function find_index(self, func) {
   let len = self:length;
@@ -100,6 +157,13 @@ export function find_index(self, func) {
 
   return -1;
 }
+
+doc:add(
+  "function",
+  "find_index(list, func)",
+  "Get the index of the first element that satisfies the predicate `func`, or -1
+if none exists.",
+);
 
 export function map(self, func) {
   let len = self:length;
@@ -123,12 +187,30 @@ export function find(self, func) {
   return get(self, index);
 }
 
+doc:add(
+  "function",
+  "find_index(list, func)",
+  "Get the first element that satisfies the predicate `func`, or null if none exists.",
+);
+
 export function some(self, f) {
     return -1 != find_index(self, f);
 }
+
+doc:add(
+  "function",
+  "some(list, func)",
+  "Check if any element in `list` satisfies the predicate `func`.",
+);
 
 export function contains(self, a) {
     return some(self, function (b) {
         return a == b;
     });
 }
+
+doc:add(
+  "function",
+  "contains(list, thing)",
+  "Check if any element in `list` is equal to `thing`.",
+);

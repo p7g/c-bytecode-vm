@@ -1,11 +1,14 @@
 import array;
 import char;
+import docs;
 import fn;
 import iter;
 import op;
 import sys;
 
 import _string;
+
+let doc = docs.module("string", "Functions for working with strings.");
 
 export let chars = string_chars;
 export let from_chars = string_from_chars;
@@ -15,6 +18,15 @@ export let buf = _string.buf;
 export let resize_buf = _string.resize_buf;
 export let length = _string.len;
 export let char_at = _string.char_at;
+
+doc:add("function", "chars(string)", "Get the characters of `string` as an array.");
+doc:add("function", "from_chars(chars)", "Create a string from the array of characters `chars`.");
+doc:add("function", "bytes(string)", "Get the bytes of `string` as an array.");
+doc:add("function", "concat(a, ...)", "Concatenate all strings passed as arguments with no separator.");
+doc:add("function", "buf(size)", "Create a new string with size `size`.");
+doc:add("function", "resize_buf(buf, new_size)", "Resize `buf` to have size `new_size`.");
+doc:add("function", "length(string)", "Get the length of `string`.");
+doc:add("function", "char_at(string, idx)", "Get the `idx`th character of `string`.");
 
 export function parse_integer(str, base) {
   let sum = 0;
@@ -29,6 +41,12 @@ export function parse_integer(str, base) {
 
   return sum;
 }
+
+doc:add(
+  "function",
+  "parse_integer(str, base)",
+  "Parse `str` as an integer of base `base`. Currently only works for base 10.",
+);
 
 export function parse_float(str) {
   let sum = 0.0;
@@ -58,10 +76,22 @@ export function parse_float(str) {
   return sum;
 }
 
+doc:add(
+  "function",
+  "parse_float(str)",
+  "Parse `str` as a floating point number.",
+);
+
 export function slice(self, start, end) {
   let cs = chars(self);
   return from_chars(array.slice(cs, start, end));
 }
+
+doc:add(
+  "function",
+  "slice(string, start, end)",
+  "Get a substring of `string` starting from `start` and ending at `end`.",
+);
 
 export function startswith(self, other) {
     let otherlen = length(other);
@@ -75,6 +105,8 @@ export function startswith(self, other) {
     }
     return true;
 }
+
+doc:add("function", "startswith(string, prefix)", "Check if `prefix` is a prefix of `string`.");
 
 export function endswith(self, other) {
     let otherlen = length(other);
@@ -90,6 +122,8 @@ export function endswith(self, other) {
     return true;
 }
 
+doc:add("function", "endswith(string, suffix)", "Check if `suffix` is a suffix of `string`.");
+
 export function index(self, c) {
     if (type_of(c) != "char") {
         sys.panic("index: Only finding index of char is implemented");
@@ -103,6 +137,8 @@ export function index(self, c) {
     return -1;
 }
 
+doc:add("function", "index(string, c)", "Find the first index where `c` is found in `string`.");
+
 export function rindex(self, c) {
     if (type_of(c) != "char") {
         sys.panic("index: Only finding index of char is implemented");
@@ -115,6 +151,10 @@ export function rindex(self, c) {
     return -1;
 }
 
+doc:add("function", "rindex(string, c)", "Find the last index where `c` is found in `string`.");
+
 export function contains(self, c) {
     return -1 != index(self, c);
 }
+
+doc:add("function", "contains(string, c)", "Check if `string` contains the character `c`.");

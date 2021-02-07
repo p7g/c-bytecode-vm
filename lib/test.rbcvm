@@ -1,8 +1,13 @@
 import array;
+import docs;
 import sys;
+
+let doc = docs.module("test", "Testing utilities.");
 
 export function assert(cond) {
     if (!cond) {
         sys.panic("Failed assertion");
     }
 }
+
+doc:add("function", "assert(cond)", "Panics if `cond` is not truthy.");

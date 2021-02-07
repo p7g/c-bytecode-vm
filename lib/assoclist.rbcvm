@@ -1,13 +1,28 @@
 import arraylist;
+import docs;
+
+let doc = docs.module(
+  "assoclist",
+  "A map data structure backed by an arraylist of key-value pairs.",
+);
 
 export let new = arraylist.new;
 export let length = arraylist.length;
+
+doc:add("function", "new", "Create an empty assoclist.");
+doc:add("function", "length", "Check the number of items in the list.");
 
 function get_entry(self, key) {
   return arraylist.find(self, function([k]) {
     return k == key;
   });
 }
+
+doc:add(
+  "function",
+  "get_entry(list, key)",
+  "Get the first key-value pair where the key is equal to `key`.",
+);
 
 export function set(self, key, value) {
   let found = get_entry(self, key);
@@ -19,6 +34,12 @@ export function set(self, key, value) {
   }
 }
 
+doc:add(
+  "function",
+  "set(list, key, value)",
+  "Set the value of `key` in `list` to `value`.",
+);
+
 export function get(self, key) {
   let found = get_entry(self, key);
 
@@ -28,6 +49,12 @@ export function get(self, key) {
     return found[1];
   }
 }
+
+doc:add(
+  "function",
+  "get(list, key)",
+  "Get the first value of `key` in `list`.",
+);
 
 export function delete(self, key) {
   let idx = arraylist.find_index(self, function(entry) {
@@ -41,16 +68,32 @@ export function delete(self, key) {
   }
 }
 
+doc:add(
+  "function",
+  "delete(list, key)",
+  "Delete the first entry for `key` in `list`.",
+);
+
 export function has(self, key) {
   return null != arraylist.find(self, function(entry) {
     return entry[0] == key;
   });
 }
 
+doc:add(
+  "function",
+  "has(list, key)",
+  "Check if an entry for `key` exists in `list`.",
+);
+
 export function is_empty(self) {
   return arraylist.length(self) == 0;
 }
 
+doc:add("function", "is_empty(list)", "Check if `list` has no elements.");
+
 export function entries(self) {
   return arraylist.to_array(self);
 }
+
+doc:add("function", "entries(list)", "Get all entries from `list`.");

@@ -1,5 +1,12 @@
+import docs;
+
+let doc = docs.module("array", "Functions for working with arrays.");
+
 export let new = array_new;
+doc:add("function", "array_new(len)", "Create a new array of length `len`.");
+
 export let length = array_length;
+doc:add("function", "length(array)", "Get the length of array `array`.");
 
 export function find_index(self, func) {
   let len = length(self);
@@ -13,6 +20,12 @@ export function find_index(self, func) {
   return -1;
 }
 
+doc:add(
+  "function",
+  "find_index(array, predicate)",
+  "Find the index of the element for which `predicate` returns true. If there is none, returns -1.",
+);
+
 export function find(self, func) {
     let idx = find_index(self, func);
     if (idx >= 0) {
@@ -20,6 +33,12 @@ export function find(self, func) {
     }
     return null;
 }
+
+doc:add(
+  "function",
+  "find(array, predicate)",
+  "Find the element element for which `predicate` returns true. If there is none, returns null.",
+);
 
 export function foreach(self, func) {
   let len = length(self);
@@ -29,11 +48,23 @@ export function foreach(self, func) {
   }
 }
 
+doc:add(
+  "function",
+  "foreach(array, func)",
+  "Call `func` with the element, index, and array for each element of `array`.",
+);
+
 export function contains(self, thing) {
   return null != find(self, function(i) {
     return i == thing;
   });
 }
+
+doc:add(
+  "function",
+  "contains(array, thing)",
+  "Returns true if any element of `array` is equal to `thing`.",
+);
 
 export function map(self, func) {
   let len = length(self);
@@ -46,6 +77,13 @@ export function map(self, func) {
   return new_array;
 }
 
+doc:add(
+  "function",
+  "map(array, func)",
+  "Create a new array where each element is the result of calling `func` on the
+corresponding element of `array`.",
+);
+
 export function foldl(self, init, reducer) {
   let len = length(self);
 
@@ -56,6 +94,13 @@ export function foldl(self, init, reducer) {
 
   return init;
 }
+
+doc:add(
+  "function",
+  "foldl(array, init, reducer)",
+  "Reduce `array` from the left, using `init` as the initial value for the
+accumulator.",
+);
 
 export function foldl1(self, reducer) {
   let len = length(self);
@@ -69,6 +114,13 @@ export function foldl1(self, reducer) {
   return acc;
 }
 
+doc:add(
+  "function",
+  "foldl(array, init, reducer)",
+  "Reduce `array` from the left, using the first value of `array` as the initial
+value for the accumulator.",
+);
+
 export function reverse(self) {
   let len = length(self);
   let half = len / 2;
@@ -81,6 +133,8 @@ export function reverse(self) {
   }
 }
 
+doc:add("function", "reverse(array)", "Reverse `array` in place.");
+
 export function reversed(self) {
   let len = length(self);
   let copy = new(len);
@@ -92,6 +146,8 @@ export function reversed(self) {
   return copy;
 }
 
+doc:add("function", "reversed(array)", "Create a new array with the elements of `array` reversed.");
+
 export function slice(self, start, end) {
     let sub = new(end - start);
     for (let i = start; i < end; i = i + 1) {
@@ -99,3 +155,9 @@ export function slice(self, start, end) {
     }
     return sub;
 }
+
+doc:add(
+  "function",
+  "slice(array, start, end)",
+  "Returns a slice of `array` starting at index `start` and ending at index `end`.",
+);

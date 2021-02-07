@@ -1,3 +1,7 @@
+import docs;
+
+let doc = docs.module("char", "Functions for working with characters.");
+
 let ZERO = ord('0');
 let NINE = ord('9');
 
@@ -6,6 +10,7 @@ export function is_digit(c) {
   return code >= ZERO && code <= NINE;
 }
 
+doc:add("function", "is_digit(c)", "Return true if `c` is an ASCII digit.");
 
 let A = ord('a');
 let Z = ord('z');
@@ -17,22 +22,34 @@ export function is_alpha(c) {
   return code >= A && code <= Z;
 }
 
+doc:add("function", "is_alpha(c)", "Return true if `c` is an ASCII letter.");
+
 export function is_uppercase(c) {
   return (ord(c) & UPCASE_MASK) == 0;
 }
+
+doc:add("function", "is_uppercase(c)", "Return true if `c` is uppercase.");
 
 export function is_lowercase(c) {
   return !is_uppercase(c);
 }
 
+doc:add("function", "is_uppercase(c)", "Return true if `c` is lowercase.");
+
 export function to_uppercase(c) {
   return chr(ord(c) & ~UPCASE_MASK);
 }
+
+doc:add("function", "to_uppercase(c)", "Return the uppercase version of `c`.");
 
 export function to_lowercase(c) {
   return chr(ord(c) | UPCASE_MASK);
 }
 
+doc:add("function", "to_lowercase(c)", "Return the lowercase version of `c`.");
+
 export function to_digit(c) {
   return ord(c) - ZERO;
 }
+
+doc:add("function", "to_digit(c)", "Get the integer value of the digit character `c`.");

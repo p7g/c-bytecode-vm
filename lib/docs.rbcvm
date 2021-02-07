@@ -1,0 +1,171 @@
+let documented = null;
+
+struct module_doc { name, description, items, next }
+struct doc_item { type, name, description, next }
+
+function add(list, item) {
+    item:next = list;
+    return item;
+}
+
+export function module(modname, description) {
+    let doc = module_doc {
+        name = modname,
+        description = description,
+        items = null,
+        next = null,
+    };
+    documented = add(documented, doc);
+
+    return struct {
+        add = function add_documentation(type, name, description) {
+            doc:items = add(doc:items, doc_item {
+                type = type,
+                name = name,
+                description = description,
+            });
+        },
+    };
+}
+
+let doc = module("docs", "Tools to document module exports.");
+doc:add("function", "module", "Create an object to document members of a module.");
+
+# docs/
+#      index.html <- directory of all modules
+#      {module}/index.html <- module documentation
+
+export struct generator {
+    start_module,
+    add_to_module,
+    end_module,
+    finalize,
+}
+
+doc:add("struct", "generator", "The interface for a documentation generator.");
+
+function lllen(list) {
+    let len = 0;
+    while (list) {
+        len = len + 1;
+        list = list:next;
+    }
+    return len;
+}
+
+export function generate(gen=single_page_markdown()) {
+    let len = lllen(documented);
+
+    for (let mod = documented; mod; mod = mod:next) {
+        gen:start_module(mod);
+        for (let item = mod:items; item; item = item:next) {
+            gen:add_to_module(item);
+        }
+        gen:end_module(mod);
+    }
+
+    return gen:finalize();
+}
+
+doc:add(
+    "function",
+    "generate(generator)",
+    "Generate documentation using `generator` for all items already added to the registry.",
+);
+
+export function single_page_html() {
+    let buf = string_concat(
+        "<!DOCTYPE html>",
+        "<html>",
+        "<head><title>cbcvm Documentation</title></head>",
+        "<body>",
+        "<h1>cbcvm Documentation</h1>",
+    );
+
+    return generator {
+        start_module = function(module) {
+            buf = string_concat(
+                buf,
+                "<article>",
+                "<h1>", module:name, "</h1>",
+                "<p>", module:description, "</p>",
+            );
+        },
+
+        add_to_module = function(item) {
+            buf = string_concat(
+                buf,
+                "<h2>", "<small>", item:type, "</small> ", item:name, "</h2>",
+                "<p>", item:description, "</p>",
+            );
+        },
+
+        end_module = function(module) {
+            buf = string_concat(buf, "</article>");
+        },
+
+        finalize = function() {
+            return string_concat(buf, "</body></html>");
+        },
+    };
+}
+
+doc:add(
+    "function",
+    "single_page_html()",
+    "Create a documentation generator that results in a single string of HTML.",
+);
+
+export function single_page_markdown() {
+    let buf = "# cbcvm Documentation";
+
+    return generator {
+        start_module = function(module) {
+            buf = string_concat(
+                buf,
+                "\n\n",
+                "## ", module:name, " module\n\n",
+                module:description,
+            );
+        },
+
+        add_to_module = function(item) {
+            buf = string_concat(
+                buf,
+                "\n\n",
+                "### ", item:type, " `", item:name, "`\n\n",
+                item:description,
+            );
+        },
+
+        end_module = function(module) {},
+
+        finalize = function() {
+            return buf;
+        },
+    };
+}
+
+doc:add(
+    "function",
+    "single_page_markdown()",
+    "Create a documentation generator that results in a single string of markdown.",
+);
+
+export function print_generator(gen) {
+    return generator {
+        start_module = gen:start_module,
+        end_module = gen:end_module,
+        add_to_module = gen:add_to_module,
+
+        finalize = function() {
+            print(gen:finalize());
+        },
+    };
+}
+
+doc:add(
+    "function",
+    "print_generator(inner_generator)",
+    "Create a generator that prints the result of `inner_generator` to stdout.",
+);
