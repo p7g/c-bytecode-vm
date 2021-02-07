@@ -265,7 +265,8 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 	fprintf(stderr, "Import '%.*s' not found, checked in: ",
 			(int) cb_strlen(import_name),
 			cb_strptr(import_name));
-	for (i = -1; i < MAX_IMPORT_PATHS && agent.import_paths[i]; i += 1) {
+	for (i = -1; i < MAX_IMPORT_PATHS && (i == -1 || agent.import_paths[i]);
+			i += 1) {
 		if (i == -1 && !pwd)
 			continue;
 		if (i > 0 || (pwd && i > -1))
