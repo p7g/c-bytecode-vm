@@ -8,6 +8,7 @@
 #include "hashmap.h"
 #include "intrinsics.h"
 #include "module.h"
+#include "str.h"
 #include "value.h"
 
 static size_t ident_exports, ident_get, ident_import;
@@ -106,7 +107,7 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 	import_name = CB_EXPECT_STRING(argv[0]);
 	if (argv[1].type != CB_VALUE_NULL) {
-		path = strdup(cb_strptr(CB_EXPECT_STRING(argv[1])));
+		path = cb_strdup_cstr(CB_EXPECT_STRING(argv[1]));
 		f = fopen(path, "rb");
 		if (!f) {
 			perror("import");

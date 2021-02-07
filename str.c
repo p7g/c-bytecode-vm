@@ -44,3 +44,29 @@ inline uint32_t cb_str_at(cb_str s, size_t idx)
 	/* FIXME: unicode */
 	return cb_strptr(s)[idx];
 }
+
+char *cb_cstrdup(const char *str, size_t len)
+{
+	char *buf;
+
+	buf = malloc(len + 1);
+	memcpy(buf, str, len);
+	buf[len] = 0;
+
+	return buf;
+}
+
+char *cb_strdup_cstr(struct cb_str str)
+{
+	return cb_cstrdup(cb_strptr(str), cb_strlen(str));
+}
+
+struct cb_str cb_strdup(struct cb_str str)
+{
+	cb_str new_str;
+
+	new_str.len = cb_strlen(str);
+	new_str.chars = cb_strdup_cstr(str);
+
+	return new_str;
+}

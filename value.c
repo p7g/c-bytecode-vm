@@ -271,13 +271,13 @@ char *cb_value_to_string(struct cb_value *val)
 		break;
 
 	case CB_VALUE_STRING:
-		buf = strdup(cb_strptr(val->val.as_string->string));
+		buf = cb_strdup_cstr(val->val.as_string->string);
 		buf[val->val.as_string->string.len] = 0;
 		break;
 
 	case CB_VALUE_INTERNED_STRING:
-		buf = strdup(cb_strptr(cb_agent_get_string(
-						val->val.as_interned_string)));
+		buf = cb_strdup_cstr(cb_agent_get_string(
+					val->val.as_interned_string));
 		break;
 
 	case CB_VALUE_FUNCTION: {
