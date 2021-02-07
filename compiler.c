@@ -2020,22 +2020,26 @@ static int compile_double_expression(struct cstate *state)
 static int compile_string_expression(struct cstate *state)
 {
 	struct token tok;
-	size_t id;
-	char *str, *ptr, c;
+	size_t id, len, toklen, i;
+	char *str;
+	const char *lit;
 
 	tok = EXPECT(TOK_STRING);
-	id = cb_agent_intern_string(tok_start(state, &tok) + 1,
-			tok_len(&tok) - 2);
+	toklen = tok_len(&tok) - 2;
+	lit = tok_start(state, &tok) + 1;
+	str = malloc(toklen + 1);
 
-	ptr = str = cb_agent_get_string(id).chars;
-	while ((c = *str++)) {
-		if (c != '\\') {
-			*ptr++ = c;
+	for (i = len = 0; i < toklen; i += 1) {
+		if (lit[i] != '\\') {
+			str[len++] = lit[i];
 			continue;
 		}
-		*ptr++ = TRANSLATE_ESCAPE(*str++);
+		str[len++] = TRANSLATE_ESCAPE(lit[++i]);
 	}
-	*ptr = 0;
+	str[len] = 0;
+
+	id = cb_agent_intern_string(str, len);
+	free(str);
 
 	APPEND(OP_CONST_STRING);
 	APPEND_SIZE_T(id);
