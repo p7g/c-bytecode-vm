@@ -24,7 +24,7 @@ static int make_buf(size_t argc, struct cb_value *argv, struct cb_value *result)
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
 	result->val.as_string->string.len = len;
-	result->val.as_string->string.chars = calloc(len, sizeof(char));
+	result->val.as_string->string.chars = calloc(len + 1, sizeof(char));
 	return 0;
 }
 
@@ -45,7 +45,7 @@ static int resize_buf(size_t argc, struct cb_value *argv,
 	}
 
 	str->len = len;
-	str->chars = realloc(str->chars, sizeof(char) * len);
+	str->chars = realloc(str->chars, (sizeof(char) * len) + 1);
 	result->type = CB_VALUE_NULL;
 	return 0;
 }
