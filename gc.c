@@ -114,7 +114,7 @@ static void mark(void)
 	if (cb_vm_state.modules) {
 		for (i = 0; i < cb_agent_modspec_count(); i += 1) {
 			mod = &cb_vm_state.modules[i];
-			if (!mod)
+			if (!mod || !mod->spec)
 				continue;
 			DEBUG_LOG("marking %s global scope", cb_strptr(
 					cb_agent_get_string(cb_modspec_name(

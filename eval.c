@@ -886,9 +886,9 @@ DO_OP_INIT_MODULE: {
 	assert(spec != NULL);
 	mod.spec = spec;
 	mod.global_scope = cb_hashmap_new();
-	make_intrinsics(mod.global_scope);
 	cb_vm_state.modules[module_id] = mod;
 	frame->module = &cb_vm_state.modules[module_id];
+	make_intrinsics(mod.global_scope);
 
 	DISPATCH();
 }
