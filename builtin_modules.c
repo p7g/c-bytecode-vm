@@ -64,5 +64,5 @@ void cb_instantiate_builtin_modules(void)
 	/* run the instantiate functions after populating modules to make sure
 	 * all modules are in a valid state. */
 	for (i = 0; i < cb_builtin_module_count; i += 1)
-		builtin->instantiate(modules[i]);
+		builtins[i].instantiate(modules[i]);
 }
