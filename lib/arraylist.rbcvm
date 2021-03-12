@@ -214,3 +214,23 @@ doc:add(
   "contains(list, thing)",
   "Check if any element in `list` is equal to `thing`.",
 );
+
+export function to_iter(self) {
+  let pos = 0;
+
+  return function next() {
+    if (pos >= self:length) {
+      return null;
+    }
+
+    let val = get(self, pos);
+    pos = pos + 1;
+    return val;
+  };
+}
+
+doc:add(
+  "function",
+  "to_iter(list)",
+  "Create an iterator over the arraylist.",
+);

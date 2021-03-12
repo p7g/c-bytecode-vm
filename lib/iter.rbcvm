@@ -220,3 +220,57 @@ export function flat(_it) {
 }
 
 doc:add("function", "flat(it)", "Flattens an iterator of iterators.");
+
+export function fold1(it, reducer) {
+  it = ensure_iterable(it);
+  return fold(it, it(), reducer);
+}
+
+doc:add(
+  "function",
+  "fold1(it, reducer)",
+  "Reduce the iterator, using the first value as the initial value of the accumulator.",
+);
+
+export function fold(it, init, reducer) {
+  foreach(it, function (item) {
+    init = reducer(init, item);
+  });
+  return init;
+}
+
+doc:add(
+  "function",
+  "fold(it, init, reducer)",
+  "Reduce the iterator, using `init` as the initial value of the accumulator.",
+);
+
+export function max(it) {
+  return fold(it, null, function (greatest, item) {
+    if (greatest == null || item > greatest) {
+      return item;
+    }
+    return greatest;
+  });
+}
+
+doc:add(
+  "function",
+  "max(it)",
+  "Find the largest item in the iterator (using `>`).",
+);
+
+export function min(it) {
+  return fold(it, null, function (least, item) {
+    if (least == null || item < least) {
+      return item;
+    }
+    return least;
+  });
+}
+
+doc:add(
+  "function",
+  "min(it)",
+  "Find the smallest item in the iterator (using `<`).",
+);

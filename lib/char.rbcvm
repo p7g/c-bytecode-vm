@@ -36,6 +36,12 @@ export function is_lowercase(c) {
 
 doc:add("function", "is_uppercase(c)", "Return true if `c` is lowercase.");
 
+export function is_whitespace(c) {
+    return c == ' ' || c == '\n' || c == '\r' || c == '\t';
+}
+
+doc:add("function", "is_whitespace(c)", "Check if `c` is an ASCII whitespace character.");
+
 export function to_uppercase(c) {
   return chr(ord(c) & ~UPCASE_MASK);
 }
