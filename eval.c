@@ -6,7 +6,6 @@
 #include <string.h>
 
 #include "agent.h"
-#include "builtin_modules.h"
 #include "cbcvm.h"
 #include "compiler.h"
 #include "disassemble.h"
@@ -36,8 +35,6 @@ void cb_vm_init(cb_bytecode *bytecode)
 
 	cb_vm_state.modules = calloc(cb_agent_modspec_count(),
 			sizeof(struct cb_module));
-
-	cb_instantiate_builtin_modules();
 }
 
 void cb_vm_deinit(void)

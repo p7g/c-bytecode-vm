@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "agent.h"
+#include "builtin_modules.h"
 #include "cbcvm.h"
 #include "compiler.h"
 #include "disassemble.h"
@@ -40,6 +41,7 @@ int run_file(const char *filename)
 
 	if (!result) {
 		cb_vm_init(bytecode);
+		cb_instantiate_builtin_modules();
 		result = cb_run();
 		cb_vm_deinit();
 	}

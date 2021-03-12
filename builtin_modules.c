@@ -43,11 +43,12 @@ void cb_initialize_builtin_modules(void)
 void cb_instantiate_builtin_modules(void)
 {
 	cb_modspec *spec;
-	size_t spec_id;
+	size_t spec_id, i;
 	const struct cb_builtin_module_spec *builtin;
 	struct cb_module *mod;
+	struct cb_module *modules[cb_builtin_module_count];
 
-	for (size_t i = 0; i < cb_builtin_module_count; i += 1) {
+	for (i = 0; i < cb_builtin_module_count; i += 1) {
 		builtin = &builtins[i];
 		spec = cb_agent_get_modspec_by_name(
 				cb_agent_intern_string(builtin->name,
@@ -57,6 +58,11 @@ void cb_instantiate_builtin_modules(void)
 
 		mod->global_scope = cb_hashmap_new();
 		mod->spec = spec;
-		builtin->instantiate(mod);
+		modules[i] = mod;
 	}
+
+	/* run the instantiate functions after populating modules to make sure
+	 * all modules are in a valid state. */
+	for (i = 0; i < cb_builtin_module_count; i += 1)
+		builtin->instantiate(modules[i]);
 }

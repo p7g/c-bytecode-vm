@@ -4,6 +4,7 @@
 #include <readline/history.h>
 
 #include "agent.h"
+#include "builtin_modules.h"
 #include "cbcvm.h"
 #include "compiler.h"
 #include "disassemble.h"
@@ -51,6 +52,7 @@ int cb_repl(void)
 			mod = &cb_vm_state.modules[cb_modspec_id(modspec)];
 			mod->spec = modspec;
 			mod->global_scope = cb_hashmap_new();
+			cb_instantiate_builtin_modules();
 			make_intrinsics(mod->global_scope);
 		}
 		frame.bp = 0;
