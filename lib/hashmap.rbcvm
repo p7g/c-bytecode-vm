@@ -13,7 +13,7 @@ struct HashMap {
   cap, load, hash_fn, buckets
 }
 
-struct bucket { key, value }
+struct Bucket { key, value }
 
 let default_hash = hash.string;
 
@@ -121,7 +121,7 @@ export function set(self, key, value) {
   if (bucket) {
     bucket:value = value;
   } else {
-    self:buckets[hashed] = bucket { key=key, value=value };
+    self:buckets[hashed] = Bucket { key=key, value=value };
     self:load = self:load + 1;
 
     if (self:load / self:cap > LOAD_FACTOR) {
@@ -146,7 +146,7 @@ export function delete(self, key) {
       return false;
     }
     if (bucket:key == key) {
-      break
+      break;
     }
     hashed = next_hash(self, hashed);
   }
