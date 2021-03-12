@@ -1,6 +1,5 @@
 import array;
 import arraylist;
-import assoclist;
 import docs;
 import hash;
 import iter;
@@ -10,13 +9,11 @@ let doc = docs.module("hashmap", "An implementation of a hash map.");
 let INITIAL_CAPACITY = toint(2 ** 3);
 let LOAD_FACTOR = 0.7;
 
-# hashmap
-
 struct HashMap {
   cap, load, hash_fn, buckets
 }
 
-# members
+struct bucket { key, value }
 
 let default_hash = hash.string;
 
@@ -35,8 +32,12 @@ function grow(self) {
     if (!bucket) {
       return;
     }
-    extend(self, assoclist.entries(bucket));
+    set(self, bucket:key, bucket:value);
   });
+}
+
+function next_hash(self, hash) {
+  return (hash + 1) % self:cap;
 }
 
 # public
@@ -95,25 +96,37 @@ export function get(self, key) {
     return null;
   }
 
-  return assoclist.get(bucket, key);
+  while (bucket:key != key) {
+    hashed = next_hash(self, hashed);
+    bucket = self:buckets[hashed];
+  }
+
+  return bucket:value;
 }
 
 doc:add("function", "get(map, key)", "Get the value associated with `key` from `map`.");
 
 export function set(self, key, value) {
   let hashed = do_hash(self, key);
-  let bucket = self:buckets[hashed];
 
-  if (bucket == null) {
-    bucket = assoclist.new();
-    self:load = self:load + 1;
-    self:buckets[hashed] = bucket;
+  let bucket;
+  while (true) {
+    bucket = self:buckets[hashed];
+    if (bucket == null || bucket:key == key) {
+      break;
+    }
+    hashed = next_hash(self, hashed);
   }
 
-  assoclist.set(bucket, key, value);
+  if (bucket) {
+    bucket:value = value;
+  } else {
+    self:buckets[hashed] = bucket { key=key, value=value };
+    self:load = self:load + 1;
 
-  if (self:load / self:cap > LOAD_FACTOR) {
-    grow(self);
+    if (self:load / self:cap > LOAD_FACTOR) {
+      grow(self);
+    }
   }
 }
 
@@ -125,31 +138,39 @@ doc:add(
 
 export function delete(self, key) {
   let hashed = do_hash(self, key);
-  let bucket = self:buckets[hashed];
-  if (!bucket) {
-    return false;
+
+  let bucket;
+  while (true) {
+    bucket = self:buckets[hashed];
+    if (!bucket) {
+      return false;
+    }
+    if (bucket:key == key) {
+      break
+    }
+    hashed = next_hash(self, hashed);
   }
 
-  if (assoclist.delete(bucket, key)) {
-    if (assoclist.is_empty(bucket)) {
-      self:buckets[hashed] = null;
-      self:load = self:load - 1;
-    }
-    return true;
-  }
-  return false;
+  self:buckets[hashed] = null;
+  self:load = self:load - 1;
+  return true;
 }
 
 doc:add("function", "delete(map, key)", "Delete `key` from `map`.");
 
 export function has(self, key) {
   let hashed = do_hash(self, key);
-  let bucket = self:buckets[hashed];
-  if (!bucket) {
-    return false;
-  }
 
-  return assoclist.has(bucket, key);
+  while (true) {
+    let bucket = self:buckets[hashed];
+    if (!bucket) {
+      return false;
+    }
+    if (bucket:key == key) {
+      return true;
+    }
+    hashed = next_hash(self, hashed);
+  }
 }
 
 doc:add("function", "has(map, key)", "Check if `map` has a value for `key`.");
@@ -157,23 +178,17 @@ doc:add("function", "has(map, key)", "Check if `map` has a value for `key`.");
 export function entries(self) {
   let len = array.length(self:buckets);
   let i = 0;
-  let j = 0;
-  let bucket = null;
 
   return function next() {
     if (i >= len) {
       return null;
     }
-    if (bucket && j < arraylist.length(bucket)) {
-      let entry = arraylist.get(bucket, j);
-      j = j + 1;
-      return entry;
-    } else if (bucket) {
-      i = i + 1;
-    }
+    let bucket = null;
     for (; i < len && !(bucket = self:buckets[i]); i = i + 1) {}
-    j = 0;
-    return next();
+    if (!bucket) {
+      return null;
+    }
+    return [bucket:key, bucket:value];
   };
 }
 
