@@ -16,8 +16,8 @@
 	})
 
 #define GC_HINT_THRESHOLD 2048
-#define GC_INITIAL_THRESHOLD (1024 * 1024)
-#define GC_HEAP_GROW_FACTOR 2
+#define GC_INITIAL_THRESHOLD (1 << 16)
+#define GC_HEAP_GROW_FACTOR 16
 
 static struct cb_gc_header *allocated = NULL;
 static size_t amount_allocated = 0;
