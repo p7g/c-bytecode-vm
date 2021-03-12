@@ -676,7 +676,7 @@ void cb_value_mark(struct cb_value *val)
 		GC_LOG(val->val.as_array);
 		cb_gc_mark((cb_gc_header *) val->val.as_array);
 		for (i = 0; i < val->val.as_array->len; i += 1)
-			cb_value_mark(&val->val.as_array->values[i]);
+			cb_gc_queue_mark(&val->val.as_array->values[i]);
 		break;
 	}
 
@@ -694,7 +694,7 @@ void cb_value_mark(struct cb_value *val)
 			for (i = 0; i < fn->value.as_user.upvalues_len; i += 1) {
 				uv = fn->value.as_user.upvalues[i];
 				if (!uv->is_open)
-					cb_value_mark(&uv->v.value);
+					cb_gc_queue_mark(&uv->v.value);
 			}
 		}
 		break;
@@ -708,7 +708,7 @@ void cb_value_mark(struct cb_value *val)
 		cb_gc_mark((cb_gc_header *) val->val.as_struct);
 		cb_gc_mark(&val->val.as_struct->spec->gc_header);
 		for (i = 0; i < val->val.as_struct->spec->nfields; i += 1)
-			cb_value_mark(&val->val.as_struct->fields[i]);
+			cb_gc_queue_mark(&val->val.as_struct->fields[i]);
 		break;
 	}
 

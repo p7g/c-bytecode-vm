@@ -64,6 +64,37 @@ inline int cb_gc_is_marked(struct cb_gc_header *obj)
 	return obj->mark;
 }
 
+struct mark_queue_node {
+	struct cb_value *val;
+	struct mark_queue_node *next;
+};
+
+static struct mark_queue_node *mark_queue = NULL;
+
+void cb_gc_queue_mark(struct cb_value *obj)
+{
+	struct mark_queue_node *node;
+
+	node = malloc(sizeof(struct mark_queue_node));
+	node->next = mark_queue;
+	node->val = obj;
+
+	mark_queue = node;
+}
+
+static void evaluate_mark_queue(void)
+{
+	struct mark_queue_node *tmp;
+
+	while (mark_queue) {
+		if (!cb_gc_is_marked((cb_gc_header *) mark_queue->val))
+			cb_value_mark(mark_queue->val);
+		tmp = mark_queue;
+		mark_queue = mark_queue->next;
+		free(tmp);
+	}
+}
+
 static void mark(void)
 {
 	int i;
@@ -94,6 +125,8 @@ static void mark(void)
 
 	DEBUG_LOG("marking error");
 	cb_error_mark();
+
+	evaluate_mark_queue();
 }
 
 static void sweep(void)
