@@ -87,10 +87,10 @@ static void evaluate_mark_queue(void)
 	struct mark_queue_node *tmp;
 
 	while (mark_queue) {
-		if (!cb_gc_is_marked((cb_gc_header *) mark_queue->val))
-			cb_value_mark(mark_queue->val);
 		tmp = mark_queue;
-		mark_queue = mark_queue->next;
+		mark_queue = tmp->next;
+		if (!cb_value_is_marked(tmp->val))
+			cb_value_mark(tmp->val);
 		free(tmp);
 	}
 }

@@ -642,6 +642,35 @@ int cb_value_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		return cb_vm_call_user_func(fn, args, args_len, result);
 }
 
+int cb_value_is_marked(const struct cb_value *val)
+{
+	switch (val->type) {
+	case CB_VALUE_INT:
+	case CB_VALUE_DOUBLE:
+	case CB_VALUE_BOOL:
+	case CB_VALUE_CHAR:
+	case CB_VALUE_NULL:
+	case CB_VALUE_INTERNED_STRING:
+	case CB_VALUE_USERDATA:
+		return 1;
+
+	case CB_VALUE_STRING:
+		return cb_gc_is_marked((cb_gc_header *) val->val.as_string);
+
+	case CB_VALUE_ARRAY:
+		return cb_gc_is_marked((cb_gc_header *) val->val.as_array);
+
+	case CB_VALUE_FUNCTION:
+		return cb_gc_is_marked((cb_gc_header *) val->val.as_function);
+
+	case CB_VALUE_STRUCT:
+		return cb_gc_is_marked((cb_gc_header *) val->val.as_struct);
+
+	case CB_VALUE_STRUCT_SPEC:
+		return cb_gc_is_marked(&val->val.as_struct_spec->gc_header);
+	}
+}
+
 void cb_value_mark(struct cb_value *val)
 {
 #define GC_LOG(F) ({ \
@@ -652,6 +681,10 @@ void cb_value_mark(struct cb_value *val)
 			free(as_str); \
 		} \
 	})
+
+	if (cb_value_is_marked(val))
+		return;
+
 	switch (val->type) {
 	case CB_VALUE_INT:
 	case CB_VALUE_DOUBLE:
@@ -663,16 +696,12 @@ void cb_value_mark(struct cb_value *val)
 		return;
 
 	case CB_VALUE_STRING:
-		if (cb_gc_is_marked((cb_gc_header *) val->val.as_string))
-			break;
 		GC_LOG(val->val.as_string);
 		cb_gc_mark((cb_gc_header *) val->val.as_string);
 		break;
 
 	case CB_VALUE_ARRAY: {
 		int i;
-		if (cb_gc_is_marked((cb_gc_header *) val->val.as_array))
-			break;
 		GC_LOG(val->val.as_array);
 		cb_gc_mark((cb_gc_header *) val->val.as_array);
 		for (i = 0; i < val->val.as_array->len; i += 1)
@@ -686,8 +715,6 @@ void cb_value_mark(struct cb_value *val)
 		struct cb_upvalue *uv;
 
 		fn = val->val.as_function;
-		if (cb_gc_is_marked((cb_gc_header *) fn))
-			break;
 		GC_LOG(fn);
 		cb_gc_mark((cb_gc_header *) fn);
 		if (fn->type == CB_FUNCTION_USER) {
@@ -702,8 +729,6 @@ void cb_value_mark(struct cb_value *val)
 
 	case CB_VALUE_STRUCT: {
 		int i;
-		if (cb_gc_is_marked((cb_gc_header *) val->val.as_struct))
-			break;
 		GC_LOG(val->val.as_struct);
 		cb_gc_mark((cb_gc_header *) val->val.as_struct);
 		cb_gc_mark(&val->val.as_struct->spec->gc_header);
