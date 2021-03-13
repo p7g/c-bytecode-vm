@@ -53,10 +53,23 @@ function lllen(list) {
     return len;
 }
 
+function copy_module_doc(mod) {
+    return module_doc {
+        name = mod:name,
+        description = mod:description,
+        items = mod:items,
+    };
+}
+
 export function generate(gen=single_page_markdown()) {
     let len = lllen(documented);
+    let reversed = null;
 
     for (let mod = documented; mod; mod = mod:next) {
+        reversed = add(reversed, copy_module_doc(mod));
+    }
+
+    for (let mod = reversed; mod; mod = mod:next) {
         gen:start_module(mod);
         for (let item = mod:items; item; item = item:next) {
             gen:add_to_module(item);
