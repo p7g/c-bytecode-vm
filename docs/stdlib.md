@@ -121,6 +121,10 @@ Create a new array with the elements of `list`.
 
 Create a new linked list where every element is calculated by calling `func` on the old element.
 
+### object `collector`
+
+A collector to convert an iterator into a list.
+
 ### function `reverse(list)`
 
 Make a new linked list that is the reverse of `list`.
@@ -152,6 +156,10 @@ This function is O(1) (i.e. takes the same time regardless of the length of the 
 Get the length of the list.
 
 Note that this is O(n) (i.e. requires traversing the entire list).
+
+### function `iter(list)`
+
+Create an iterator over `list`.
 
 ### function `new()`
 
@@ -263,6 +271,10 @@ Get an iterator over the keys in `map`.
 
 Count the number of values in `map`.
 
+### function `iter(map)`
+
+Get an iterator over the key-value pairs in `map`.
+
 ### function `entries(map)`
 
 Get an iterator over the key-value pairs in `map`.
@@ -302,6 +314,11 @@ Create a hashmap in the default configuration.
 ### function `with_capacity(n)`
 
 Create a new hashmap with `n` buckets.
+
+### function `collector(hash_fn=...)`
+
+Create a collector for converting
+an iterator of entries into a hashmap.
 
 ## hash module
 
@@ -363,6 +380,24 @@ This should also work with fifos and stuff.
 
 Functions for working with strings.
 
+### function `split(string, on)`
+
+Break a string into an array of parts, where each part is separated by `on`.
+
+### function `strip(string, lpred=char.is_whitespace, rpred=null)`
+
+Remove characters from both ends of the string while predicates remain true.
+If only `lpred` is passed it's used for the start and end of the string.
+If `rpred` is also passed, it's used for the end of the string.
+
+### function `rstrip(string, pred=char.is_whitespace)`
+
+Remove characters from the end of the string while `pred` remains true.
+
+### function `lstrip(string, pred=char.is_whitespace)`
+
+Remove characters from the start of the string while `pred` remains true.
+
 ### function `contains(string, c)`
 
 Check if `string` contains the character `c`.
@@ -394,6 +429,15 @@ Parse `str` as a floating point number.
 ### function `parse_integer(str, base)`
 
 Parse `str` as an integer of base `base`. Currently only works for base 10.
+
+### object `collector`
+
+A collector to convert an iterator of characters
+or strings into a string.
+
+### function `iter(str)`
+
+Create an iterator over the characters in `str`.
 
 ### function `char_at(string, idx)`
 
@@ -491,63 +535,6 @@ Performs `a != b`.
 
 Performs `a == b`.
 
-## iter module
-
-Lazy iterators.
-
-### function `flat(it)`
-
-Flattens an iterator of iterators.
-
-### function `zip(a, b)`
-
-Create an iterator that joins `a` and `b` pair-wise.
-
-### function `take_while(it, pred)`
-
-Create an iterator that yields the values of `it` until `pred` returns false.
-
-### function `drop(it, n)`
-
-Create an iterator that ignores the first `n` elements of `it`.
-
-Note that calling this function immediately evaluates and drops the first `n`
-values of `it`.
-
-### function `take(it, n)`
-
-Create an iterator that evaluates the first `n` elements of `it`.
-
-Note that evaluating this iterator partially evalutaes `it`.
-
-### function `map(it, fn)`
-
-Return a new iterator that yields the values of `it` applied to `fn`.
-
-### function `collect(it)`
-
-Evaluate an iterator, returning an array of the values it yields.
-
-### function `foreach(it, fn)`
-
-Call the function `fn` for every element of `it`. This evaluates the iterator.
-
-### function `enumerate(it)`
-
-Create an iterator that yields pairs of index and value from `it`.
-
-### function `range(to)`
-
-Create an iterator that counts from 0 to `to`.
-
-### function `count(n)`
-
-Create an iterator that counts up from `n` indefinitely.
-
-### function `from_array(array)`
-
-Create an iterator from array `array`.
-
 ## fn module
 
 Functional programming utilities.
@@ -597,6 +584,10 @@ Return the lowercase version of `c`.
 ### function `to_uppercase(c)`
 
 Return the uppercase version of `c`.
+
+### function `is_whitespace(c)`
+
+Check if `c` is an ASCII whitespace character.
 
 ### function `is_uppercase(c)`
 
@@ -658,9 +649,14 @@ Get the first value of `key` in `list`.
 
 Set the value of `key` in `list` to `value`.
 
-### function `get_entry(list, key)`
+### object `collector`
 
-Get the first key-value pair where the key is equal to `key`.
+A collector for converting an iterator of
+entries into an assoclist.
+
+### function `iter(list)`
+
+Create an iterator over the entries of `list`.
 
 ### function `length`
 
@@ -670,76 +666,78 @@ Check the number of items in the list.
 
 Create an empty assoclist.
 
-## arraylist module
+## iter module
 
-A growable array.
+Lazy iterators.
 
-### function `contains(list, thing)`
+### function `min(it)`
 
-Check if any element in `list` is equal to `thing`.
+Find the smallest item in the iterator (using `<`).
 
-### function `some(list, func)`
+### function `max(it)`
 
-Check if any element in `list` satisfies the predicate `func`.
+Find the largest item in the iterator (using `>`).
 
-### function `find_index(list, func)`
+### function `fold(it, init, reducer)`
 
-Get the first element that satisfies the predicate `func`, or null if none exists.
+Reduce the iterator, using `init` as the initial value of the accumulator.
 
-### function `find_index(list, func)`
+### function `fold1(it, reducer)`
 
-Get the index of the first element that satisfies the predicate `func`, or -1
-if none exists.
+Reduce the iterator, using the first value as the initial value of the accumulator.
 
-### function `foreach(list, func)`
+### function `flat(it)`
 
-Call `func` for each element of `list`.
+Flattens an iterator of iterators.
 
-### function `pop(list)`
+### function `zip(a, b)`
 
-Remove and return the last element of `list`.
+Create an iterator that joins `a` and `b` pair-wise.
 
-### function `push(list, value)`
+### function `take_while(it, pred)`
 
-Push `value` on to the end of `list`, growing it if necessary.
+Create an iterator that yields the values of `it` until `pred` returns false.
 
-### function `to_array(list)`
+### function `drop(it, n)`
 
-Copy the elements of `list` into a fixed-length array.
+Create an iterator that ignores the first `n` elements of `it`.
 
-### function `delete(list, idx)`
+Note that calling this function immediately evaluates and drops the first `n`
+values of `it`.
 
-Remove the element at index `idx` from `list`. This involves shuffling all
-elements after `idx` leftward, so it's not very efficient.
+### function `take(it, n)`
 
-### function `set(list, idx, value)`
+Create an iterator that evaluates the first `n` elements of `it`.
 
-Set the element of `list` at index `idx` to `value`.
+Note that evaluating this iterator partially evalutaes `it`.
 
-### function `get(list, idx)`
+### function `map(it, fn)`
 
-Get the element of `list` at index `idx`.
+Return a new iterator that yields the values of `it` applied to `fn`.
 
-### function `capacity(list)`
+### function `collect(it)`
 
-Get the maximum number of items `list` can hold.
+Evaluate an iterator, returning an array of the values it yields.
 
-### function `length(list)`
+### function `foreach(it, fn)`
 
-Get the number of items in `list`.
+Call the function `fn` for every element of `it`. This evaluates the iterator.
 
-### function `new()`
+### function `enumerate(it)`
 
-Create an empty arraylist with default initial capacity.
+Create an iterator that yields pairs of index and value from `it`.
 
-### function `with_capacity(cap)`
+### function `range(to)`
 
-Create an empty arraylist with the given initial capacity.
+Create an iterator that counts from 0 to `to`.
 
-### function `from_array(len, array)`
+### function `count(n)`
 
-Create a new arraylist from `array`. The `len` argument should be the length
-of `array`.
+Create an iterator that counts up from `n` indefinitely.
+
+### struct `collector`
+
+An struct defining the required functions to convert an iterator into an arbitrary collection.
 
 ## array module
 
@@ -788,13 +786,104 @@ Find the element element for which `predicate` returns true. If there is none, r
 
 Find the index of the element for which `predicate` returns true. If there is none, returns -1.
 
+### object `collector`
+
+A collector for converting an iterator into an array.
+
+### function `iter(array)`
+
+Create an iterator from array `array`.
+
 ### function `length(array)`
 
 Get the length of array `array`.
 
-### function `array_new(len)`
+### function `new(len)`
 
 Create a new array of length `len`.
+
+## arraylist module
+
+A growable array.
+
+### function `to_iter(list)`
+
+Create an iterator over the arraylist.
+
+### function `contains(list, thing)`
+
+Check if any element in `list` is equal to `thing`.
+
+### function `some(list, func)`
+
+Check if any element in `list` satisfies the predicate `func`.
+
+### function `find_index(list, func)`
+
+Get the first element that satisfies the predicate `func`, or null if none exists.
+
+### function `find_index(list, func)`
+
+Get the index of the first element that satisfies the predicate `func`, or -1
+if none exists.
+
+### function `foreach(list, func)`
+
+Call `func` for each element of `list`.
+
+### function `pop(list)`
+
+Remove and return the last element of `list`.
+
+### object `collector`
+
+A collector for converting an iterator into an arraylist.
+
+### function `push(list, value)`
+
+Push `value` on to the end of `list`, growing it if necessary.
+
+### function `to_array(list)`
+
+Copy the elements of `list` into a fixed-length array.
+
+### function `delete(list, idx)`
+
+Remove the element at index `idx` from `list`. This involves shuffling all
+elements after `idx` leftward, so it's not very efficient.
+
+### function `set(list, idx, value)`
+
+Set the element of `list` at index `idx` to `value`.
+
+### function `get(list, idx)`
+
+Get the element of `list` at index `idx`.
+
+### function `capacity(list)`
+
+Get the maximum number of items `list` can hold.
+
+### function `length(list)`
+
+Get the number of items in `list`.
+
+### function `new()`
+
+Create an empty arraylist with default initial capacity.
+
+### function `with_capacity(cap)`
+
+Create an empty arraylist with the given initial capacity.
+
+### function `iter(list)`
+
+Create an iterator over arraylist `list`.
+
+### function `from_array(len, array)`
+
+Create a new arraylist from `array`. The `len` argument should be the length
+of `array`.
 
 ## docs module
 
