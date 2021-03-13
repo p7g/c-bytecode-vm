@@ -29,6 +29,33 @@ doc:add("function", "resize_buf(buf, new_size)", "Resize `buf` to have size `new
 doc:add("function", "length(string)", "Get the length of `string`.");
 doc:add("function", "char_at(string, idx)", "Get the `idx`th character of `string`.");
 
+export function iter(str) {
+  let cs = chars(str);
+  let i = 0;
+  let len = array.length(cs);
+  return function string_iterator() {
+    if (i >= len) {
+      return null;
+    }
+    let c = cs[i];
+    i = i + 1;
+    return c;
+  };
+}
+
+doc:add("function", "iter(str)", "Create an iterator over the characters in `str`.");
+
+export let collector = iter.collector {
+  init = function () { return ""; },
+  reduce = function (a, b) {
+    return concat(tostring(a), tostring(b));
+  },
+  finalize = function (s) { return s; },
+};
+
+doc:add("object", "collector", "A collector to convert an iterator of characters
+or strings into a string.");
+
 export function parse_integer(str, base) {
   let sum = 0;
   let cs = chars(str);
@@ -58,7 +85,7 @@ export function parse_float(str) {
     negate = true;
   }
 
-  chars = iter.from_array(chars);
+  chars = array.iter(chars);
   if (negate) {
     chars = iter.drop(chars, 1);
   }

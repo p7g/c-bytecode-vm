@@ -33,19 +33,16 @@ println("Collected", ntests, "tests");
 
 let failed = arraylist.new();
 
-iter.foreach(hashmap.entries(tests_by_file), function (entry) {
-    let filename = entry[0];
-    let tests = entry[1];
-
+iter.foreach(hashmap.entries(tests_by_file), function ([filename, tests]) {
     print(filename, "");
     iter.foreach(tests, function run_test(test) {
         test = module.get(filename, test);
-        let result = pcall(test);
-        if (result[0]) {
+        let [ok, result] = pcall(test);
+        if (ok) {
             print('.');
         } else {
             print('F');
-            arraylist.push(failed, [test, result[1]]);
+            arraylist.push(failed, [test, result]);
         }
     });
     print('\n');
@@ -54,10 +51,7 @@ iter.foreach(hashmap.entries(tests_by_file), function (entry) {
 if (arraylist.length(failed) == 0) {
     println("All tests passed");
 } else {
-    arraylist.foreach(failed, function (data) {
-        let test = data[0];
-        let error = data[1];
-
+    arraylist.foreach(failed, function ([test, error]) {
         println(string.concat(tostring(test), ": ", tostring(error)));
     });
 }

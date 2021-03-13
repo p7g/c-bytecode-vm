@@ -1,4 +1,4 @@
-import array;
+import _array;
 import docs;
 
 let doc = docs.module("arraylist", "A growable array.");
@@ -21,8 +21,23 @@ doc:add(
 of `array`.",
 );
 
+export function iter(self) {
+  let i = 0;
+
+  return function arraylist_iterator() {
+    if (i >= self:length) {
+      return null;
+    }
+    let val = get(self, i);
+    i = i + 1;
+    return val;
+  };
+}
+
+doc:add("function", "iter(list)", "Create an iterator over arraylist `list`.");
+
 export function with_capacity(cap) {
-  return from_array(0, array.new(cap));
+  return from_array(0, _array.new(cap));
 }
 
 doc:add(
@@ -48,7 +63,7 @@ export function length(self) {
 doc:add("function", "length(list)", "Get the number of items in `list`.");
 
 export function capacity(self) {
-  return array.length(self:array);
+  return _array.length(self:array);
 }
 
 doc:add("function", "capacity(list)", "Get the maximum number of items `list` can hold.");
@@ -81,7 +96,7 @@ elements after `idx` leftward, so it's not very efficient.",
 );
 
 export function to_array(self) {
-  let new_array = array.new(self:length);
+  let new_array = _array.new(self:length);
 
   foreach(self, function(val, i) {
     new_array[i] = val;
@@ -95,10 +110,10 @@ doc:add("function", "to_array(list)", "Copy the elements of `list` into a fixed-
 export function push(self, value) {
   let next_idx = self:length;
   let array = self:array;
-  let len = array.length(array);
+  let len = _array.length(array);
 
   if (next_idx >= len) {
-    let new_array = array.new(2 * len);
+    let new_array = _array.new(2 * len);
     for (let i = 0; i < next_idx; i = i + 1) {
       new_array[i] = array[i];
     }
@@ -107,6 +122,7 @@ export function push(self, value) {
 
   array[next_idx] = value;
   self:length = next_idx + 1;
+  return self;  # Return `self` to enable use as a reducer function.
 }
 
 doc:add(
@@ -114,6 +130,15 @@ doc:add(
   "push(list, value)",
   "Push `value` on to the end of `list`, growing it if necessary.",
 );
+
+# don't use exported struct from `iter` to avoid circular import
+export let collector = struct {
+  init = new,
+  reduce = push,
+  finalize = function (list) { return list; },
+};
+
+doc:add("object", "collector", "A collector for converting an iterator into an arraylist.");
 
 export function pop(self) {
   if (self:length <= 0) {
@@ -168,7 +193,7 @@ if none exists.",
 export function map(self, func) {
   let len = self:length;
   let cap = capacity(self);
-  let new_array = array.new(cap);
+  let new_array = _array.new(cap);
 
   foreach(self, function(val, i) {
     new_array[i] = val;

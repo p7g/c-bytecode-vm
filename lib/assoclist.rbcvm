@@ -1,5 +1,6 @@
 import arraylist;
 import docs;
+import iter;
 
 let doc = docs.module(
   "assoclist",
@@ -18,11 +19,21 @@ function get_entry(self, key) {
   });
 }
 
-doc:add(
-  "function",
-  "get_entry(list, key)",
-  "Get the first key-value pair where the key is equal to `key`.",
-);
+export let iter = arraylist.iter;
+
+doc:add("function", "iter(list)", "Create an iterator over the entries of `list`.");
+
+export let collector = iter.collector {
+  init = new,
+  reduce = function (list, [key, value]) {
+    set(list, key, value);
+    return list;
+  },
+  finalize = function (list) { return list; },
+};
+
+doc:add("object", "collector", "A collector for converting an iterator of
+entries into an assoclist.");
 
 export function set(self, key, value) {
   let found = get_entry(self, key);

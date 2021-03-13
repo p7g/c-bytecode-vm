@@ -1,34 +1,22 @@
 import array;
-import arraylist;
 import docs;
 
 let doc = docs.module("iter", "Lazy iterators.");
 
-let idx = 0;
-
 function ensure_iterable(it) {
   if (type_of(it) == "array") {
-    return from_array(it);
+    return array.iter(it);
   }
   return it;
 }
 
-export function from_array(array) {
-  let index = 0;
-  let len = array.length(array);
-  let i = idx;
-  idx = idx + 1;
-  return function from_array_iterator() {
-    if (index == len) {
-      return null;
-    }
-    let item = array[index];
-    index = index + 1;
-    return item;
-  };
-}
+export struct collector { init, reduce, finalize }
 
-doc:add("function", "from_array(array)", "Create an iterator from array `array`.");
+doc:add(
+  "struct",
+  "collector",
+  "An struct defining the required functions to convert an iterator into an arbitrary collection.",
+);
 
 export function count(n) {
   let i = n;
@@ -85,15 +73,10 @@ doc:add(
   "Call the function `fn` for every element of `it`. This evaluates the iterator.",
 );
 
-export function collect(_it) {
-  let it = ensure_iterable(_it);
-  let dest = arraylist.new();
-
-  foreach(it, function(val) {
-    arraylist.push(dest, val);
-  });
-
-  return arraylist.to_array(dest);
+export function collect(it, collector=array.collector) {
+  return collector:finalize(
+    fold(ensure_iterable(it), collector:init(), collector:reduce),
+  );
 }
 
 doc:add(
@@ -189,7 +172,7 @@ export function zip(_a, _b) {
     let val_a = a();
     let val_b = b();
 
-    if (a == null && b == null) {
+    if (val_a == null && val_b == null) {
       return null;
     }
     return [val_a, val_b];

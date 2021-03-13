@@ -1,12 +1,38 @@
+import _array;
+import arraylist;
 import docs;
 
 let doc = docs.module("array", "Functions for working with arrays.");
 
-export let new = array_new;
-doc:add("function", "array_new(len)", "Create a new array of length `len`.");
+export let new = _array.new;
+doc:add("function", "new(len)", "Create a new array of length `len`.");
 
-export let length = array_length;
+export let length = _array.length;
 doc:add("function", "length(array)", "Get the length of array `array`.");
+
+export function iter(array) {
+  let index = 0;
+  let len = length(array);
+  return function array_iterator() {
+    if (index == len) {
+      return null;
+    }
+    let item = array[index];
+    index = index + 1;
+    return item;
+  };
+}
+
+doc:add("function", "iter(array)", "Create an iterator from array `array`.");
+
+# don't use exported struct from `iter` to avoid circular import
+export let collector = struct {
+  init = arraylist.new,
+  reduce = arraylist.push,
+  finalize = arraylist.to_array,
+};
+
+doc:add("object", "collector", "A collector for converting an iterator into an array.");
 
 export function find_index(self, func) {
   let len = length(self);

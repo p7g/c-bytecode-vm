@@ -31,14 +31,12 @@
 	X(println, 0) \
 	X(tostring, 1) \
 	X(type_of, 1) \
-	X(array_new, 1) \
 	X(string_chars, 1) \
 	X(string_from_chars, 1) \
 	X(string_bytes, 1) \
 	X(string_concat, 0) \
 	X(ord, 1) \
 	X(chr, 1) \
-	X(array_length, 1) \
 	X(truncate32, 1) \
 	X(tofloat, 1) \
 	X(read_file, 1) \
@@ -119,31 +117,6 @@ static int type_of(size_t argc, struct cb_value *argv, struct cb_value *result)
 		.chars = strdup(type),
 		.len = strlen(type),
 	};
-
-	return 0;
-}
-
-static int array_new(size_t argc, struct cb_value *argv,
-		struct cb_value *result)
-{
-	struct cb_value len_val;
-	int64_t len;
-	len_val = argv[0];
-
-	CB_EXPECT_TYPE(CB_VALUE_INT, len_val);
-	len = len_val.val.as_int;
-
-	if (len < 0) {
-		cb_error_set(cb_value_from_string("array_new: Invalid length"));
-		return 1;
-	}
-
-	result->type = CB_VALUE_ARRAY;
-	result->val.as_array = cb_array_new((size_t) len);
-	result->val.as_array->len = len;
-
-	for (int i = 0; i < len; i += 1)
-		result->val.as_array->values[i].type = CB_VALUE_NULL;
 
 	return 0;
 }
@@ -277,17 +250,6 @@ static int chr(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 	result->type = CB_VALUE_CHAR;
 	result->val.as_char = argv[0].val.as_int & 0xFF;
-
-	return 0;
-}
-
-static int array_length(size_t argc, struct cb_value *argv,
-		struct cb_value *result)
-{
-	CB_EXPECT_TYPE(CB_VALUE_ARRAY, argv[0]);
-
-	result->type = CB_VALUE_INT;
-	result->val.as_int = argv[0].val.as_array->len;
 
 	return 0;
 }

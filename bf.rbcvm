@@ -80,6 +80,6 @@ let args = argv();
 if (array.length(args) != 1) {
     println("Usage: ./cbcvm bf3.rbcvm <program>");
 } else {
-    let it = iter.from_array(string.chars(read_file(args[0])));
+    let it = array.iter(string.chars(read_file(args[0])));
     run(parse(it), tape_new());
 }

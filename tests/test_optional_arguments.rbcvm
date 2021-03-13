@@ -1,6 +1,6 @@
 import test;
 
-function test_optional_arguments() {
+export function test_optional_arguments() {
     function has_optargs(req, a=3, b=2) {
         return req + a * b;
     }

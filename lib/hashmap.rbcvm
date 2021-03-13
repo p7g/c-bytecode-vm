@@ -42,6 +42,20 @@ function next_hash(self, hash) {
 
 # public
 
+export function collector(hash_fn=default_hash) {
+  return iter.collector {
+    init = function () { return with_hash_function(hash_fn); },
+    reduce = function (map, [key, value]) {
+      set(map, key, value);
+      return map;
+    },
+    finalize = function (map) { return map; },
+  };
+}
+
+doc:add("function", "collector(hash_fn=...)", "Create a collector for converting
+an iterator of entries into a hashmap.");
+
 export function with_capacity(capacity) {
   return HashMap{
     cap=capacity,
@@ -184,15 +198,22 @@ export function entries(self) {
       return null;
     }
     let bucket = null;
-    for (; i < len && !(bucket = self:buckets[i]); i = i + 1) {}
-    if (!bucket) {
-      return null;
+    while (i < len) {
+      let bucket = self:buckets[i];
+      i = i + 1;
+      if (bucket) {
+        return [bucket:key, bucket:value];
+      }
     }
-    return [bucket:key, bucket:value];
+    return null;
   };
 }
 
 doc:add("function", "entries(map)", "Get an iterator over the key-value pairs in `map`.");
+
+export let iter = entries;
+
+doc:add("function", "iter(map)", "Get an iterator over the key-value pairs in `map`.");
 
 export function size(self) {
   let n = 0;

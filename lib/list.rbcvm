@@ -1,6 +1,7 @@
 import array;
 import box;
 import docs;
+import iter;
 
 let doc = docs.module("list", "A linked list implementation.");
 
@@ -13,6 +14,20 @@ export function new() {
 }
 
 doc:add("function", "new()", "Create a new, empty linked list.");
+
+export function iter(self) {
+  let current = box.get(self);
+  return function list_iterator() {
+    if (current == null) {
+      return null;
+    }
+    let node = current;
+    current = node:cdr;
+    return node:car;
+  };
+}
+
+doc:add("function", "iter(list)", "Create an iterator over `list`.");
 
 export function length(self) {
   let current = box.get(self);
@@ -101,6 +116,17 @@ export function reverse(self) {
 }
 
 doc:add("function", "reverse(list)", "Make a new linked list that is the reverse of `list`.");
+
+export let collector = iter.collector {
+  init = new,
+  reduce = function (list, value) {
+    prepend(list, value);
+    return list;
+  },
+  finalize = reverse,
+};
+
+doc:add("object", "collector", "A collector to convert an iterator into a list.");
 
 export function map(self, func) {
   let new_list = new();

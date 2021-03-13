@@ -7,6 +7,7 @@
 #include "hashmap.h"
 #include "module.h"
 
+#include "modules/arrays.h"
 #include "modules/errno.h"
 #include "modules/fs.h"
 #include "modules/time.h"
@@ -22,6 +23,7 @@ static const struct cb_builtin_module_spec builtins[] = {
 	{"errno", cb_errno_build_spec, cb_errno_instantiate},
 	{"sys", cb_sys_build_spec, cb_sys_instantiate},
 	{"module", cb_module_build_spec, cb_module_instantiate},
+	{"_array", cb_arrays_build_spec, cb_arrays_instantiate},
 };
 const struct cb_builtin_module_spec *cb_builtin_modules = builtins;
 const size_t cb_builtin_module_count = sizeof(builtins) / sizeof(builtins[0]);
