@@ -116,11 +116,20 @@ doc:add(
     "Create a documentation generator that results in a single string of HTML.",
 );
 
+function id(heading) {
+    return string_concat(heading, "-module");
+}
+
 export function single_page_markdown() {
-    let buf = "# cbcvm Documentation";
+    let top = "# cbcvm Documentation\n\nIndex:\n";
+    let buf = "";
 
     return generator {
         start_module = function(module) {
+            top = string_concat(
+                top,
+                "- [", module:name, "](#", id(module:name), ")\n",
+            );
             buf = string_concat(
                 buf,
                 "\n\n",
@@ -141,7 +150,7 @@ export function single_page_markdown() {
         end_module = function(module) {},
 
         finalize = function() {
-            return buf;
+            return string_concat(top, buf);
         },
     };
 }

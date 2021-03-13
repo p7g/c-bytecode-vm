@@ -1,5 +1,29 @@
 # cbcvm Documentation
 
+Index:
+- [test](#test-module)
+- [re](#re-module)
+- [path](#path-module)
+- [obj](#obj-module)
+- [math](#math-module)
+- [list](#list-module)
+- [json](#json-module)
+- [result](#result-module)
+- [hashmap](#hashmap-module)
+- [hash](#hash-module)
+- [fs](#fs-module)
+- [string](#string-module)
+- [op](#op-module)
+- [fn](#fn-module)
+- [char](#char-module)
+- [box](#box-module)
+- [assoclist](#assoclist-module)
+- [iter](#iter-module)
+- [array](#array-module)
+- [arraylist](#arraylist-module)
+- [docs](#docs-module)
+
+
 ## test module
 
 Testing utilities.
