@@ -4,6 +4,8 @@
 
 [![TODOs](https://badgen.net/https/api.tickgit.com/badgen/github.com/p7g/c-bytecode-vm)](https://www.tickgit.com/browse?repo=github.com/p7g/c-bytecode-vm)
 
+[Standard libary documentation](https://github.com/p7g/c-bytecode-vm/blob/master/docs/stdlib.md)
+
 This is a small, weakly and dynamically typed, interpreted programming language
 that doesn't really have a name. My goal is to see how close I can get to a
 "real" programming language like Python while implementing everything on my own.
