@@ -1,0 +1,40 @@
+import _inet;
+import array;
+import math;
+import string;
+import sys;
+
+export let htonl = _inet.htonl;
+export let htons = _inet.htons;
+export let ntohl = _inet.ntohl;
+export let ntohs = _inet.ntohs;
+
+export function bytestol(bytes) {
+    if (array.length(bytes) < 4) {
+        sys.panic(string.concat(
+            "Incorrect number of bytes for bytestol. Expected 4, got: ",
+            array.length(bytes),
+        ));
+    }
+
+    let [a, b, c, d] = bytes;
+    return ntohl(
+        math.shl(a, 24)
+        | math.shl(b, 16)
+        | math.shl(c, 8)
+        | d
+    );
+}
+
+export function bytestos(bytes) {
+    if (array.length(bytes) != 2) {
+        sys.panic(string.concat(
+            "Incorrect number of bytes for bytestos. Expected 2, got: ",
+            array.length(bytes),
+        ));
+    }
+
+    let [a, b] = bytes;
+    let result = ntohs(math.shl(a, 8) | b);
+    return result;
+}

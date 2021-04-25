@@ -10,6 +10,7 @@
 #include "modules/arrays.h"
 #include "modules/errno.h"
 #include "modules/fs.h"
+#include "modules/inet.h"
 #include "modules/math.h"
 #include "modules/time.h"
 #include "modules/strings.h"
@@ -25,6 +26,7 @@ static const struct cb_builtin_module_spec builtins[] = {
 	{"sys", cb_sys_build_spec, cb_sys_instantiate},
 	{"module", cb_module_build_spec, cb_module_instantiate},
 	{"_array", cb_arrays_build_spec, cb_arrays_instantiate},
+	{"_inet", cb_inet_build_spec, cb_inet_instantiate},
 	{"_math", cb_math_build_spec, cb_math_instantiate},
 };
 const struct cb_builtin_module_spec *cb_builtin_modules = builtins;
