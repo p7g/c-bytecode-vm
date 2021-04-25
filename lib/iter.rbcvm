@@ -257,3 +257,19 @@ doc:add(
   "min(it)",
   "Find the smallest item in the iterator (using `<`).",
 );
+
+export function repeat(val, times) {
+  return function repeat_iterator() {
+    if (times == 0) {
+      return null;
+    }
+    times = times - 1;
+    return val;
+  };
+}
+
+doc:add(
+  "function",
+  "repeat(val, n)",
+  "Create an iterator that repeats `val` `n` times.",
+);
