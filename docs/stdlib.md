@@ -202,6 +202,10 @@ Create a new array of length `len`.
 
 Lazy iterators.
 
+### function `repeat(val, n)`
+
+Create an iterator that repeats `val` `n` times.
+
 ### function `min(it)`
 
 Find the smallest item in the iterator (using `<`).
@@ -529,6 +533,14 @@ or strings into a string.
 
 Create an iterator over the characters in `str`.
 
+### function `buf_shrink(buf, size)`
+
+Reduce the size of `buf` to `size` without allocating.
+
+### function `buf_set(buf, pos, b)`
+
+Set the buffer to `b` at position `pos`.
+
 ### function `char_at(string, idx)`
 
 Get the `idx`th character of `string`.
@@ -832,11 +844,19 @@ Create a new, empty linked list.
 
 Math functions.
 
-### function `shift_right(a, b)`
+### function `floor(n)`
+
+Round `n` down to the previous integer value.
+
+### function `ceil(n)`
+
+Round `n` up to the next integer value.
+
+### function `shr(a, b)`
 
 Shift `a` to the right by `b` bits.
 
-### function `shift_left(a, b)`
+### function `shl(a, b)`
 
 Shift `a` to the left by `b` bits.
 
