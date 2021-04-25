@@ -15,7 +15,7 @@
 			printf("GC: " MSG "\n", ##__VA_ARGS__); \
 	})
 
-#define GC_HINT_THRESHOLD 2048
+#define GC_HINT_THRESHOLD (1 << 14)
 #define GC_INITIAL_THRESHOLD (1 << 16)
 #define GC_HEAP_GROW_FACTOR 16
 
