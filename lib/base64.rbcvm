@@ -1,0 +1,195 @@
+import array;
+import arraylist;
+import char;
+import docs;
+import inet;
+import iter;
+import math;
+import string;
+import sys;
+import test;
+
+let doc = docs:module("base64");
+let chars = string.chars("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
+let decode_table = array.new(256);
+
+export function encode_size(payload) {
+    let size = math.ceil(array.length(payload) * 4 / 3.0);
+    return size - size % 4 + 4;
+}
+
+doc:add(
+    "function",
+    "encode_size(payload)",
+    "Calculate the size of the base64 encoding of the array of ints `payload`.",
+);
+
+export function decode_size(payload) {
+    let len = string.length(payload);
+    let npadding = 0;
+    for (let i = len - 1; i >= 0; i = i - 1) {
+        if (string.char_at(payload, i) != '=') {
+            break;
+        }
+        npadding = npadding + 1;
+    }
+
+    let size = 3 * math.floor((len - npadding) / 4);
+    if (npadding == 1) {
+        return size + 2;
+    } else if (npadding == 2) {
+        return size + 1;
+    }
+    return size;
+}
+
+doc:add(
+    "function",
+    "decode_size(payload)",
+    "Calculate the number of bytes that will result from decoding `payload`.",
+);
+
+let inited_decode_table = false;
+
+function init_decode_table() {
+    if (inited_decode_table) {
+        return;
+    }
+    for (let i = 0; i < 256; i = i + 1) {
+        let ch = chr(i);
+        let code = -1;
+        if (char.is_alpha(ch)) {
+            if (char.is_uppercase(ch)) {
+                code = i - 0x41;
+            } else {
+                code = i - 0x47;
+            }
+        } else if (char.is_digit(ch)) {
+            code = i + 0x04;
+        } else if (ch == '+' || ch == '-') {
+            code = 0x3E;
+        } else if (ch == '/' || ch == '_') {
+            code = 0x3F;
+        }
+        decode_table[i] = code;
+    }
+    inited_decode_table = true;
+}
+
+function is_whitespace_or_padding(c) {
+    return char.is_whitespace(c) || c == '=';
+}
+
+export function decode(str) {
+    init_decode_table();
+
+    let out = array.new(decode_size(str));
+    str = string.chars(string.strip(str, is_whitespace_or_padding));
+
+    let size = array.length(str);
+    let ends = size - 4;
+    let i = 0, j = 0;
+
+    let ord_ = ord;
+    let shl = math.shl;
+    let shr = math.shr;
+    let decode = decode_table;
+
+    while (i <= ends) {
+        let a = decode[ord_(str[i])];
+        let b = decode[ord_(str[i + 1])];
+        let c = decode[ord_(str[i + 2])];
+        let d = decode[ord_(str[i + 3])];
+
+        if (a < 0 || b < 0 || c < 0 || d < 0) {
+            sys.panic("Invalid char in base64");
+        }
+
+        out[j] = (shl(a, 2) | shr(b, 4)) & 0xff;
+        out[j + 1] = (shl(b, 4) | shr(c, 2)) & 0xff;
+        out[j + 2] = (shl(c, 6) | d) & 0xff;
+
+        j = j + 3;
+        i = i + 4;
+    }
+
+    let mod = (ends - i + 4) % 4;
+    if (mod == 2) {
+        let a = decode[ord_(str[i])];
+        let b = decode[ord_(str[i + 1])];
+        if (a < 0 || b < 0) {
+            sys.panic("Invalid char in base64");
+        }
+        out[j] = (shl(a, 2) | shr(b, 4)) & 0xff;
+    } else if (mod == 3) {
+        let a = decode[ord_(str[i])];
+        let b = decode[ord_(str[i + 1])];
+        let c = decode[ord_(str[i + 2])];
+        if (a < 0 || b < 0 || c < 0) {
+            sys.panic("Invalid char in base64");
+        }
+        out[j] = (shl(a, 2) | shr(b, 4)) & 0xff;
+        out[j + 1] = (shl(b, 4) | shr(c, 2)) & 0xff;
+    }
+
+    return out;
+}
+
+doc:add("function", "decode(data)", "Decode a base64 string into an array of ints.");
+
+export function encode(data, out=null) {
+    if (out == null) {
+        out = string.buf(encode_size(data));
+    } else {
+        let encsize = encode_size(data);
+        test.assert(string.length(out) >= encsize);
+        string.buf_shrink(out, encsize);
+    }
+    let size = array.length(data);
+    let ends = size - (size % 3);
+    let i = 0, j = 0;
+
+    let shr = math.shr;
+    let htonl = inet.htonl;
+    let bytestol = inet.bytestol;
+    let buf_set = string.buf_set;
+    let cs = chars;
+
+    while (i != ends) {
+        let n = htonl(bytestol([
+            data[i], data[i+1], data[i+2], data[i+3],
+        ]));
+        buf_set(out, j, cs[shr(n, 26) & 63]);
+        buf_set(out, j + 1, cs[shr(n, 20) & 63]);
+        buf_set(out, j + 2, cs[shr(n, 14) & 63]);
+        buf_set(out, j + 3, cs[shr(n, 8) & 63]);
+        j = j + 4;
+        i = i + 3;
+    }
+
+    let pd = size % 3;
+    if (pd == 1) {
+        let n = math.shl(data[i], 16);
+        buf_set(out, j, cs[shr(n, 18) & 63]);
+        buf_set(out, j + 1, cs[shr(n, 12) & 63]);
+        buf_set(out, j + 2, '=');
+        buf_set(out, j + 3, '=');
+    } else if (pd == 2) {
+        let n = math.shl(data[i], 16) | math.shl(data[i+1], 8);
+        buf_set(out, j, cs[shr(n, 18) & 63]);
+        buf_set(out, j + 1, cs[shr(n, 12) & 63]);
+        buf_set(out, j + 2, cs[shr(n, 6) & 63]);
+        buf_set(out, j + 3, '=');
+    }
+
+    return out;
+}
+
+doc:add(
+    "function",
+    "encode(payload, out=null)",
+    string.concat(
+        "Encode an array of bytes into a base64 string. A single `out` buffer",
+        " can be reused between calls to `encode` for better performance.",
+    ),
+);
