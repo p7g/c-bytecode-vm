@@ -1,3 +1,4 @@
+import _math;
 import docs;
 
 let doc = docs.module("math", "Math functions.");
@@ -17,14 +18,23 @@ export function sqrt(n) {
 
 doc:add("function", "sqrt(n)", "Calculate the square root of `n`.");
 
-export function shift_left(a, b) {
-    return toint(a * 2 ** b);
+export let shl = _math.shl;
+
+doc:add("function", "shl(a, b)", "Shift `a` to the left by `b` bits.");
+
+export let shr = _math.shr;
+
+doc:add("function", "shr(a, b)", "Shift `a` to the right by `b` bits.");
+
+export function ceil(n) {
+    if (n > toint(n)) {
+        return toint(n) + 1;
+    }
+    return toint(n);
 }
 
-doc:add("function", "shift_left(a, b)", "Shift `a` to the left by `b` bits.");
+doc:add("function", "ceil(n)", "Round `n` up to the next integer value.");
 
-export function shift_right(a, b) {
-    return toint(a / 2 ** b);
-}
+export let floor = toint;
 
-doc:add("function", "shift_right(a, b)", "Shift `a` to the right by `b` bits.");
+doc:add("function", "floor(n)", "Round `n` down to the previous integer value.");
