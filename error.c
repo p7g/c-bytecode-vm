@@ -78,7 +78,7 @@ void cb_traceback_print(FILE *f, struct cb_traceback *tb)
 	const cb_modspec *spec;
 
 	if (tb->frame.is_function) {
-		char *buf;
+		cb_str buf;
 
 		func = tb->func.val.as_function;
 		fputs("\tin ", f);
@@ -86,17 +86,19 @@ void cb_traceback_print(FILE *f, struct cb_traceback *tb)
 		if (func->type == CB_FUNCTION_USER) {
 			ufunc = &func->value.as_user;
 			spec = cb_agent_get_modspec(ufunc->module_id);
-			fprintf(f, "%s.", cb_strptr(cb_agent_get_string(
-						cb_modspec_name(spec))));
+			cb_str modname = cb_agent_get_string(
+					cb_modspec_name(spec));
+			fprintf(f, "%s.", cb_strptr(&modname));
 		}
 		buf = cb_value_to_string(&tb->func);
-		fprintf(f, "%s\n", buf);
-		free(buf);
+		fprintf(f, "%s\n", cb_strptr(&buf));
+		cb_str_free(buf);
 	} else {
 		const char *buf;
 
 		spec = tb->frame.module->spec;
-		buf = cb_strptr(cb_agent_get_string(cb_modspec_name(spec)));
+		cb_str modname = cb_agent_get_string(cb_modspec_name(spec));
+		buf = cb_strptr(&modname);
 		fprintf(f, "\tin module %s\n", buf);
 	}
 }

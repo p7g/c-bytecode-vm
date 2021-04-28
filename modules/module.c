@@ -30,12 +30,12 @@ static int get_exports(size_t argc, struct cb_value *argv,
 	size_t i, num_exports;
 
 	modname = CB_EXPECT_STRING(argv[0]);
-	id = cb_agent_get_string_id(cb_strptr(modname), cb_strlen(modname));
+	id = cb_agent_get_string_id(cb_strptr(&modname), cb_strlen(modname));
 
 	spec = cb_agent_get_modspec_by_name(id);
 	if (!spec) {
 		cb_error_set(cb_value_from_fmt("exports: No module '%s'",
-				cb_strptr(modname)));
+				cb_strptr(&modname)));
 		return 1;
 	}
 
@@ -63,22 +63,22 @@ static int get_export(size_t argc, struct cb_value *argv,
 
 	modname = CB_EXPECT_STRING(argv[0]);
 	export_name = CB_EXPECT_STRING(argv[1]);
-	modname_id = cb_agent_get_string_id(cb_strptr(modname),
+	modname_id = cb_agent_get_string_id(cb_strptr(&modname),
 			cb_strlen(modname));
 
 	spec = cb_agent_get_modspec_by_name(modname_id);
 	if (!spec) {
 		cb_error_set(cb_value_from_fmt("exports: No module '%s'",
-				cb_strptr(modname)));
+				cb_strptr(&modname)));
 		return 1;
 	}
 
-	export_name_id = cb_agent_get_string_id(cb_strptr(export_name),
+	export_name_id = cb_agent_get_string_id(cb_strptr(&export_name),
 			cb_strlen(export_name));
 	if (export_name_id == -1) {
 		cb_error_set(cb_value_from_fmt(
 				"get: Module '%s' has no export '%s'",
-				cb_strptr(modname), cb_strptr(export_name)));
+				cb_strptr(&modname), cb_strptr(&export_name)));
 		return 1;
 	}
 
@@ -87,7 +87,7 @@ static int get_export(size_t argc, struct cb_value *argv,
 	if (!val) {
 		cb_error_set(cb_value_from_fmt(
 				"get: Module '%s' has no export '%s'",
-				cb_strptr(modname), cb_strptr(export_name)));
+				cb_strptr(&modname), cb_strptr(&export_name)));
 		return 1;
 	}
 

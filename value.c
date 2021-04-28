@@ -43,10 +43,10 @@ static void adjust_refcount(struct cb_value *value, int amount)
 	}
 
 	if (cb_options.debug_gc) {
-		char *as_str = cb_value_to_string(value);
+		cb_str as_str = cb_value_to_string(value);
 		printf("GC: adjusted refcount by %d for object at %p: %s\n",
-				amount, header, as_str);
-		free(as_str);
+				amount, header, cb_strptr(&as_str));
+		cb_str_free(as_str);
 	}
 
 	cb_gc_adjust_refcount(header, amount);
@@ -228,57 +228,51 @@ void repr_leave(cb_gc_header *obj)
 	}
 }
 
-char *cb_value_to_string(struct cb_value *val)
+cb_str cb_value_to_string(struct cb_value *val)
 {
 	size_t len;
-	char *buf;
+	cb_str buf;
 
 	switch (val->type) {
 	case CB_VALUE_INT:
 		len = snprintf(NULL, 0, "%" PRIdPTR, val->val.as_int);
-		buf = malloc(len + 1);
-		snprintf(buf, len + 1, "%" PRIdPTR, val->val.as_int);
-		buf[len] = 0;
+		cb_str_init(&buf, len);
+		snprintf(cb_strptr(&buf), len + 1, "%" PRIdPTR, val->val.as_int);
 		break;
 
 	case CB_VALUE_DOUBLE:
 		len = snprintf(NULL, 0, "%g", val->val.as_double);
-		buf = malloc(len + 1);
-		snprintf(buf, len + 1, "%g", val->val.as_double);
-		buf[len] = 0;
+		cb_str_init(&buf, len);
+		snprintf(cb_strptr(&buf), len + 1, "%g", val->val.as_double);
 		break;
 
 	case CB_VALUE_BOOL:
 		if (val->val.as_bool) {
 			len = sizeof("true") - 1;
-			buf = malloc(len + 1);
-			sprintf(buf, "true");
-			buf[len] = 0;
+			cb_str_init(&buf, len);
+			sprintf(cb_strptr(&buf), "true");
 		} else {
 			len = sizeof("false") - 1;
-			buf = malloc(len + 1);
-			sprintf(buf, "false");
-			buf[len] = 0;
+			cb_str_init(&buf, len);
+			sprintf(cb_strptr(&buf), "false");
 		}
 		break;
 
 	case CB_VALUE_NULL:
 		len = 4;
-		buf = malloc(5);
-		sprintf(buf, "null");
-		buf[len] = 0;
+		cb_str_init(&buf, len);
+		sprintf(cb_strptr(&buf), "null");
 		break;
 
 	case CB_VALUE_CHAR:
-		buf = malloc(2);
+		cb_str_init(&buf, 1);
 		/* FIXME: unicode */
-		buf[0] = val->val.as_char & 0xFF;
-		buf[1] = 0;
+		cb_strptr(&buf)[0] = val->val.as_char & 0xFF;
+		cb_strptr(&buf)[1] = 0;
 		break;
 
 	case CB_VALUE_STRING:
-		buf = cb_strdup_cstr(val->val.as_string->string);
-		buf[cb_strlen(val->val.as_string->string)] = 0;
+		buf = cb_strdup(val->val.as_string->string);
 		break;
 
 	case CB_VALUE_BYTES: {
@@ -291,8 +285,8 @@ char *cb_value_to_string(struct cb_value *val)
 		len = 4 + (blen - 1) * 2;
 		for (i = 0; i < blen; i += 1)
 			len += snprintf(NULL, 0, "%d", cb_bytes_get(bs, i));
-		ptr = buf = malloc(len + 1);
-		buf[len] = 0;
+		cb_str_init(&buf, len);
+		ptr = cb_strptr(&buf);
 		*ptr++ = '<';
 		*ptr++ = '<';
 		for (i = 0; i < blen; i += 1) {
@@ -308,7 +302,7 @@ char *cb_value_to_string(struct cb_value *val)
 	}
 
 	case CB_VALUE_INTERNED_STRING:
-		buf = cb_strdup_cstr(cb_agent_get_string(
+		buf = cb_strdup(cb_agent_get_string(
 					val->val.as_interned_string));
 		break;
 
@@ -319,17 +313,16 @@ char *cb_value_to_string(struct cb_value *val)
 			s = cb_agent_get_string(name);
 			len = cb_strlen(s);
 			len += sizeof("<function >"); /* includes NUL byte */
-			buf = malloc(len);
-			sprintf(buf, "<function ");
-			memcpy(buf + sizeof("<function ") - 1, cb_strptr(s),
-					cb_strlen(s));
-			buf[len - 2] = '>';
-			buf[len - 1] = 0;
+			cb_str_init(&buf, len);
+			sprintf(cb_strptr(&buf), "<function ");
+			memcpy(cb_strptr(&buf) + sizeof("<function ") - 1,
+					cb_strptr(&s), cb_strlen(s));
+			cb_strptr(&buf)[len - 2] = '>';
+			cb_strptr(&buf)[len - 1] = 0;
 		} else {
 			len = sizeof("<function <anonymous>>") - 1;
-			buf = malloc(len + 1);
-			sprintf(buf, "<function <anonymous>>");
-			buf[len] = 0;
+			cb_str_init(&buf, len);
+			sprintf(cb_strptr(&buf), "<function <anonymous>>");
 		}
 		break;
 	}
@@ -337,14 +330,12 @@ char *cb_value_to_string(struct cb_value *val)
 	case CB_VALUE_ARRAY: {
 		char *ptr;
 		size_t array_len = val->val.as_array->len;
-		size_t element_lens[array_len];
-		char *elements[array_len];
+		cb_str elements[array_len];
 
 		if (repr_enter(&val->val.as_array->gc_header)) {
 			len = sizeof("[...]") - 1;
-			buf = malloc(len + 1);
-			buf[len] = 0;
-			memcpy(buf, "[...]", len);
+			cb_str_init(&buf, len);
+			memcpy(cb_strptr(&buf), "[...]", len);
 			break;
 		}
 
@@ -352,24 +343,25 @@ char *cb_value_to_string(struct cb_value *val)
 		for (int i = 0; i < array_len; i += 1) {
 			elements[i] = cb_value_to_string(
 					&val->val.as_array->values[i]);
-			len += element_lens[i] = strlen(elements[i]);
+			len += cb_strlen(elements[i]);
 			if (i != 0)
 				len += 2; /* comma space */
 		}
-		ptr = buf = malloc(len + 1);
-		buf[len] = 0;
+		cb_str_init(&buf, len);
+		ptr = cb_strptr(&buf);
 		*ptr++ = '[';
 		for (int i = 0; i < array_len; i += 1) {
-			memcpy(ptr, elements[i], element_lens[i]);
-			free(elements[i]);
-			ptr += element_lens[i];
+			memcpy(ptr, cb_strptr(&elements[i]),
+					cb_strlen(elements[i]));
+			cb_str_free(elements[i]);
+			ptr += cb_strlen(elements[i]);
 			if (i + 1 < array_len) {
 				*ptr++ = ',';
 				*ptr++ = ' ';
 			}
 		}
 		*ptr++ = ']';
-		assert(ptr == buf + len);
+		assert(ptr == cb_strptr(&buf) + len);
 		repr_leave(&val->val.as_array->gc_header);
 		break;
 	}
@@ -378,8 +370,7 @@ char *cb_value_to_string(struct cb_value *val)
 		char *ptr;
 		struct cb_struct *s = val->val.as_struct;
 		size_t struct_len = s->spec->nfields;
-		size_t element_lens[struct_len];
-		char *elements[struct_len];
+		cb_str elements[struct_len];
 		const char *name;
 		size_t name_len;
 		if (s->spec->name == -1) {
@@ -387,23 +378,23 @@ char *cb_value_to_string(struct cb_value *val)
 			name_len = sizeof("<anonymous>") - 1;
 		} else {
 			cb_str n = cb_agent_get_string(s->spec->name);
-			name = cb_strptr(n);
+			name = cb_strptr(&n);
 			name_len = cb_strlen(n);
 		}
 		len = name_len + 2;
 
 		if (repr_enter(&val->val.as_struct->gc_header)) {
 			len += 3;  /* for "..." */
-			buf = malloc(len + 1);
-			buf[len] = 0;
-			memcpy(buf, name, name_len);
-			memcpy(buf + name_len, "{...}", 5);
+			cb_str_init(&buf, len);
+			ptr = cb_strptr(&buf);
+			memcpy(ptr, name, name_len);
+			memcpy(ptr + name_len, "{...}", 5);
 			break;
 		}
 
 		for (int i = 0; i < struct_len; i += 1) {
 			elements[i] = cb_value_to_string(&s->fields[i]);
-			len += element_lens[i] = strlen(elements[i]);
+			len += cb_strlen(elements[i]);
 			len += cb_strlen(cb_agent_get_string(
 						s->spec->fields[i]));
 			len += 3; /* space equal space */
@@ -411,28 +402,29 @@ char *cb_value_to_string(struct cb_value *val)
 				len += 2;
 		}
 
-		ptr = buf = malloc(len + 1);
-		buf[len] = 0;
-		memcpy(buf, name, name_len);
+		cb_str_init(&buf, len);
+		ptr = cb_strptr(&buf);
+		memcpy(ptr, name, name_len);
 		ptr += name_len;
 		*ptr++ = '{';
 		for (int i = 0; i < struct_len; i += 1) {
 			cb_str fname = cb_agent_get_string(
 					s->spec->fields[i]);
-			memcpy(ptr, cb_strptr(fname), cb_strlen(fname));
+			memcpy(ptr, cb_strptr(&fname), cb_strlen(fname));
 			ptr += cb_strlen(fname);
 			memcpy(ptr, " = ", 3);
 			ptr += 3;
-			memcpy(ptr, elements[i], element_lens[i]);
-			free(elements[i]);
-			ptr += element_lens[i];
+			memcpy(ptr, cb_strptr(&elements[i]),
+					cb_strlen(elements[i]));
+			cb_str_free(elements[i]);
+			ptr += cb_strlen(elements[i]);
 			if (i + 1 < struct_len) {
 				*ptr++ = ',';
 				*ptr++ = ' ';
 			}
 		}
 		*ptr++ = '}';
-		assert(ptr == buf + len);
+		assert(ptr == cb_strptr(&buf) + len);
 		repr_leave(&val->val.as_struct->gc_header);
 		break;
 	}
@@ -447,26 +439,25 @@ char *cb_value_to_string(struct cb_value *val)
 			name_len = sizeof("<anonymous>") - 1;
 		} else {
 			cb_str n = cb_agent_get_string(name_id);
-			name = cb_strptr(n);
+			name = cb_strptr(&n);
 			name_len = cb_strlen(n);
 		}
 		len = name_len + sizeof("<struct >") - 1;
-		ptr = buf = malloc(len + 1);
-		buf[len] = 0;
+		cb_str_init(&buf, len);
+		ptr = cb_strptr(&buf);
 		memcpy(ptr, "<struct ", 8);
 		ptr += 8;
 		memcpy(ptr, name, name_len);
 		ptr += name_len;
 		*ptr++ = '>';
-		assert(ptr == buf + len);
+		assert(ptr == cb_strptr(&buf) + len);
 		break;
 	}
 
 	case CB_VALUE_USERDATA: {
-		size_t size = sizeof("<userdata>");
-		buf = malloc(size);
-		buf[size - 1] = 0;
-		memcpy(buf, "<userdata>", size - 1);
+		size_t size = sizeof("<userdata>") - 1;
+		cb_str_init(&buf, size);
+		memcpy(cb_strptr(&buf), "<userdata>", size);
 		break;
 	}
 
@@ -484,14 +475,14 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 	if (a == b)
 		return 1;
 	if (a->type == CB_VALUE_INTERNED_STRING && b->type == CB_VALUE_STRING) {
-		return !strcmp(cb_strptr(b->val.as_string->string),
-				cb_strptr(cb_agent_get_string(
-						a->val.as_interned_string)));
+		cb_str str = cb_agent_get_string(a->val.as_interned_string);
+		return !strcmp(cb_strptr(&b->val.as_string->string),
+				cb_strptr(&str));
 	} else if (b->type == CB_VALUE_INTERNED_STRING
 			&& a->type == CB_VALUE_STRING) {
-		return !strcmp(cb_strptr(a->val.as_string->string),
-				cb_strptr(cb_agent_get_string(
-						b->val.as_interned_string)));
+		cb_str str = cb_agent_get_string(b->val.as_interned_string);
+		return !strcmp(cb_strptr(&a->val.as_string->string),
+				cb_strptr(&str));
 	}
 	if (a->type != b->type)
 		return 0;
@@ -522,8 +513,8 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		return 1;
 	}
 	case CB_VALUE_STRING:
-		return !strcmp(cb_strptr(a->val.as_string->string),
-				cb_strptr(b->val.as_string->string));
+		return !strcmp(cb_strptr(&a->val.as_string->string),
+				cb_strptr(&b->val.as_string->string));
 	case CB_VALUE_BYTES: {
 		struct cb_bytes *bytes_a, *bytes_b;
 		bytes_a = a->val.as_bytes;
@@ -718,10 +709,11 @@ void cb_value_mark(struct cb_value *val)
 {
 #define GC_LOG(F) ({ \
 		if (cb_options.debug_gc) { \
-			char *as_str = cb_value_to_string(val); \
+			cb_str as_str = cb_value_to_string(val); \
 			printf("GC: marked value at %p: %s\n", \
-					(cb_gc_header *) (F), as_str); \
-			free(as_str); \
+					(cb_gc_header *) (F), \
+					cb_strptr(&as_str)); \
+			cb_str_free(as_str); \
 		} \
 	})
 

@@ -1663,7 +1663,7 @@ static int compile_import_statement(struct cstate *state)
 		free(filename);
 		if (!f)
 			goto error;
-		X(compile_file(state, modname, cb_strptr(modsrc), f, 0));
+		X(compile_file(state, modname, cb_strptr(&modsrc), f, 0));
 		assert(state->modspec && "Missing modspec while compiling");
 		APPEND(OP_ENTER_MODULE);
 		APPEND_SIZE_T(cb_modspec_id(state->modspec));
@@ -1918,6 +1918,7 @@ static int compile_identifier_expression(struct cstate *state)
 	size_t name;
 	int ok;
 	cb_modspec *module;
+	cb_str modname;
 
 	tok = EXPECT(TOK_IDENT);
 	name = intern_ident(state, &tok);
@@ -1928,29 +1929,28 @@ static int compile_identifier_expression(struct cstate *state)
 		APPEND(OP_LOAD_FROM_MODULE);
 		module = cb_agent_get_modspec_by_name(name);
 		if (!module) {
+			modname = cb_agent_get_string(
+					intern_ident(state, &tok));
 			ERROR_AT(tok, "No such module %s\n",
-					cb_strptr(cb_agent_get_string(
-							intern_ident(state,
-								&tok))));
+					cb_strptr(&modname));
 			return 1;
 		} else if (!cb_hashmap_get(state->imported, name)) {
+			modname = cb_agent_get_string(
+					intern_ident(state, &tok));
 			ERROR_AT(tok, "Missing import for module %s\n",
-					cb_strptr(cb_agent_get_string(
-							intern_ident(state,
-								&tok))));
+					cb_strptr(&modname));
 			return 1;
 		}
 		APPEND_SIZE_T(cb_modspec_id(module));
 		APPEND_SIZE_T(cb_modspec_get_export_id(module,
 					intern_ident(state, &export), &ok));
 		if (!ok) {
+			modname = cb_agent_get_string(cb_modspec_name(module));
+			cb_str export_name = cb_agent_get_string(
+					intern_ident(state, &export));
 			ERROR_AT(export, "Module %s has no export %s",
-					cb_strptr(cb_agent_get_string(
-							cb_modspec_name(
-								module))),
-					cb_strptr(cb_agent_get_string(
-							intern_ident(state,
-								&export))));
+					cb_strptr(&modname),
+					cb_strptr(&export_name));
 			return 1;
 		}
 		return 0;
@@ -2623,7 +2623,7 @@ int cb_compile_module(cb_bytecode *bc, cb_str name, FILE *f, const char *path)
 	struct cstate state = cstate_default(0);
 
 	state.bytecode = bc;
-	name_id = cb_agent_intern_string(cb_strptr(name), cb_strlen(name));
+	name_id = cb_agent_intern_string(cb_strptr(&name), cb_strlen(name));
 	result = compile_file(&state, name_id, path, f, 1);
 
 	cstate_free(state);

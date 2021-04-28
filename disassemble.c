@@ -40,6 +40,7 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	cb_instruction op;
 	size_t len = cb_bytecode_len(bytecode);
 	size_t offset = 0;
+	cb_str tmp_str;
 
 #define NEXT() ({ \
 		if (pc + offset >= len) { \
@@ -122,9 +123,8 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	case OP_LOAD_STRUCT:
 	case OP_STORE_STRUCT:
 	case OP_ADD_STRUCT_FIELD:
-		printf("%s(\"%s\")\n", cb_opcode_name(op),
-				cb_strptr(cb_agent_get_string(
-						NEXT_USIZE())));
+		tmp_str = cb_agent_get_string(NEXT_USIZE());
+		printf("%s(\"%s\")\n", cb_opcode_name(op), cb_strptr(&tmp_str));
 		return WITH_ARGS(1);
 
 	case OP_NEW_FUNCTION: {
@@ -133,10 +133,11 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 		arg2 = NEXT_USIZE();
 		arg3 = NEXT_USIZE();
 		nopt = NEXT_USIZE();
+		tmp_str = cb_agent_get_string(arg1);
 		printf("%s(\"%s\", %zu, %zu, %zu", cb_opcode_name(op),
 				(arg1 == (size_t) -1)
 				? "<anonymous>"
-				: cb_strptr(cb_agent_get_string(arg1)),
+				: cb_strptr(&tmp_str),
 				arg2, arg3, nopt);
 		if (nopt > 0) {
 			tmp = nopt;
@@ -160,12 +161,12 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 		size_t name_id, nfields, field_name, i;
 		name_id = NEXT_USIZE();
 		nfields = NEXT_USIZE();
-		printf("%s(\"%s\"", cb_opcode_name(op),
-				cb_strptr(cb_agent_get_string(name_id)));
+		tmp_str = cb_agent_get_string(name_id);
+		printf("%s(\"%s\"", cb_opcode_name(op), cb_strptr(&tmp_str));
 		for (i = 0; i < nfields; i += 1) {
 			field_name = NEXT_USIZE();
-			printf(", \"%s\"", cb_strptr(
-					cb_agent_get_string(field_name)));
+			tmp_str = cb_agent_get_string(field_name);
+			printf(", \"%s\"", cb_strptr(&tmp_str));
 		}
 		puts(")");
 		return WITH_ARGS(nfields + 2);

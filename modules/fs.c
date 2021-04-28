@@ -39,7 +39,7 @@ static int wrapped_opendir(size_t argc, struct cb_value *argv,
 	struct cb_userdata *dirval;
 
 	name = CB_EXPECT_STRING(argv[0]);
-	dir = opendir(cb_strptr(name));
+	dir = opendir(cb_strptr(&name));
 
 	if (!dir) {
 		result->type = CB_VALUE_NULL;
@@ -162,7 +162,7 @@ static int wrapped_stat(size_t argc, struct cb_value *argv,
 	struct stat s;
 
 	filename = CB_EXPECT_STRING(argv[0]);
-	if (stat(cb_strptr(filename), &s)) {
+	if (stat(cb_strptr(&filename), &s)) {
 		result->type = CB_VALUE_NULL;
 	} else {
 		result->type = CB_VALUE_STRUCT;
@@ -190,7 +190,7 @@ static int wrapped_fopen(size_t argc, struct cb_value *argv,
 	fname = CB_EXPECT_STRING(argv[0]);
 	mode = CB_EXPECT_STRING(argv[1]);
 
-	f = fopen(cb_strptr(fname), cb_strptr(mode));
+	f = fopen(cb_strptr(&fname), cb_strptr(&mode));
 	if (!f) {
 		result->type = CB_VALUE_NULL;
 	} else {

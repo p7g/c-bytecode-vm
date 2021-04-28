@@ -21,7 +21,7 @@ static int panic(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 	msg = CB_EXPECT_STRING(argv[0]);
 	cb_error_set(cb_value_from_fmt("%.*s", (int) cb_strlen(msg),
-				cb_strptr(msg)));
+				cb_strptr(&msg)));
 	return 1;
 }
 

@@ -116,9 +116,9 @@ static void mark(void)
 			mod = &cb_vm_state.modules[i];
 			if (!mod || !mod->spec)
 				continue;
-			DEBUG_LOG("marking %s global scope", cb_strptr(
-					cb_agent_get_string(cb_modspec_name(
-						mod->spec))));
+			cb_str name = cb_agent_get_string(cb_modspec_name(
+						mod->spec));
+			DEBUG_LOG("marking %s global scope", cb_strptr(&name));
 			cb_hashmap_mark_contents(mod->global_scope);
 		}
 	}

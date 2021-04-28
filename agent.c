@@ -225,7 +225,7 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 		if (path[MAX_IMPORT_PATH_LEN - 1] != 0) { \
 			fprintf(stderr, "Import path for '%.*s' is too long\n", \
 					(int) cb_strlen(import_name), \
-					cb_strptr(import_name)); \
+					cb_strptr(&import_name)); \
 			return NULL; \
 		} \
 	})
@@ -246,7 +246,7 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 		j = strlen(path);
 		assert(j + 1 < MAX_IMPORT_PATH_LEN);
 		path[j++] = '/';
-		strncpy(path + j, cb_strptr(import_name), min(
+		strncpy(path + j, cb_strptr(&import_name), min(
 				MAX_IMPORT_PATH_LEN - j,
 				cb_strlen(import_name)));
 		CHECK_LEN;
@@ -264,7 +264,7 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 
 	fprintf(stderr, "Import '%.*s' not found, checked in: ",
 			(int) cb_strlen(import_name),
-			cb_strptr(import_name));
+			cb_strptr(&import_name));
 	for (i = -1; i < MAX_IMPORT_PATHS && (i == -1 || agent.import_paths[i]);
 			i += 1) {
 		if (i == -1 && !pwd)

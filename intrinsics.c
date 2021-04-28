@@ -60,15 +60,15 @@ void make_intrinsics(cb_hashmap *scope)
 static int print(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	int i, first;
-	char *as_string;
+	cb_str as_string;
 
 	first = 1;
 	for (i = 0; i < argc; i += 1) {
 		as_string = cb_value_to_string(&argv[i]);
-		printf("%s%s", first ? "" : " ", as_string);
+		printf("%s%s", first ? "" : " ", cb_strptr(&as_string));
 		if (first)
 			first = 0;
-		free(as_string);
+		cb_str_free(as_string);
 	}
 
 	/* hack to flush only if this isn't called by println */
@@ -92,14 +92,13 @@ static int println(size_t argc, struct cb_value *argv, struct cb_value *result)
 static int tostring(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
-	char *as_string;
+	cb_str as_string;
 
 	as_string = cb_value_to_string(&argv[0]);
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
-	result->val.as_string->string.chars = as_string;
-	result->val.as_string->string.len = strlen(as_string);
+	result->val.as_string->string = as_string;
 
 	return 0;
 }
@@ -114,10 +113,7 @@ static int type_of(size_t argc, struct cb_value *argv, struct cb_value *result)
 		.val.as_string = cb_string_new(),
 	};
 
-	result->val.as_string->string = (struct cb_str) {
-		.chars = strdup(type),
-		.len = strlen(type),
-	};
+	result->val.as_string->string = cb_str_from_cstr(type, strlen(type));
 
 	return 0;
 }
@@ -172,8 +168,7 @@ static int string_from_chars(size_t argc, struct cb_value *argv,
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
-	result->val.as_string->string.len = len;
-	result->val.as_string->string.chars = str;
+	result->val.as_string->string = cb_str_take_cstr(str, len);
 
 	return 0;
 }
@@ -189,7 +184,7 @@ static int string_bytes(size_t argc, struct cb_value *argv,
 	len = cb_strlen(str);
 	*result = cb_bytes_new_value(len);
 
-	memcpy(cb_bytes_ptr(result->val.as_bytes), cb_strptr(str), len);
+	memcpy(cb_bytes_ptr(result->val.as_bytes), cb_strptr(&str), len);
 
 	return 0;
 }
@@ -212,7 +207,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 
 	for (int i = 0; i < argc; i += 1) {
 		str = CB_EXPECT_STRING(argv[i]);
-		memcpy(buf + offset, cb_strptr(str), cb_strlen(str));
+		memcpy(buf + offset, cb_strptr(&str), cb_strlen(str));
 		offset += cb_strlen(str);
 	}
 
@@ -220,10 +215,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
-	result->val.as_string->string = (struct cb_str) {
-		.len = len,
-		.chars = buf,
-	};
+	result->val.as_string->string = cb_str_take_cstr(buf, len);
 
 	return 0;
 }
@@ -280,7 +272,7 @@ static int read_file(size_t argc, struct cb_value *argv,
 
 	str = CB_EXPECT_STRING(argv[0]);
 
-	f = fopen(cb_strptr(str), "r");
+	f = fopen(cb_strptr(&str), "r");
 	if (!f) {
 		perror("read_file");
 		return 1;
@@ -306,10 +298,7 @@ static int read_file(size_t argc, struct cb_value *argv,
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
-	result->val.as_string->string = (struct cb_str) {
-		.len = len,
-		.chars = buf,
-	};
+	result->val.as_string->string = cb_str_take_cstr(buf, len);
 
 	return 0;
 }
@@ -325,7 +314,7 @@ static int read_file_bytes(size_t argc, struct cb_value *argv,
 
 	str = CB_EXPECT_STRING(argv[0]);
 
-	f = fopen(cb_strptr(str), "rb");
+	f = fopen(cb_strptr(&str), "rb");
 	if (!f) {
 		perror("fopen");
 		return 1;
@@ -384,10 +373,8 @@ static int argv(size_t argc, struct cb_value *argv_, struct cb_value *result)
 		current = &result->val.as_array->values[i];
 		current->type = CB_VALUE_STRING;
 		current->val.as_string = cb_string_new();
-		current->val.as_string->string = (struct cb_str) {
-			.len = strlen(_argv[i]),
-			.chars = strdup(_argv[i]),
-		};
+		current->val.as_string->string = cb_str_from_cstr(_argv[i],
+				strlen(_argv[i]));
 	}
 
 	return 0;

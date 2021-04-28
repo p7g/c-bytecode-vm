@@ -38,7 +38,7 @@ static int wrapped_perror(size_t argc, struct cb_value *argv,
 	cb_str msg;
 
 	msg = CB_EXPECT_STRING(argv[0]);
-	perror(cb_strptr(msg));
+	perror(cb_strptr(&msg));
 	result->type = CB_VALUE_NULL;
 	return 0;
 }

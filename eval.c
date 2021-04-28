@@ -159,16 +159,25 @@ int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame)
 {
 	size_t _name;
-	printf("%s%s%s\n", frame->module
-			? cb_strptr(cb_agent_get_string(
-					cb_modspec_name(frame->module->spec)))
-			: "script",
-			!frame->is_function ? " " : ".",
-			!frame->is_function ? "top"
-			: (_name = cb_vm_state.stack[frame->bp]
-				.val.as_function->name) != -1
-			? cb_strptr(cb_agent_get_string(_name))
-			: "<anonymous>");
+	cb_str modname_str, funcname_str;
+	char *modname = "script";
+	char *funcname = "<anonymous>";
+
+	if (frame->module) {
+		modname_str = cb_agent_get_string(cb_modspec_name(
+					frame->module->spec));
+		modname = cb_strptr(&modname_str);
+	}
+
+	if (!frame->is_function) {
+		funcname = "top";
+	} else if ((_name = cb_vm_state.stack[frame->bp]
+				.val.as_function->name) != -1) {
+		funcname_str = cb_agent_get_string(_name);
+		funcname = cb_strptr(&funcname_str);
+	}
+
+	printf("%s%s%s\n", modname, !frame->is_function ? " " : ".", funcname);
 	printf("pc: %zu, bp: %zu, sp: %zu\n", pc, frame->bp, cb_vm_state.sp);
 	cb_disassemble_one(bytecode, pc);
 	printf("> %s", cb_vm_state.sp ? cb_vm_state.sp > 10
@@ -182,9 +191,9 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 			_first = 0;
 		else
 			printf(", ");
-		char *_str = cb_value_to_string(&cb_vm_state.stack[_idx]);
-		printf("%s", _str);
-		free(_str);
+		cb_str _str = cb_value_to_string(&cb_vm_state.stack[_idx]);
+		printf("%s", cb_strptr(&_str));
+		cb_str_free(_str);
 	}
 	printf("\n\n");
 }
@@ -249,9 +258,9 @@ end:
 		struct cb_traceback *tb;
 		for (tb = cb_error_tb(); tb; tb = tb->next)
 			cb_traceback_print(stderr, tb);
-		char *as_str = cb_value_to_string(cb_error_value());
-		fprintf(stderr, "Uncaught error: %s\n", as_str);
-		free(as_str);
+		cb_str as_str = cb_value_to_string(cb_error_value());
+		fprintf(stderr, "Uncaught error: %s\n", cb_strptr(&as_str));
+		cb_str_free(as_str);
 		cb_error_recover();
 	}
 	return retval;
@@ -428,11 +437,13 @@ DO_OP_CALL: {
 
 	func = func_val.val.as_function;
 	name = func->name;
-	if (func->arity > num_args)
+	if (func->arity > num_args) {
+		cb_str s = cb_agent_get_string(name);
 		ERROR("Too few arguments to function '%s'\n",
 				func->name == (size_t) -1
 				? "<anonymous>"
-				: cb_strptr(cb_agent_get_string(name)));
+				: cb_strptr(&s));
+	}
 	if (func->type == CB_FUNCTION_NATIVE) {
 		failed = func->value.as_native(num_args,
 				&cb_vm_state.stack[cb_vm_state.sp - num_args],
@@ -505,9 +516,10 @@ DO_OP_LOAD_GLOBAL: {
 	id = READ_SIZE_T();
 	value = cb_hashmap_get(GLOBALS(), id);
 
-	if (value == NULL)
-		ERROR("Unbound global '%s'",
-				cb_strptr(cb_agent_get_string(id)));
+	if (value == NULL) {
+		cb_str s = cb_agent_get_string(id);
+		ERROR("Unbound global '%s'", cb_strptr(&s));
+	}
 
 	PUSH(*value);
 	DISPATCH();
@@ -931,9 +943,13 @@ DO_OP_LOAD_STRUCT: {
 	struct cb_struct *s = recv.val.as_struct;
 	struct cb_value *val = cb_struct_get_field(s, fname);
 	if (!val) {
+		cb_str fname_str, specname_str;
+
+		fname_str = cb_agent_get_string(fname);
+		specname_str = cb_agent_get_string(s->spec->name);
 		ERROR("No such field '%s' on struct '%s'",
-				cb_strptr(cb_agent_get_string(fname)),
-				cb_strptr(cb_agent_get_string(s->spec->name)));
+				cb_strptr(&fname_str),
+				cb_strptr(&specname_str));
 	}
 	PUSH(*val);
 	DISPATCH();
@@ -948,9 +964,12 @@ DO_OP_LOAD_STRUCT: {
 				cb_value_type_friendly_name(recv.type)); \
 	struct cb_struct *s = recv.val.as_struct; \
 	if (cb_struct_set_field(s, fname, val)) { \
+		cb_str _fname_str, _specname_str; \
+		_fname_str = cb_agent_get_string(fname); \
+		_specname_str = cb_agent_get_string(s->spec->name); \
 		ERROR("No such field '%s' on struct '%s'", \
-				cb_strptr(cb_agent_get_string(fname)), \
-				cb_strptr(cb_agent_get_string(s->spec->name))); \
+				cb_strptr(&_fname_str), \
+				cb_strptr(&_specname_str)); \
 	} \
 	RET; \
 	})

@@ -107,7 +107,7 @@ struct cb_array {
 
 int cb_value_eq(struct cb_value *a, struct cb_value *b);
 double cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok);
-char *cb_value_to_string(struct cb_value *val);
+cb_str cb_value_to_string(struct cb_value *val);
 int cb_value_is_truthy(struct cb_value *val);
 void cb_function_add_upvalue(struct cb_user_function *fn,
 		struct cb_upvalue *uv);

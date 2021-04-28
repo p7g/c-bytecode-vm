@@ -33,13 +33,14 @@ static int make_struct_spec(size_t argc, struct cb_value *argv,
 
 	result->type = CB_VALUE_STRUCT_SPEC;
 	result->val.as_struct_spec = cb_struct_spec_new(
-			cb_agent_intern_string(cb_strptr(name), cb_strlen(name)),
+			cb_agent_intern_string(cb_strptr(&name),
+				cb_strlen(name)),
 			argc - 1);
 
 	for (i = 1; i < argc; i += 1) {
 		name = CB_EXPECT_STRING(argv[i]);
 		cb_struct_spec_set_field_name(result->val.as_struct_spec, i - 1,
-				cb_agent_intern_string(cb_strptr(name),
+				cb_agent_intern_string(cb_strptr(&name),
 					cb_strlen(name)));
 	}
 
@@ -92,18 +93,18 @@ static int get_struct_field(size_t argc, struct cb_value *argv,
 {
 	cb_str fname;
 	struct cb_value *fvalue;
-	char *as_str;
+	cb_str as_str;
 
 	CB_EXPECT_TYPE(CB_VALUE_STRUCT, argv[0]);
 	fname = CB_EXPECT_STRING(argv[1]);
 	fvalue = cb_struct_get_field(argv[0].val.as_struct,
-			cb_agent_intern_string(cb_strptr(fname),
+			cb_agent_intern_string(cb_strptr(&fname),
 				cb_strlen(fname)));
 	if (fvalue == NULL) {
+		as_str = cb_value_to_string(&argv[0]);
 		cb_error_set(cb_value_from_fmt("Value '%s' has no field '%s'",
-				(as_str = cb_value_to_string(&argv[0])),
-				cb_strptr(fname)));
-		free(as_str);
+				cb_strptr(&as_str), cb_strptr(&fname)));
+		cb_str_free(as_str);
 		return 1;
 	}
 
@@ -115,19 +116,19 @@ static int set_struct_field(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	cb_str fname;
-	char *as_str;
+	cb_str as_str;
 	size_t fname_id;
 	int retval;
 
 	CB_EXPECT_TYPE(CB_VALUE_STRUCT, argv[0]);
 	fname = CB_EXPECT_STRING(argv[1]);
-	fname_id = cb_agent_intern_string(cb_strptr(fname), cb_strlen(fname));
+	fname_id = cb_agent_intern_string(cb_strptr(&fname), cb_strlen(fname));
 	retval = cb_struct_set_field(argv[0].val.as_struct, fname_id, argv[2]);
 	if (retval) {
+		as_str = cb_value_to_string(&argv[0]);
 		cb_error_set(cb_value_from_fmt("Value '%s' has no field '%s'",
-				(as_str = cb_value_to_string(&argv[0])),
-				cb_strptr(fname)));
-		free(as_str);
+				cb_strptr(&as_str), cb_strptr(&fname)));
+		cb_str_free(as_str);
 		return 1;
 	}
 
