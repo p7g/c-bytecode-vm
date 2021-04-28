@@ -9,6 +9,7 @@
 #include <time.h>
 
 #include "agent.h"
+#include "bytes.h"
 #include "builtin_modules.h"
 #include "error.h"
 #include "intrinsics.h"
@@ -227,7 +228,7 @@ static int wrapped_fread(size_t argc, struct cb_value *argv,
 	struct cb_value bufv, n, file;
 	struct cb_userdata *data;
 	FILE *f;
-	char *buf;
+	struct cb_bytes *buf;
 	size_t nread;
 	int fits_buf;
 
@@ -235,7 +236,7 @@ static int wrapped_fread(size_t argc, struct cb_value *argv,
 	n = argv[1];
 	file = argv[2];
 
-	CB_EXPECT_TYPE(CB_VALUE_STRING, bufv); /* not interned */
+	CB_EXPECT_TYPE(CB_VALUE_BYTES, bufv);
 	CB_EXPECT_TYPE(CB_VALUE_INT, n);
 	CB_EXPECT_TYPE(CB_VALUE_USERDATA, file);
 	if (n.val.as_int < 0) {
@@ -255,20 +256,15 @@ static int wrapped_fread(size_t argc, struct cb_value *argv,
 		return 1;
 	}
 
-	fits_buf = bufv.val.as_string->string.len >= n.val.as_int;
+	buf = bufv.val.as_bytes;
+	fits_buf = cb_bytes_len(buf) >= n.val.as_int;
 
-	if (fits_buf)
-		buf = bufv.val.as_string->string.chars;
-	else
-		buf = malloc(sizeof(char) * n.val.as_int);
-	nread = fread(buf, sizeof(char), n.val.as_int, f);
-
-	/* kinda sketchy */
 	if (!fits_buf) {
-		cb_str_free(bufv.val.as_string->string);
-		bufv.val.as_string->string.chars = buf;
+		cb_error_set(cb_value_from_string(
+				"fread: Buffer is too small to hold content"));
+		return 1;
 	}
-	bufv.val.as_string->string.len = nread;
+	nread = fread(buf->data, sizeof(char), n.val.as_int, f);
 
 	result->type = CB_VALUE_INT;
 	result->val.as_int = nread;
@@ -281,7 +277,7 @@ static int wrapped_fgets(size_t argc, struct cb_value *argv,
 	struct cb_value bufv, n, file;
 	struct cb_userdata *data;
 	FILE *f;
-	char *buf;
+	struct cb_bytes *buf;
 	size_t nread;
 	int fits_buf;
 
@@ -289,7 +285,7 @@ static int wrapped_fgets(size_t argc, struct cb_value *argv,
 	n = argv[1];
 	file = argv[2];
 
-	CB_EXPECT_TYPE(CB_VALUE_STRING, bufv); /* not interned */
+	CB_EXPECT_TYPE(CB_VALUE_BYTES, bufv);
 	CB_EXPECT_TYPE(CB_VALUE_INT, n);
 	CB_EXPECT_TYPE(CB_VALUE_USERDATA, file);
 	if (n.val.as_int < 0) {
@@ -309,23 +305,18 @@ static int wrapped_fgets(size_t argc, struct cb_value *argv,
 		return 1;
 	}
 
-	fits_buf = bufv.val.as_string->string.len >= n.val.as_int;
+	buf = bufv.val.as_bytes;
+	fits_buf = cb_bytes_len(buf) >= n.val.as_int;
 
-	if (fits_buf)
-		buf = bufv.val.as_string->string.chars;
-	else
-		buf = malloc(sizeof(char) * n.val.as_int);
-	if (NULL == fgets(buf, n.val.as_int, f)) {
-		if (!fits_buf)
-			free(buf);
+	if (!fits_buf) {
+		cb_error_set(cb_value_from_string(
+				"fgets: Buffer is too small to hold content"));
+		return 1;
+	}
+	if (NULL == fgets(cb_bytes_ptr(buf), n.val.as_int, f)) {
 		result->type = CB_VALUE_NULL;
 	} else {
-		nread = strlen(buf);
-		if (!fits_buf) {
-			cb_str_free(bufv.val.as_string->string);
-			bufv.val.as_string->string.chars = buf;
-		}
-		bufv.val.as_string->string.len = nread;
+		nread = strlen(cb_bytes_ptr(buf));
 
 		result->type = CB_VALUE_INT;
 		result->val.as_int = nread;

@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "agent.h"
+#include "bytes.h"
 #include "alloc.h"
 #include "cbcvm.h"
 #include "eval.h"
@@ -23,6 +24,9 @@ static void adjust_refcount(struct cb_value *value, int amount)
 		break;
 	case CB_VALUE_STRING:
 		header = &value->val.as_string->gc_header;
+		break;
+	case CB_VALUE_BYTES:
+		header = &value->val.as_bytes->gc_header;
 		break;
 	case CB_VALUE_FUNCTION:
 		header = &value->val.as_function->gc_header;
@@ -155,10 +159,12 @@ int cb_value_is_truthy(struct cb_value *val)
 	case CB_VALUE_CHAR:
 		return 1;
 	case CB_VALUE_STRING:
-		return val->val.as_string->string.len > 0;
+		return cb_strlen(val->val.as_string->string) > 0;
+	case CB_VALUE_BYTES:
+		return cb_bytes_len(val->val.as_bytes) > 0;
 	case CB_VALUE_INTERNED_STRING: {
 		cb_str s = cb_agent_get_string(val->val.as_interned_string);
-		return s.len > 0;
+		return cb_strlen(s) > 0;
 	}
 	case CB_VALUE_ARRAY:
 		return val->val.as_array->len > 0;
@@ -272,8 +278,34 @@ char *cb_value_to_string(struct cb_value *val)
 
 	case CB_VALUE_STRING:
 		buf = cb_strdup_cstr(val->val.as_string->string);
-		buf[val->val.as_string->string.len] = 0;
+		buf[cb_strlen(val->val.as_string->string)] = 0;
 		break;
+
+	case CB_VALUE_BYTES: {
+		char *ptr;
+		size_t i, blen;
+		struct cb_bytes *bs = val->val.as_bytes;
+
+		blen = cb_bytes_len(bs);
+		/* room for "<<>>" plus comma-space between each elem */
+		len = 4 + (blen - 1) * 2;
+		for (i = 0; i < blen; i += 1)
+			len += snprintf(NULL, 0, "%d", cb_bytes_get(bs, i));
+		ptr = buf = malloc(len + 1);
+		buf[len] = 0;
+		*ptr++ = '<';
+		*ptr++ = '<';
+		for (i = 0; i < blen; i += 1) {
+			ptr += sprintf(ptr, "%d", cb_bytes_get(bs, i));
+			if (i + 1 < blen) {
+				*ptr++ = ',';
+				*ptr++ = ' ';
+			}
+		}
+		*ptr++ = '>';
+		*ptr++ = '>';
+		break;
+	}
 
 	case CB_VALUE_INTERNED_STRING:
 		buf = cb_strdup_cstr(cb_agent_get_string(
@@ -492,6 +524,12 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 	case CB_VALUE_STRING:
 		return !strcmp(cb_strptr(a->val.as_string->string),
 				cb_strptr(b->val.as_string->string));
+	case CB_VALUE_BYTES: {
+		struct cb_bytes *bytes_a, *bytes_b;
+		bytes_a = a->val.as_bytes;
+		bytes_b = b->val.as_bytes;
+		return 0 == cb_bytes_cmp(bytes_a, bytes_b);
+	}
 	case CB_VALUE_FUNCTION:
 		if (a->val.as_function->type != b->val.as_function->type)
 			return 0;
@@ -601,6 +639,8 @@ const char *cb_value_type_friendly_name(enum cb_value_type typ)
 	case CB_VALUE_STRING:
 	case CB_VALUE_INTERNED_STRING:
 		return "string";
+	case CB_VALUE_BYTES:
+		return "bytes";
 	case CB_VALUE_CHAR:
 		return "char";
 	case CB_VALUE_ARRAY:
@@ -655,16 +695,19 @@ int cb_value_is_marked(const struct cb_value *val)
 		return 1;
 
 	case CB_VALUE_STRING:
-		return cb_gc_is_marked((cb_gc_header *) val->val.as_string);
+		return cb_gc_is_marked(&val->val.as_string->gc_header);
+
+	case CB_VALUE_BYTES:
+		return cb_gc_is_marked(&val->val.as_bytes->gc_header);
 
 	case CB_VALUE_ARRAY:
-		return cb_gc_is_marked((cb_gc_header *) val->val.as_array);
+		return cb_gc_is_marked(&val->val.as_array->gc_header);
 
 	case CB_VALUE_FUNCTION:
-		return cb_gc_is_marked((cb_gc_header *) val->val.as_function);
+		return cb_gc_is_marked(&val->val.as_function->gc_header);
 
 	case CB_VALUE_STRUCT:
-		return cb_gc_is_marked((cb_gc_header *) val->val.as_struct);
+		return cb_gc_is_marked(&val->val.as_struct->gc_header);
 
 	case CB_VALUE_STRUCT_SPEC:
 		return cb_gc_is_marked(&val->val.as_struct_spec->gc_header);
@@ -697,13 +740,18 @@ void cb_value_mark(struct cb_value *val)
 
 	case CB_VALUE_STRING:
 		GC_LOG(val->val.as_string);
-		cb_gc_mark((cb_gc_header *) val->val.as_string);
+		cb_gc_mark(&val->val.as_string->gc_header);
+		break;
+
+	case CB_VALUE_BYTES:
+		GC_LOG(val->val.as_bytes);
+		cb_gc_mark(&val->val.as_bytes->gc_header);
 		break;
 
 	case CB_VALUE_ARRAY: {
 		int i;
 		GC_LOG(val->val.as_array);
-		cb_gc_mark((cb_gc_header *) val->val.as_array);
+		cb_gc_mark(&val->val.as_array->gc_header);
 		for (i = 0; i < val->val.as_array->len; i += 1)
 			cb_gc_queue_mark(&val->val.as_array->values[i]);
 		break;
@@ -716,7 +764,7 @@ void cb_value_mark(struct cb_value *val)
 
 		fn = val->val.as_function;
 		GC_LOG(fn);
-		cb_gc_mark((cb_gc_header *) fn);
+		cb_gc_mark(&fn->gc_header);
 		if (fn->type == CB_FUNCTION_USER) {
 			for (i = 0; i < fn->value.as_user.upvalues_len; i += 1) {
 				uv = fn->value.as_user.upvalues[i];
@@ -730,7 +778,7 @@ void cb_value_mark(struct cb_value *val)
 	case CB_VALUE_STRUCT: {
 		int i;
 		GC_LOG(val->val.as_struct);
-		cb_gc_mark((cb_gc_header *) val->val.as_struct);
+		cb_gc_mark(&val->val.as_struct->gc_header);
 		cb_gc_mark(&val->val.as_struct->spec->gc_header);
 		for (i = 0; i < val->val.as_struct->spec->nfields; i += 1)
 			cb_gc_queue_mark(&val->val.as_struct->fields[i]);
@@ -801,4 +849,19 @@ struct cb_value cb_value_from_fmt(const char *fmt, ...)
 	struct cb_value ret = cb_value_from_string(str);
 	free(str);
 	return ret;
+}
+
+struct cb_bytes *cb_bytes_new(size_t size)
+{
+	return cb_malloc(sizeof(struct cb_bytes) + size, NULL);
+}
+
+struct cb_value cb_bytes_new_value(size_t size)
+{
+	struct cb_value val;
+
+	val.type = CB_VALUE_BYTES;
+	val.val.as_bytes = cb_bytes_new(size);
+
+	return val;
 }

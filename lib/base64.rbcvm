@@ -1,5 +1,6 @@
 import array;
 import arraylist;
+import bytes;
 import char;
 import docs;
 import inet;
@@ -9,19 +10,19 @@ import string;
 import sys;
 import test;
 
-let doc = docs:module("base64");
+let doc = docs.module("base64", "Base64 encoding and decoding functions.");
 let chars = string.chars("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
 let decode_table = array.new(256);
 
 export function encode_size(payload) {
-    let size = math.ceil(array.length(payload) * 4 / 3.0);
+    let size = math.ceil(bytes.length(payload) * 4 / 3.0);
     return size - size % 4 + 4;
 }
 
 doc:add(
     "function",
     "encode_size(payload)",
-    "Calculate the size of the base64 encoding of the array of ints `payload`.",
+    "Calculate the size of the base64 encoding of the byte array `payload`.",
 );
 
 export function decode_size(payload) {
@@ -83,10 +84,10 @@ function is_whitespace_or_padding(c) {
 export function decode(str) {
     init_decode_table();
 
-    let out = array.new(decode_size(str));
-    str = string.chars(string.strip(str, is_whitespace_or_padding));
+    let out = bytes.new(decode_size(str));
+    str = string.bytes(string.strip(str, is_whitespace_or_padding));
 
-    let size = array.length(str);
+    let size = bytes.length(str);
     let ends = size - 4;
     let i = 0, j = 0;
 
@@ -94,20 +95,22 @@ export function decode(str) {
     let shl = math.shl;
     let shr = math.shr;
     let decode = decode_table;
+    let bytes_get = bytes.get;
+    let bytes_set = bytes.set;
 
     while (i <= ends) {
-        let a = decode[ord_(str[i])];
-        let b = decode[ord_(str[i + 1])];
-        let c = decode[ord_(str[i + 2])];
-        let d = decode[ord_(str[i + 3])];
+        let a = decode[bytes_get(str, i)];
+        let b = decode[bytes_get(str, i + 1)];
+        let c = decode[bytes_get(str, i + 2)];
+        let d = decode[bytes_get(str, i + 3)];
 
         if (a < 0 || b < 0 || c < 0 || d < 0) {
             sys.panic("Invalid char in base64");
         }
 
-        out[j] = (shl(a, 2) | shr(b, 4)) & 0xff;
-        out[j + 1] = (shl(b, 4) | shr(c, 2)) & 0xff;
-        out[j + 2] = (shl(c, 6) | d) & 0xff;
+        bytes_set(out, j, (shl(a, 2) | shr(b, 4)) & 0xff);
+        bytes_set(out, j + 1, (shl(b, 4) | shr(c, 2)) & 0xff);
+        bytes_set(out, j + 2, (shl(c, 6) | d) & 0xff);
 
         j = j + 3;
         i = i + 4;
@@ -115,21 +118,21 @@ export function decode(str) {
 
     let mod = (ends - i + 4) % 4;
     if (mod == 2) {
-        let a = decode[ord_(str[i])];
-        let b = decode[ord_(str[i + 1])];
+        let a = decode[bytes_get(str, i)];
+        let b = decode[bytes_get(str, i + 1)];
         if (a < 0 || b < 0) {
             sys.panic("Invalid char in base64");
         }
-        out[j] = (shl(a, 2) | shr(b, 4)) & 0xff;
+        bytes_set(out, j, (shl(a, 2) | shr(b, 4)) & 0xff);
     } else if (mod == 3) {
-        let a = decode[ord_(str[i])];
-        let b = decode[ord_(str[i + 1])];
-        let c = decode[ord_(str[i + 2])];
+        let a = decode[bytes_get(str, i)];
+        let b = decode[bytes_get(str, i + 1)];
+        let c = decode[bytes_get(str, i + 2)];
         if (a < 0 || b < 0 || c < 0) {
             sys.panic("Invalid char in base64");
         }
-        out[j] = (shl(a, 2) | shr(b, 4)) & 0xff;
-        out[j + 1] = (shl(b, 4) | shr(c, 2)) & 0xff;
+        bytes_set(out, j, (shl(a, 2) | shr(b, 4)) & 0xff);
+        bytes_set(out, j + 1, (shl(b, 4) | shr(c, 2)) & 0xff);
     }
 
     return out;
@@ -139,50 +142,55 @@ doc:add("function", "decode(data)", "Decode a base64 string into an array of int
 
 export function encode(data, out=null) {
     if (out == null) {
-        out = string.buf(encode_size(data));
+        out = bytes.new(encode_size(data));
     } else {
         let encsize = encode_size(data);
-        test.assert(string.length(out) >= encsize);
-        string.buf_shrink(out, encsize);
+        test.assert(bytes.length(out) >= encsize);
     }
-    let size = array.length(data);
+    let size = bytes.length(data);
     let ends = size - (size % 3);
     let i = 0, j = 0;
 
     let shr = math.shr;
     let htonl = inet.htonl;
     let bytestol = inet.bytestol;
-    let buf_set = string.buf_set;
+    let buf_set = bytes.set;
     let cs = chars;
+    let ord_ = ord;
+    let bytes_get = bytes.get;
 
     while (i != ends) {
         let n = htonl(bytestol([
-            data[i], data[i+1], data[i+2], data[i+3],
+            bytes_get(data, i),
+            bytes_get(data, i + 1),
+            bytes_get(data, i + 2),
+            bytes_get(data, i + 3),
         ]));
-        buf_set(out, j, cs[shr(n, 26) & 63]);
-        buf_set(out, j + 1, cs[shr(n, 20) & 63]);
-        buf_set(out, j + 2, cs[shr(n, 14) & 63]);
-        buf_set(out, j + 3, cs[shr(n, 8) & 63]);
+        buf_set(out, j, ord_(cs[shr(n, 26) & 63]));
+        buf_set(out, j + 1, ord_(cs[shr(n, 20) & 63]));
+        buf_set(out, j + 2, ord_(cs[shr(n, 14) & 63]));
+        buf_set(out, j + 3, ord_(cs[shr(n, 8) & 63]));
         j = j + 4;
         i = i + 3;
     }
 
     let pd = size % 3;
     if (pd == 1) {
-        let n = math.shl(data[i], 16);
-        buf_set(out, j, cs[shr(n, 18) & 63]);
-        buf_set(out, j + 1, cs[shr(n, 12) & 63]);
-        buf_set(out, j + 2, '=');
-        buf_set(out, j + 3, '=');
+        let n = math.shl(bytes_get(data, i), 16);
+        buf_set(out, j, ord_(cs[shr(n, 18) & 63]));
+        buf_set(out, j + 1, ord_(cs[shr(n, 12) & 63]));
+        buf_set(out, j + 2, ord_('='));
+        buf_set(out, j + 3, ord_('='));
     } else if (pd == 2) {
-        let n = math.shl(data[i], 16) | math.shl(data[i+1], 8);
-        buf_set(out, j, cs[shr(n, 18) & 63]);
-        buf_set(out, j + 1, cs[shr(n, 12) & 63]);
-        buf_set(out, j + 2, cs[shr(n, 6) & 63]);
-        buf_set(out, j + 3, '=');
+        let n = math.shl(bytes_get(data, i), 16)
+            | math.shl(bytes_get(data, i + 1), 8);
+        buf_set(out, j, ord_(cs[shr(n, 18) & 63]));
+        buf_set(out, j + 1, ord_(cs[shr(n, 12) & 63]));
+        buf_set(out, j + 2, ord_(cs[shr(n, 6) & 63]));
+        buf_set(out, j + 3, ord_('='));
     }
 
-    return out;
+    return iter.collect(iter.map(bytes.iter(out), chr), string.collector);
 }
 
 doc:add(

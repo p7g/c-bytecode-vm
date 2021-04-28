@@ -3,7 +3,9 @@
 import array;
 import arraylist;
 import assoclist;
+import base64;
 import box;
+import bytes;
 import char;
 import docs;
 import fn;

@@ -1,4 +1,4 @@
-import array;
+import bytes;
 import docs;
 
 let doc = docs.module("hash", "Hashing functions.");
@@ -7,13 +7,14 @@ let FNV_OFFSET_BASIS_32 = 2166136261;
 let FNV_PRIME_32 = 16777619;
 
 export function fnv1a(bytes) {
-  let len = array.length(bytes);
+  let len = bytes.length(bytes);
   let hash = FNV_OFFSET_BASIS_32;
 
-  array.foreach(bytes, function(byte) {
+  for (let i = 0; i < len; i = i + 1) {
+    let byte = bytes.get(bytes, i);
     hash = hash ^ byte;
     hash = hash * FNV_PRIME_32;
-  });
+  }
 
   return hash;
 }
@@ -21,7 +22,7 @@ export function fnv1a(bytes) {
 doc:add(
   "function",
   "fnv1a(bytes)",
-  "Applies the 32bit FNV-1a hashing algorithm to an array of bytes.",
+  "Applies the 32bit FNV-1a hashing algorithm to a byte array.",
 );
 
 export function int(n) {

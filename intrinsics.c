@@ -6,6 +6,7 @@
 #include <time.h>
 
 #include "agent.h"
+#include "bytes.h"
 #include "error.h"
 #include "eval.h"
 #include "gc.h"
@@ -186,16 +187,9 @@ static int string_bytes(size_t argc, struct cb_value *argv,
 	str = CB_EXPECT_STRING(argv[0]);
 
 	len = cb_strlen(str);
-	result->type = CB_VALUE_ARRAY;
-	result->val.as_array = cb_array_new(len);
-	result->val.as_array->len = len;
+	*result = cb_bytes_new_value(len);
 
-	for (int i = 0; i < len; i += 1) {
-		result->val.as_array->values[i] = (struct cb_value) {
-			.type = CB_VALUE_INT,
-			.val.as_int = cb_str_at(str, i),
-		};
-	}
+	memcpy(cb_bytes_ptr(result->val.as_bytes), cb_strptr(str), len);
 
 	return 0;
 }
@@ -470,8 +464,7 @@ static int __gc_collect(size_t argc, struct cb_value *argv,
 	return 0;
 }
 
-static int pcall(size_t argc, struct cb_value *argv,
-		struct cb_value *result)
+static int pcall(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	int failed;
 	size_t sp;

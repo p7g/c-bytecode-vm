@@ -8,6 +8,7 @@
 #include "module.h"
 
 #include "modules/arrays.h"
+#include "modules/bytesmodule.h"
 #include "modules/errno.h"
 #include "modules/fs.h"
 #include "modules/inet.h"
@@ -28,6 +29,7 @@ static const struct cb_builtin_module_spec builtins[] = {
 	{"_array", cb_arrays_build_spec, cb_arrays_instantiate},
 	{"_inet", cb_inet_build_spec, cb_inet_instantiate},
 	{"_math", cb_math_build_spec, cb_math_instantiate},
+	{"_bytes", cb_bytes_build_spec, cb_bytes_instantiate},
 };
 const struct cb_builtin_module_spec *cb_builtin_modules = builtins;
 const size_t cb_builtin_module_count = sizeof(builtins) / sizeof(builtins[0]);

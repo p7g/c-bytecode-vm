@@ -1,4 +1,5 @@
 import arraylist;
+import bytes;
 import docs;
 import errno;
 import fn;
@@ -25,14 +26,17 @@ export function read_file(name) {
     let nread;
 
     while (!_fs.feof(f)) {
-        arraylist.push(bufs, (buf = string.buf(4096)));
+        buf = bytes.new(4096);
         nread = _fs.fread(buf, BLOCK_SIZE, f);
         if (nread != BLOCK_SIZE) {
             if (_fs.ferror(f)) {
                 perror("read_file");
             }
-            string.resize_buf(buf, nread);
+            let newbuf = bytes.new(nread);
+            bytes.copy(buf, newbuf, nread);
+            buf = newbuf;
         }
+        arraylist.push(bufs, buf);
     }
 
     return fn.apply(string_concat, arraylist.to_array(bufs));

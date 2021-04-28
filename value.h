@@ -20,6 +20,7 @@
 	X(CB_VALUE_CHAR) \
 	X(CB_VALUE_INTERNED_STRING) \
 	X(CB_VALUE_STRING) \
+	X(CB_VALUE_BYTES) \
 	X(CB_VALUE_ARRAY) \
 	X(CB_VALUE_FUNCTION) \
 	X(CB_VALUE_STRUCT_SPEC) \
@@ -38,6 +39,11 @@ struct cb_value;
 struct cb_string {
 	cb_gc_header gc_header;
 	cb_str string;
+};
+
+struct cb_bytes {
+	cb_gc_header gc_header;
+	uint8_t data[];
 };
 
 enum cb_function_type {
@@ -89,6 +95,7 @@ struct cb_value {
 		struct cb_struct *as_struct;
 		struct cb_struct_spec *as_struct_spec;
 		struct cb_userdata *as_userdata;
+		struct cb_bytes *as_bytes;
 	} val;
 };
 
@@ -123,6 +130,8 @@ struct cb_value cb_bool(int);
 struct cb_value cb_char(uint32_t);
 struct cb_value cb_value_from_string(const char *str);
 struct cb_value cb_value_from_fmt(const char *fmt, ...);
+struct cb_bytes *cb_bytes_new(size_t size);
+struct cb_value cb_bytes_new_value(size_t size);
 
 const char *cb_value_type_name(enum cb_value_type type);
 const char *cb_value_type_of(struct cb_value *val);

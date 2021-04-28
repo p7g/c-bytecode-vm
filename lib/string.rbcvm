@@ -15,23 +15,15 @@ export let chars = string_chars;
 export let from_chars = string_from_chars;
 export let bytes = string_bytes;
 export let concat = string_concat;
-export let buf = _string.buf;
-export let resize_buf = _string.resize_buf;
 export let length = _string.len;
 export let char_at = _string.char_at;
-export let buf_set = _string.buf_set;
-export let buf_shrink = _string.buf_shrink;
 
 doc:add("function", "chars(string)", "Get the characters of `string` as an array.");
 doc:add("function", "from_chars(chars)", "Create a string from the array of characters `chars`.");
 doc:add("function", "bytes(string)", "Get the bytes of `string` as an array.");
 doc:add("function", "concat(a, ...)", "Concatenate all strings passed as arguments with no separator.");
-doc:add("function", "buf(size)", "Create a new string with size `size`.");
-doc:add("function", "resize_buf(buf, new_size)", "Resize `buf` to have size `new_size`.");
 doc:add("function", "length(string)", "Get the length of `string`.");
 doc:add("function", "char_at(string, idx)", "Get the `idx`th character of `string`.");
-doc:add("function", "buf_set(buf, pos, b)", "Set the buffer to `b` at position `pos`.");
-doc:add("function", "buf_shrink(buf, size)", "Reduce the size of `buf` to `size` without allocating.");
 
 export function iter(str) {
   let cs = chars(str);

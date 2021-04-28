@@ -2,58 +2,15 @@
 #include <stdlib.h>
 
 #include "builtin_modules.h"
+#include "bytes.h"
 #include "error.h"
 #include "intrinsics.h"
 #include "module.h"
 #include "str.h"
 #include "value.h"
 
-size_t ident_buf,
-       ident_resize_buf,
-       ident_len,
-       ident_char_at,
-       ident_buf_set,
-       ident_buf_shrink;
-
-static int make_buf(size_t argc, struct cb_value *argv, struct cb_value *result)
-{
-	size_t len;
-
-	CB_EXPECT_TYPE(CB_VALUE_INT, argv[0]);
-	if (argv[0].val.as_int < 0) {
-		cb_error_set(cb_value_from_string("buf: Invalid buf length"));
-		return 1;
-	}
-
-	len = argv[0].val.as_int;
-	result->type = CB_VALUE_STRING;
-	result->val.as_string = cb_string_new();
-	result->val.as_string->string.len = len;
-	result->val.as_string->string.chars = calloc(len + 1, sizeof(char));
-	return 0;
-}
-
-static int resize_buf(size_t argc, struct cb_value *argv,
-		struct cb_value *result)
-{
-	size_t len;
-	cb_str *str;
-
-	CB_EXPECT_TYPE(CB_VALUE_STRING, argv[0]); /* not interned */
-	CB_EXPECT_TYPE(CB_VALUE_INT, argv[1]);
-	str = &argv[0].val.as_string->string;
-	len = argv[1].val.as_int;
-	if (len < 0) {
-		cb_error_set(cb_value_from_string(
-					"resize_buf: Invalid buf length"));
-		return 1;
-	}
-
-	str->len = len;
-	str->chars = realloc(str->chars, (sizeof(char) * len) + 1);
-	result->type = CB_VALUE_NULL;
-	return 0;
-}
+size_t ident_len,
+       ident_char_at;
 
 static int len(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
@@ -85,70 +42,15 @@ static int char_at(size_t argc, struct cb_value *argv, struct cb_value *result)
 	return 0;
 }
 
-static int buf_set(size_t argc, struct cb_value *argv, struct cb_value *result)
-{
-	char *buf;
-	int64_t pos;
-	char c;
-
-	CB_EXPECT_TYPE(CB_VALUE_STRING, argv[0]);
-	CB_EXPECT_TYPE(CB_VALUE_INT, argv[1]);
-	CB_EXPECT_TYPE(CB_VALUE_CHAR, argv[2]);
-
-	buf = argv[0].val.as_string->string.chars;
-	pos = argv[1].val.as_int;
-	c = argv[2].val.as_char;
-	buf[pos] = c;
-
-	result->type = CB_VALUE_NULL;
-	return 0;
-}
-
-static int buf_shrink(size_t argc, struct cb_value *argv,
-		struct cb_value *result)
-{
-	struct cb_string *s;
-	int64_t length;
-
-	CB_EXPECT_TYPE(CB_VALUE_STRING, argv[0]);
-	CB_EXPECT_TYPE(CB_VALUE_INT, argv[1]);
-
-	s = argv[0].val.as_string;
-	length = argv[1].val.as_int;
-
-	if (length < 0 || length > cb_strlen(s->string)) {
-		cb_error_set(cb_value_from_string(
-				"buf_shrink: New size must be between 0 and "
-				"current buf length."));
-		return 1;
-	}
-
-	s->string.len = (size_t) length;
-
-	result->type = CB_VALUE_NULL;
-	return 0;
-}
-
 void cb_strings_build_spec(cb_modspec *spec)
 {
-	CB_DEFINE_EXPORT(spec, "buf", ident_buf);
-	CB_DEFINE_EXPORT(spec, "resize_buf", ident_resize_buf);
 	CB_DEFINE_EXPORT(spec, "len", ident_len);
 	CB_DEFINE_EXPORT(spec, "char_at", ident_char_at);
-	CB_DEFINE_EXPORT(spec, "buf_set", ident_buf_set);
-	CB_DEFINE_EXPORT(spec, "buf_shrink", ident_buf_shrink);
 }
 
 void cb_strings_instantiate(struct cb_module *mod)
 {
-	CB_SET_EXPORT(mod, ident_buf, cb_cfunc_new(ident_buf, 1, make_buf));
-	CB_SET_EXPORT(mod, ident_resize_buf,
-			cb_cfunc_new(ident_resize_buf, 2, resize_buf));
 	CB_SET_EXPORT(mod, ident_len, cb_cfunc_new(ident_len, 1, len));
 	CB_SET_EXPORT(mod, ident_char_at,
 			cb_cfunc_new(ident_char_at, 1, char_at));
-	CB_SET_EXPORT(mod, ident_buf_set,
-			cb_cfunc_new(ident_buf_set, 3, buf_set));
-	CB_SET_EXPORT(mod, ident_buf_shrink,
-			cb_cfunc_new(ident_buf_shrink, 2, buf_shrink));
 }
