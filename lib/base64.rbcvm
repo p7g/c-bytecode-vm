@@ -4,7 +4,6 @@ import bytes;
 import char;
 import docs;
 import inet;
-import iter;
 import math;
 import string;
 import sys;
@@ -190,7 +189,7 @@ export function encode(data, out=null) {
         buf_set(out, j + 3, ord_('='));
     }
 
-    return iter.collect(iter.map(bytes.iter(out), chr), string.collector);
+    return string.from_bytes(out);
 }
 
 doc:add(

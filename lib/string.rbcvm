@@ -17,6 +17,7 @@ export let bytes = string_bytes;
 export let concat = string_concat;
 export let length = _string.len;
 export let char_at = _string.char_at;
+export let from_bytes = _string.from_bytes;
 
 doc:add("function", "chars(string)", "Get the characters of `string` as an array.");
 doc:add("function", "from_chars(chars)", "Create a string from the array of characters `chars`.");
@@ -24,6 +25,7 @@ doc:add("function", "bytes(string)", "Get the bytes of `string` as an array.");
 doc:add("function", "concat(a, ...)", "Concatenate all strings passed as arguments with no separator.");
 doc:add("function", "length(string)", "Get the length of `string`.");
 doc:add("function", "char_at(string, idx)", "Get the `idx`th character of `string`.");
+doc:add("function", "from_bytes(bytes)", "Convert a byte array to a string.");
 
 export function iter(str) {
   let cs = chars(str);
