@@ -99,7 +99,7 @@ struct cb_value *cb_hashmap_get(cb_hashmap *m, size_t key)
 	size_t idx;
 	struct entry *entry;
 
-	idx = hash_size_t(key) % m->size;
+	idx = hash_size_t(key) & (m->size - 1);
 	entry = m->entries[idx];
 	while (entry) {
 		if (entry->key == key)
@@ -116,7 +116,7 @@ void cb_hashmap_set(cb_hashmap *m, size_t key, struct cb_value value)
 
 	maybe_grow(m);
 
-	idx = hash_size_t(key) % m->size;
+	idx = hash_size_t(key) & (m->size - 1);
 
 	entry = m->entries[idx];
 	while (entry != NULL) {
