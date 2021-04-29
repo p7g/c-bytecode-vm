@@ -49,13 +49,8 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 		} \
 		cb_bytecode_get(bytecode, pc + offset++); \
 	})
-#define NEXT_USIZE() ({ \
-		size_t result = 0; \
-		for (int _i = 0; _i < sizeof(size_t) / sizeof(cb_instruction); _i += 1) \
-			result += (size_t) NEXT() << (_i * 8 * sizeof(cb_instruction)); \
-		result; \
-	})
-#define WITH_ARGS(NARGS) (1 + sizeof(size_t) / sizeof(cb_instruction) * (NARGS))
+#define NEXT_USIZE() (NEXT())
+#define WITH_ARGS(NARGS) (1 + (NARGS))
 
 	printf("%4zu: ", pc + offset);
 	switch ((op = NEXT())) {
@@ -173,7 +168,7 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	}
 
 	default:
-		fprintf(stderr, "Unknown bytecode instruction %d\n", op);
+		fprintf(stderr, "Unknown bytecode instruction %zu\n", op);
 		return -1;
 	}
 

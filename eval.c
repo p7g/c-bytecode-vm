@@ -227,13 +227,7 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 		retval = 1; \
 		RET_WITH_TRACE(); \
 	})
-#define READ_SIZE_T() ({ \
-		int _i = 0; \
-		size_t _val = 0; \
-		for (_i = 0; _i < sizeof(size_t) / sizeof(cb_instruction); _i += 1) \
-			_val += ((size_t) NEXT()) << (_i * 8 * sizeof(cb_instruction)); \
-		_val; \
-	})
+#define READ_SIZE_T() (NEXT())
 #define TOP() (cb_vm_state.stack[cb_vm_state.sp - 1])
 #define FRAME() (frame)
 #define LOCAL_IDX(N) (frame->bp + 1 + (N))
@@ -397,9 +391,11 @@ DO_OP_EXP: {
 	DISPATCH();
 }
 
-DO_OP_JUMP:
-	pc = READ_SIZE_T();
+DO_OP_JUMP: {
+	size_t dest = READ_SIZE_T();
+	pc = dest;
 	DISPATCH();
+}
 
 DO_OP_JUMP_IF_TRUE: {
 	struct cb_value pred;

@@ -9,7 +9,7 @@
 #include "str.h"
 
 typedef struct bytecode cb_bytecode;
-typedef uint32_t cb_instruction;
+typedef size_t cb_instruction;
 typedef struct cstate cb_compile_state;
 
 int cb_compile_file(const char *name, const char *path, cb_bytecode **bc_out);
