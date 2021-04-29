@@ -692,8 +692,11 @@ DO_OP_NEW_ARRAY_WITH_VALUES: {
 	size_t size = READ_SIZE_T();
 	struct cb_array *array = cb_array_new(size);
 	array->len = size;
-	for (int i = size - 1; i >= 0; i -= 1)
-		array->values[i] = POP();
+
+	memcpy(array->values, cb_vm_state.stack + cb_vm_state.sp - size,
+			size * sizeof(struct cb_value));
+	cb_vm_state.sp -= size;
+
 	arrayval.type = CB_VALUE_ARRAY;
 	arrayval.val.as_array = array;
 	PUSH(arrayval);
