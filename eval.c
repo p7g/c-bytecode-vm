@@ -205,7 +205,7 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 	cb_vm_state.frame = frame;
 
 #define TABLE_ENTRY(OP) &&DO_##OP,
-	static void *dispatch_table[] = {
+	static const void *dispatch_table[] = {
 		CB_OPCODE_LIST(TABLE_ENTRY)
 	};
 #undef TABLE_ENTRY
