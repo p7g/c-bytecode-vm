@@ -915,14 +915,9 @@ DO_OP_EXIT_MODULE:
 	frame->module = NULL;
 	DISPATCH();
 
-DO_OP_DUP: {
-	struct cb_value val;
-
-	val = POP();
-	PUSH(val);
-	PUSH(val);
+DO_OP_DUP:
+	PUSH(TOP());
 	DISPATCH();
-}
 
 DO_OP_ALLOCATE_LOCALS: {
 	int i;
