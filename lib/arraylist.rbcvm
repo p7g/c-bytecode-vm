@@ -196,11 +196,18 @@ export function map(self, func) {
   let new_array = _array.new(cap);
 
   foreach(self, function(val, i) {
-    new_array[i] = val;
+    new_array[i] = func(val);
   });
 
   return from_array(len, new_array);
 }
+
+doc:add(
+  "function",
+  "map(list, func)",
+  "Create a new arraylist where each element is the result of calling `func` on
+the corresponding element of `list`.",
+);
 
 export function find(self, func) {
   let index = find_index(self, func);

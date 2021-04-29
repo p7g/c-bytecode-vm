@@ -1,3 +1,4 @@
+import array;
 import arraylist;
 import bytes;
 import docs;
@@ -39,7 +40,10 @@ export function read_file(name) {
         arraylist.push(bufs, buf);
     }
 
-    return fn.apply(string_concat, arraylist.to_array(bufs));
+    return fn.apply(
+        string_concat,
+        arraylist.to_array(arraylist.map(bufs, string.from_bytes)),
+    );
 }
 
 doc:add("function", "read_file(name)", "Read the file called `fname` to completion.

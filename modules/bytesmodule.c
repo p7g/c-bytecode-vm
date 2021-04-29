@@ -123,7 +123,7 @@ void cb_bytes_build_spec(cb_modspec *spec)
 void cb_bytes_instantiate(struct cb_module *mod)
 {
 	CB_SET_EXPORT(mod, ident_new, cb_cfunc_new(ident_new, 1, bytes_new));
-	CB_SET_EXPORT(mod, ident_copy, cb_cfunc_new(ident_copy, 2, bytes_copy));
+	CB_SET_EXPORT(mod, ident_copy, cb_cfunc_new(ident_copy, 3, bytes_copy));
 	CB_SET_EXPORT(mod, ident_get, cb_cfunc_new(ident_get, 2, bytes_get));
 	CB_SET_EXPORT(mod, ident_set, cb_cfunc_new(ident_set, 3, bytes_set));
 	CB_SET_EXPORT(mod, ident_length,

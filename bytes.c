@@ -48,6 +48,6 @@ int cb_bytes_copy(struct cb_bytes *from, struct cb_bytes *to, size_t n)
 {
 	if (cb_bytes_len(from) < n || cb_bytes_len(to) < n)
 		return 1;
-	memcpy(from->data, to->data, n);
+	memcpy(to->data, from->data, n);
 	return 0;
 }
