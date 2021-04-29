@@ -920,12 +920,11 @@ DO_OP_DUP:
 	DISPATCH();
 
 DO_OP_ALLOCATE_LOCALS: {
-	int i;
 	size_t nlocals = READ_SIZE_T();
-	struct cb_value null_value;
-	null_value.type = CB_VALUE_NULL;
-	for (i = 0; i < nlocals; i += 1)
-		PUSH(null_value);
+	/* CB_VALUE_NULL is 0, so we can just set the whole thing to 0 */
+	memset(cb_vm_state.stack + cb_vm_state.sp, 0,
+			nlocals * sizeof(struct cb_value));
+	cb_vm_state.sp += nlocals;
 	DISPATCH();
 }
 

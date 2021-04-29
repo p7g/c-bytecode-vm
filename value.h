@@ -12,11 +12,13 @@
 
 #define CB_MAX_PARAMS 32
 
+/* It's important that CB_VALUE_NULL is first (i.e. 0). In DO_OP_ALLOCATE_LOCALS
+ * we memset the stack to 0, which is enabled by this. */
 #define CB_VALUE_TYPE_LIST(X) \
+	X(CB_VALUE_NULL) \
 	X(CB_VALUE_INT) \
 	X(CB_VALUE_DOUBLE) \
 	X(CB_VALUE_BOOL) \
-	X(CB_VALUE_NULL) \
 	X(CB_VALUE_CHAR) \
 	X(CB_VALUE_INTERNED_STRING) \
 	X(CB_VALUE_STRING) \
