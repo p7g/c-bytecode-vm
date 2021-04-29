@@ -25,6 +25,7 @@ void cb_compile_state_reset(cb_compile_state *st, const char *input,
 
 cb_bytecode *cb_bytecode_new(void);
 cb_instruction cb_bytecode_get(cb_bytecode *bc, size_t idx);
+const cb_instruction *cb_bytecode_code(struct bytecode *bc);
 size_t cb_bytecode_len(cb_bytecode *bc);
 void cb_bytecode_free(cb_bytecode *bc);
 
