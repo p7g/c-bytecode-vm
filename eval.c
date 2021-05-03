@@ -201,7 +201,6 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 int cb_eval(size_t pc, struct cb_frame *frame)
 {
 	int retval = 0;
-	const cb_instruction *code = cb_bytecode_code(cb_vm_state.bytecode);
 	cb_vm_state.frame = frame;
 
 #define TABLE_ENTRY(OP) &&DO_##OP,
@@ -210,8 +209,8 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 	};
 #undef TABLE_ENTRY
 
-#define NEXT() (code[pc++])
-#define DISPATCH() ({ \
+#define NEXT() (cb_bytecode_get(cb_vm_state.bytecode, pc++))
+# define DISPATCH() ({ \
 		if (cb_options.debug_vm) \
 			debug_state(cb_vm_state.bytecode, pc, frame); \
 		size_t _next = NEXT(); \

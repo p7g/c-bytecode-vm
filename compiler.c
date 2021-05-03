@@ -466,11 +466,6 @@ struct bytecode *cb_bytecode_new()
 	return bc;
 }
 
-const cb_instruction *cb_bytecode_code(struct bytecode *bc)
-{
-	return bc->code;
-}
-
 inline cb_instruction cb_bytecode_get(struct bytecode *bc, size_t idx)
 {
 	return bc->code[idx];
