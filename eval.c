@@ -112,21 +112,24 @@ int cb_run(void)
 	return cb_eval(0, &frame);
 }
 
-#define PUSH(V) ({ \
-		struct cb_value _v = (V); \
-		if (cb_vm_state.sp >= cb_vm_state.stack_size) { \
-			cb_vm_state.stack_size <<= 2; \
-			cb_vm_state.stack = realloc(cb_vm_state.stack, \
-					cb_vm_state.stack_size \
-					* sizeof(struct cb_value)); \
-		} \
-		cb_vm_state.stack[cb_vm_state.sp++] = _v; \
-	})
-#define POP() ({ \
-		assert(cb_vm_state.sp > 0); \
-		struct cb_value _v = cb_vm_state.stack[--cb_vm_state.sp]; \
-		_v; \
-	})
+static void stack_push(struct cb_value v)
+{
+	if (cb_vm_state.sp >= cb_vm_state.stack_size) {
+		cb_vm_state.stack_size <<= 2;
+		cb_vm_state.stack = realloc(cb_vm_state.stack,
+			cb_vm_state.stack_size * sizeof(struct cb_value));
+	}
+	cb_vm_state.stack[cb_vm_state.sp++] = v;
+}
+
+static struct cb_value stack_pop()
+{
+	assert(cb_vm_state.sp > 0);
+	return cb_vm_state.stack[--cb_vm_state.sp];
+}
+
+#define PUSH(V) (stack_push((V)))
+#define POP() (stack_pop())
 
 int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 		size_t args_len, struct cb_value *result)
