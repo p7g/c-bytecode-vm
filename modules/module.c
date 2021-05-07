@@ -59,7 +59,6 @@ static int get_export(size_t argc, struct cb_value *argv,
 	ssize_t modname_id, export_name_id;
 	cb_modspec *spec;
 	struct cb_module *mod;
-	struct cb_value *val;
 
 	modname = CB_EXPECT_STRING(argv[0]);
 	export_name = CB_EXPECT_STRING(argv[1]);
@@ -83,15 +82,13 @@ static int get_export(size_t argc, struct cb_value *argv,
 	}
 
 	mod = &cb_vm_state.modules[cb_modspec_id(spec)];
-	val = cb_hashmap_get(mod->global_scope, export_name_id);
-	if (!val) {
+	if (!cb_hashmap_get(mod->global_scope, export_name_id, result)) {
 		cb_error_set(cb_value_from_fmt(
 				"get: Module '%s' has no export '%s'",
 				cb_strptr(&modname), cb_strptr(&export_name)));
 		return 1;
 	}
 
-	*result = *val;
 	return 0;
 }
 

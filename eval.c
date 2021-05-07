@@ -507,17 +507,15 @@ DO_OP_STORE_LOCAL:
 
 DO_OP_LOAD_GLOBAL: {
 	size_t id;
-	struct cb_value *value;
+	struct cb_value value;
 
 	id = READ_SIZE_T();
-	value = cb_hashmap_get(GLOBALS(), id);
-
-	if (value == NULL) {
+	if (!cb_hashmap_get(GLOBALS(), id, &value)) {
 		cb_str s = cb_agent_get_string(id);
 		ERROR("Unbound global '%s'", cb_strptr(&s));
 	}
 
-	PUSH(*value);
+	PUSH(value);
 	DISPATCH();
 }
 
@@ -668,15 +666,17 @@ DO_OP_STORE_UPVALUE: {
 DO_OP_LOAD_FROM_MODULE: {
 	size_t mod_id, export_id, export_name;
 	struct cb_module *mod;
-	struct cb_value *val;
+	struct cb_value val;
+	int found;
 	
 	mod_id = READ_SIZE_T();
 	export_id = READ_SIZE_T();
 	mod = &cb_vm_state.modules[mod_id];
 	export_name = cb_modspec_get_export_name(mod->spec, export_id);
-	val = cb_hashmap_get(mod->global_scope, export_name);
-	assert(val != NULL);
-	PUSH(*val);
+	found = cb_hashmap_get(mod->global_scope, export_name, &val);
+	/* Exports are verified at compile time */
+	assert(found);
+	PUSH(val);
 	DISPATCH();
 }
 

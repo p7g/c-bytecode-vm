@@ -7,16 +7,18 @@
 
 #define MAX_LOAD_FACTOR 0.75
 #define INITIAL_SIZE 64
+#define NEXT_CAPACITY(C) ((C) << 1)
+#define WRAP(M, I) ((I) & ((M)->size - 1))
 
 struct entry {
-	struct entry *next;
 	size_t key;
+	unsigned char in_use;
 	struct cb_value value;
 };
 
 struct cb_hashmap {
 	size_t size, num_entries;
-	struct entry **entries;
+	struct entry *entries;
 };
 
 /* Hash functions courtesy of:
@@ -41,7 +43,7 @@ struct cb_hashmap *cb_hashmap_new(void)
 	struct cb_hashmap *m;
 
 	m = malloc(sizeof(struct cb_hashmap));
-	m->entries = calloc(INITIAL_SIZE, sizeof(struct entry *));
+	m->entries = calloc(INITIAL_SIZE, sizeof(struct entry));
 	m->size = INITIAL_SIZE;
 	m->num_entries = 0;
 
@@ -50,25 +52,13 @@ struct cb_hashmap *cb_hashmap_new(void)
 
 void cb_hashmap_free(cb_hashmap *m)
 {
-	struct entry *entry, *tmp;
-	int i;
-
-	for (i = 0; i < m->size; i += 1) {
-		entry = m->entries[i];
-		while (entry) {
-			tmp = entry;
-			entry = entry->next;
-			free(tmp);
-		}
-	}
-
 	free(m->entries);
 	free(m);
 }
 
 static void maybe_grow(struct cb_hashmap *m)
 {
-	struct entry **old_entries, *entry, *tmp;
+	struct entry *old_entries, *entry;
 	size_t old_size;
 	int i;
 
@@ -77,36 +67,33 @@ static void maybe_grow(struct cb_hashmap *m)
 
 	old_entries = m->entries;
 	old_size = m->size;
-	m->size <<= 1;
-	m->entries = calloc(m->size, sizeof(struct entry *));
+	m->size = NEXT_CAPACITY(m->size);
+	m->entries = calloc(m->size, sizeof(struct entry));
 	m->num_entries = 0;
 
 	for (i = 0; i < old_size; i += 1) {
-		entry = old_entries[i];
-		while (entry) {
-			tmp = entry;
-			entry = entry->next;
-			cb_hashmap_set(m, tmp->key, tmp->value);
-			free(tmp);
-		}
+		entry = &old_entries[i];
+		if (entry->in_use)
+			cb_hashmap_set(m, entry->key, entry->value);
 	}
 
 	free(old_entries);
 }
 
-struct cb_value *cb_hashmap_get(cb_hashmap *m, size_t key)
+int cb_hashmap_get(cb_hashmap *m, size_t key, struct cb_value *out)
 {
 	size_t idx;
 	struct entry *entry;
 
-	idx = hash_size_t(key) & (m->size - 1);
-	entry = m->entries[idx];
-	while (entry) {
-		if (entry->key == key)
-			return &entry->value;
-		entry = entry->next;
+	idx = hash_size_t(key);
+	while ((entry = &m->entries[WRAP(m, idx++)])->in_use) {
+		if (entry->key == key) {
+			if (out)
+				*out = entry->value;
+			return 1;
+		}
 	}
-	return NULL;
+	return 0;
 }
 
 void cb_hashmap_set(cb_hashmap *m, size_t key, struct cb_value value)
@@ -116,22 +103,18 @@ void cb_hashmap_set(cb_hashmap *m, size_t key, struct cb_value value)
 
 	maybe_grow(m);
 
-	idx = hash_size_t(key) & (m->size - 1);
+	idx = hash_size_t(key);
 
-	entry = m->entries[idx];
-	while (entry != NULL) {
+	while ((entry = &m->entries[WRAP(m, idx++)])->in_use) {
 		if (entry->key == key) {
 			entry->value = value;
 			return;
 		}
-		entry = entry->next;
 	}
 
-	entry = malloc(sizeof(struct entry));
+	entry->in_use = 1;
 	entry->key = key;
 	entry->value = value;
-	entry->next = m->entries[idx];
-	m->entries[idx] = entry;
 	m->num_entries += 1;
 }
 
@@ -141,7 +124,8 @@ void cb_hashmap_mark_contents(cb_hashmap *m)
 	struct entry *entry;
 
 	for (i = 0; i < m->size; i += 1) {
-		for (entry = m->entries[i]; entry; entry = entry->next)
+		entry = &m->entries[i];
+		if (entry->in_use)
 			cb_value_mark(&entry->value);
 	}
 }

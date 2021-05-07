@@ -1615,7 +1615,7 @@ static int compile_import_statement(struct cstate *state)
 	modsrc = cb_agent_get_string(modname);
 	builtin = NULL;
 
-	if (cb_hashmap_get(state->imported, modname))
+	if (cb_hashmap_get(state->imported, modname, NULL))
 		return 0;
 
 	/* If the import name is one of the names is one of the builtin
@@ -1922,7 +1922,7 @@ static int compile_identifier_expression(struct cstate *state)
 			ERROR_AT(tok, "No such module %s\n",
 					cb_strptr(&modname));
 			return 1;
-		} else if (!cb_hashmap_get(state->imported, name)) {
+		} else if (!cb_hashmap_get(state->imported, name, NULL)) {
 			modname = cb_agent_get_string(
 					intern_ident(state, &tok));
 			ERROR_AT(tok, "Missing import for module %s\n",
