@@ -124,7 +124,8 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 			cb_bytecode_len(cb_vm_state.bytecode)
 			* sizeof(union cb_inline_cache));
 	memset(&cb_vm_state.ic[pc], 0,
-			cb_bytecode_len(cb_vm_state.bytecode) - pc);
+			(cb_bytecode_len(cb_vm_state.bytecode) - pc)
+			* sizeof(union cb_inline_cache));
 
 	/* Make room in cb_vm_state for new module */
 	cb_vm_grow_modules_array(cb_agent_modspec_count());
