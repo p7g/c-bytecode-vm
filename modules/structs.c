@@ -99,7 +99,7 @@ static int get_struct_field(size_t argc, struct cb_value *argv,
 	fname = CB_EXPECT_STRING(argv[1]);
 	fvalue = cb_struct_get_field(argv[0].val.as_struct,
 			cb_agent_intern_string(cb_strptr(&fname),
-				cb_strlen(fname)));
+				cb_strlen(fname)), NULL);
 	if (fvalue == NULL) {
 		as_str = cb_value_to_string(&argv[0]);
 		cb_error_set(cb_value_from_fmt("Value '%s' has no field '%s'",
@@ -123,7 +123,8 @@ static int set_struct_field(size_t argc, struct cb_value *argv,
 	CB_EXPECT_TYPE(CB_VALUE_STRUCT, argv[0]);
 	fname = CB_EXPECT_STRING(argv[1]);
 	fname_id = cb_agent_intern_string(cb_strptr(&fname), cb_strlen(fname));
-	retval = cb_struct_set_field(argv[0].val.as_struct, fname_id, argv[2]);
+	retval = cb_struct_set_field(argv[0].val.as_struct, fname_id, argv[2],
+			NULL);
 	if (retval) {
 		as_str = cb_value_to_string(&argv[0]);
 		cb_error_set(cb_value_from_fmt("Value '%s' has no field '%s'",

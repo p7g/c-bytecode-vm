@@ -141,7 +141,7 @@ struct cb_struct_spec *get_stat_struct_spec(void)
 void populate_stat_struct(struct cb_struct *out, struct stat *in)
 {
 #define SET_FIELD(K, V) cb_struct_set_field(out, cb_agent_intern_string((K), \
-		sizeof((K)) - 1), V)
+		sizeof((K)) - 1), V, NULL)
 	SET_FIELD("mode", cb_int(in->st_mode));
 	SET_FIELD("nlink", cb_int(in->st_nlink));
 	SET_FIELD("uid", cb_int(in->st_uid));

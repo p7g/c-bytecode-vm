@@ -26,6 +26,8 @@ struct cb_vm_state cb_vm_state;
 void cb_vm_init(cb_bytecode *bytecode)
 {
 	cb_vm_state.bytecode = bytecode;
+	cb_vm_state.ic = calloc(cb_bytecode_len(bytecode),
+			sizeof(union cb_inline_cache));
 
 	cb_vm_state.sp = 0;
 	cb_vm_state.stack = malloc(STACK_INIT_SIZE * sizeof(struct cb_value));
@@ -54,6 +56,7 @@ void cb_vm_deinit(void)
 	free(cb_vm_state.upvalues);
 	cb_vm_state.upvalues = NULL;
 	free(cb_vm_state.stack);
+	free(cb_vm_state.ic);
 	cb_vm_state.sp = 0;
 	cb_gc_collect();
 }
@@ -245,6 +248,7 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 		cb_vm_state.stack[(N)] = _v; \
 	})
 #define GLOBALS() (frame->module->global_scope)
+#define CACHE() (&cb_vm_state.ic[pc - 1])
 
 	DISPATCH();
 
@@ -940,7 +944,24 @@ DO_OP_LOAD_STRUCT: {
 		ERROR("Cannot get field of non-struct type %s",
 				cb_value_type_friendly_name(recv.type));
 	struct cb_struct *s = recv.val.as_struct;
-	struct cb_value *val = cb_struct_get_field(s, fname);
+
+	struct cb_load_struct_cache *ic = &CACHE()->load_struct;
+
+	struct cb_value *val;
+	if (ic->spec != NULL) {
+		if (ic->spec == s->spec) {
+			val = &s->fields[ic->index];
+			PUSH(*val);
+			DISPATCH();
+		}
+		/* deopt */
+		cb_str a = cb_agent_get_string(ic->spec->name), b = cb_agent_get_string(s->spec->name);
+		ERROR("deopt load struct %s -> %s\n", cb_strptr(&a), cb_strptr(&b));
+		ic->spec = NULL;
+		ic->index = -1;
+	}
+	ssize_t idx;
+	val = cb_struct_get_field(s, fname, &idx);
 	if (!val) {
 		cb_str fname_str, specname_str;
 
@@ -949,6 +970,10 @@ DO_OP_LOAD_STRUCT: {
 		ERROR("No such field '%s' on struct '%s'",
 				cb_strptr(&fname_str),
 				cb_strptr(&specname_str));
+	}
+	if (ic->index != -1) {
+		ic->spec = s->spec;
+		ic->index = idx;
 	}
 	PUSH(*val);
 	DISPATCH();
@@ -962,13 +987,29 @@ DO_OP_LOAD_STRUCT: {
 		ERROR("Cannot set field of non-struct type %s", \
 				cb_value_type_friendly_name(recv.type)); \
 	struct cb_struct *s = recv.val.as_struct; \
-	if (cb_struct_set_field(s, fname, val)) { \
+	struct cb_load_struct_cache *ic = &CACHE()->load_struct; \
+	if (ic->spec != NULL) { \
+		if (ic->spec == s->spec) { \
+			s->fields[ic->index] = val; \
+			PUSH(RET); \
+			DISPATCH(); \
+		} \
+		/* deopt */ \
+		ic->spec = NULL; \
+		ic->index = -1; \
+	} \
+	ssize_t idx; \
+	if (cb_struct_set_field(s, fname, val, &idx)) { \
 		cb_str _fname_str, _specname_str; \
 		_fname_str = cb_agent_get_string(fname); \
 		_specname_str = cb_agent_get_string(s->spec->name); \
 		ERROR("No such field '%s' on struct '%s'", \
 				cb_strptr(&_fname_str), \
 				cb_strptr(&_specname_str)); \
+	} \
+	if (ic->index != -1) { \
+		ic->spec = s->spec; \
+		ic->index = idx; \
 	} \
 	RET; \
 	})

@@ -24,8 +24,16 @@ struct cb_frame {
 	int is_function;
 };
 
+union cb_inline_cache {
+	struct cb_load_struct_cache {
+		const struct cb_struct_spec *spec;
+		ssize_t index;
+	} load_struct;
+};
+
 struct cb_vm_state {
 	cb_bytecode *bytecode;
+	union cb_inline_cache *ic;
 
 	struct cb_value *stack;
 	size_t sp, stack_size;
