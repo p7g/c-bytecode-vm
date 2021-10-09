@@ -20,6 +20,8 @@ void cb_gc_collect(void);
 int cb_gc_should_collect(void);
 void cb_gc_register(cb_gc_header *obj, size_t size, cb_deinit_fn *deinit_fn);
 
+#define cb_gc_size(header) ((header)->size)
+
 struct cb_value;
 void cb_gc_queue_mark(struct cb_value *obj);
 
