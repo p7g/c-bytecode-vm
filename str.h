@@ -6,7 +6,7 @@
 
 /* We can fit short strings in the struct in the same space it would take to
  * store a pointer to them. */
-#define CB_STR_INLINE_SIZE (sizeof(char *) / sizeof(char))
+#define CB_STR_INLINE_SIZE (sizeof(size_t) / sizeof(char))
 #define CB_STR_CAN_INLINE(S) (S < CB_STR_INLINE_SIZE)
 
 typedef struct cb_str {
