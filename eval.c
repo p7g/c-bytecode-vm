@@ -955,8 +955,6 @@ DO_OP_LOAD_STRUCT: {
 			DISPATCH();
 		}
 		/* deopt */
-		cb_str a = cb_agent_get_string(ic->spec->name), b = cb_agent_get_string(s->spec->name);
-		ERROR("deopt load struct %s -> %s\n", cb_strptr(&a), cb_strptr(&b));
 		ic->spec = NULL;
 		ic->index = -1;
 	}
