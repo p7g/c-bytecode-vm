@@ -24,7 +24,7 @@ struct cb_frame {
 	int is_function;
 };
 
-struct {
+struct cb_vm_state {
 	cb_bytecode *bytecode;
 
 	struct cb_value *stack;
@@ -39,7 +39,9 @@ struct {
 	struct cb_module *modules;
 
 	struct cb_error *error;
-} cb_vm_state;
+};
+
+extern struct cb_vm_state cb_vm_state;
 
 void cb_vm_init(cb_bytecode *bytecode);
 void cb_vm_deinit(void);

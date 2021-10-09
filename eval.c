@@ -21,6 +21,8 @@
 #define STACK_MAX 30000
 #define STACK_INIT_SIZE 1024
 
+struct cb_vm_state cb_vm_state;
+
 void cb_vm_init(cb_bytecode *bytecode)
 {
 	cb_vm_state.bytecode = bytecode;

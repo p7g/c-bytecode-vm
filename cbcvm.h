@@ -1,7 +1,7 @@
 #ifndef cbcvm_h
 #define cbcvm_h
 
-struct cb_options {
+extern struct cb_options {
 	int debug_vm,
 	    debug_gc,
 	    disasm,

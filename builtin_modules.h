@@ -17,8 +17,8 @@ struct cb_builtin_module_spec {
 	void (*instantiate)(struct cb_module *);
 };
 
-const size_t cb_builtin_module_count;
-const struct cb_builtin_module_spec *cb_builtin_modules;
+extern const size_t cb_builtin_module_count;
+extern const struct cb_builtin_module_spec *cb_builtin_modules;
 
 void cb_initialize_builtin_modules(void);
 void cb_instantiate_builtin_modules(void);
