@@ -10,9 +10,9 @@
 #include "str.h"
 #include "value.h"
 
-size_t ident_len,
-       ident_char_at,
-       ident_from_bytes;
+static size_t ident_len,
+	      ident_char_at,
+	      ident_from_bytes;
 
 static int len(size_t argc, struct cb_value *argv, struct cb_value *result)
 {

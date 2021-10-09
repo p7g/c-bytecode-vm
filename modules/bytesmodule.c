@@ -5,7 +5,7 @@
 #include "module.h"
 #include "value.h"
 
-size_t ident_new, ident_copy, ident_get, ident_set, ident_length;
+static size_t ident_new, ident_copy, ident_get, ident_set, ident_length;
 
 static int bytes_new(size_t argc, struct cb_value *argv,
 		struct cb_value *result)

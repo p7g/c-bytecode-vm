@@ -5,7 +5,7 @@
 #include "module.h"
 #include "value.h"
 
-size_t ident_shl, ident_shr;
+static size_t ident_shl, ident_shr;
 
 void cb_math_build_spec(cb_modspec *spec)
 {

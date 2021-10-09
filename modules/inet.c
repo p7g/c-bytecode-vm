@@ -6,7 +6,7 @@
 #include "module.h"
 #include "value.h"
 
-size_t ident_htonl, ident_htons, ident_ntohl, ident_ntohs;
+static size_t ident_htonl, ident_htons, ident_ntohl, ident_ntohs;
 
 void cb_inet_build_spec(cb_modspec *spec)
 {

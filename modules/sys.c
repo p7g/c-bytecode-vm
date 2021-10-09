@@ -7,7 +7,7 @@
 #include "module.h"
 #include "value.h"
 
-size_t ident_panic, ident_exit;
+static size_t ident_panic, ident_exit;
 
 void cb_sys_build_spec(cb_modspec *spec)
 {
