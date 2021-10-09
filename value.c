@@ -703,6 +703,9 @@ int cb_value_is_marked(const struct cb_value *val)
 	case CB_VALUE_STRUCT_SPEC:
 		return cb_gc_is_marked(&val->val.as_struct_spec->gc_header);
 	}
+
+	fprintf(stderr, "Unknown value type %d\n", val->type);
+	abort();
 }
 
 void cb_value_mark(struct cb_value *val)

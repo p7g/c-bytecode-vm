@@ -681,6 +681,7 @@ DO_OP_LOAD_FROM_MODULE: {
 	found = cb_hashmap_get(mod->global_scope, export_name, &val);
 	/* Exports are verified at compile time */
 	assert(found);
+	(void) found; /* in release builds assertion is removed */
 	PUSH(val);
 	DISPATCH();
 }
