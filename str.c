@@ -56,6 +56,7 @@ cb_str cb_str_take_cstr(char *str, size_t len)
 	s.len = len;
 	if (CB_STR_CAN_INLINE(len)) {
 		memcpy(s.chars.small, str, len);
+		free(str);
 	} else {
 		s.chars.big = str;
 	}
