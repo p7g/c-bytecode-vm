@@ -2092,13 +2092,12 @@ static int compile_array_expression(struct cstate *state)
 	int first_elem;
 	struct cstate_snapshot snapshot;
 	struct assignment_pattern pat;
-	struct token tok;
 
 	cstate_snapshot(state, &snapshot);
 
 	if (!parse_assignment_pattern(state, &pat, 1) && MATCH_P(TOK_EQUAL)) {
 		assert(pat.type == PATTERN_ARRAY);
-		tok = EXPECT(TOK_EQUAL);
+		EXPECT(TOK_EQUAL);
 
 		X(compile_expression(state));
 		for (i = 0; i < pat.p.array.nassigns; i += 1) {
