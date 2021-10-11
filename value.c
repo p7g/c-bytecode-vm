@@ -6,10 +6,11 @@
 #include <string.h>
 
 #include "agent.h"
-#include "bytes.h"
 #include "alloc.h"
+#include "bytes.h"
 #include "cbcvm.h"
 #include "eval.h"
+#include "module.h"
 #include "str.h"
 #include "struct.h"
 #include "value.h"
@@ -307,16 +308,38 @@ cb_str cb_value_to_string(struct cb_value *val)
 		break;
 
 	case CB_VALUE_FUNCTION: {
-		size_t name = val->val.as_function->name;
-		cb_str s;
+		const struct cb_function *func = val->val.as_function;
+		size_t name = func->name;
+		cb_str s, modname;
+		cb_str_init(&modname, 0);
 		if (name != (size_t) -1) {
 			s = cb_agent_get_string(name);
 			len = cb_strlen(s);
 			len += sizeof("<function >"); /* includes NUL byte */
+			/* User functions show the module name too */
+			if (func->type == CB_FUNCTION_USER) {
+				const struct cb_module *mod;
+				const struct cb_user_function *ufunc;
+				ufunc = &func->value.as_user;
+				mod = &cb_vm_state.modules[ufunc->module_id];
+				modname = cb_agent_get_string(
+						cb_modspec_name(mod->spec));
+				/* modname + '.' */
+				len += 1 + cb_strlen(modname);
+			}
 			cb_str_init(&buf, len);
 			sprintf(cb_strptr(&buf), "<function ");
-			memcpy(cb_strptr(&buf) + sizeof("<function ") - 1,
-					cb_strptr(&s), cb_strlen(s));
+			size_t pos = sizeof("<function ") - 1;
+			if (cb_strlen(modname)) {
+				memcpy(cb_strptr(&buf) + pos,
+						cb_strptr(&modname),
+						cb_strlen(modname));
+				pos += cb_strlen(modname);
+				cb_strptr(&buf)[pos] = '.';
+				pos += 1;
+			}
+			memcpy(cb_strptr(&buf) + pos, cb_strptr(&s),
+					cb_strlen(s));
 			cb_strptr(&buf)[len - 2] = '>';
 			cb_strptr(&buf)[len - 1] = 0;
 		} else {
