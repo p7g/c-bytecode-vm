@@ -41,6 +41,13 @@ int cb_repl(void)
 		cb_compile_state_reset(compile_state, line, modspec);
 		result = cb_compiler_resume(compile_state);
 		free(line);
+		if (did_init_vm) {
+			cb_vm_state.ic = realloc(cb_vm_state.ic,
+					cb_bytecode_len(bytecode)
+					* sizeof(union cb_inline_cache));
+			memset(&cb_vm_state.ic[pc], 0,
+					cb_bytecode_len(bytecode) - pc);
+		}
 		if (cb_options.disasm && !result)
 			result = cb_disassemble_range(bytecode, pc,
 					cb_bytecode_len(bytecode));
