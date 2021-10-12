@@ -457,11 +457,12 @@ cb_str cb_value_to_string(struct cb_value *val)
 		char *ptr;
 		const char *name;
 		size_t name_len;
+		cb_str n;
 		if (name_id == -1) {
 			name = "<anonymous>";
 			name_len = sizeof("<anonymous>") - 1;
 		} else {
-			cb_str n = cb_agent_get_string(name_id);
+			n = cb_agent_get_string(name_id);
 			name = cb_strptr(&n);
 			name_len = cb_strlen(n);
 		}
