@@ -29,6 +29,10 @@ union cb_inline_cache {
 		const struct cb_struct_spec *spec;
 		ssize_t index;
 	} load_struct;
+	struct cb_load_global_cache {
+		size_t version;
+		size_t index;
+	} load_global;
 };
 
 struct cb_vm_state {

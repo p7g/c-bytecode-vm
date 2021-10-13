@@ -519,9 +519,19 @@ DO_OP_LOAD_GLOBAL: {
 	struct cb_value value;
 
 	id = READ_SIZE_T();
-	if (!cb_hashmap_get(GLOBALS(), id, &value)) {
-		cb_str s = cb_agent_get_string(id);
-		ERROR("Unbound global '%s'", cb_strptr(&s));
+
+	struct cb_load_global_cache *ic = &CACHE()->load_global;
+	/* non-zero version means that there is a cache. */
+	if (ic->version != 0 && ic->version == cb_hashmap_version(GLOBALS())) {
+		value = cb_hashmap_get_index(GLOBALS(), ic->index);
+	} else {
+		int empty;
+		ssize_t idx = cb_hashmap_find(GLOBALS(), id, &empty);
+		if (empty) {
+			cb_str s = cb_agent_get_string(id);
+			ERROR("Unbound global '%s'", cb_strptr(&s));
+		}
+		value = cb_hashmap_get_index(GLOBALS(), idx);
 	}
 
 	PUSH(value);
@@ -542,7 +552,21 @@ DO_OP_STORE_GLOBAL: {
 	size_t id;
 
 	id = READ_SIZE_T();
-	cb_hashmap_set(GLOBALS(), id, TOP());
+
+	struct cb_load_global_cache *ic = &CACHE()->load_global;
+	if (ic->version != 0 && ic->version == cb_hashmap_version(GLOBALS())) {
+		cb_hashmap_set_index(GLOBALS(), ic->index, TOP());
+	} else {
+		int empty;
+		ssize_t idx = cb_hashmap_find(GLOBALS(), id, &empty);
+		/* ignore storing globals that haven't been declared */
+		if (!empty) {
+			ic->index = idx;
+			ic->version = cb_hashmap_version(GLOBALS());
+			cb_hashmap_set_index(GLOBALS(), idx, TOP());
+		}
+	}
+
 	DISPATCH();
 }
 
