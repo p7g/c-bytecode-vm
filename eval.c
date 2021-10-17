@@ -209,6 +209,7 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 int cb_eval(size_t pc, struct cb_frame *frame)
 {
 	int retval = 0;
+	cb_instruction *code = cb_vm_state.bytecode->code;
 	cb_vm_state.frame = frame;
 
 #define TABLE_ENTRY(OP) &&DO_##OP,
@@ -217,7 +218,7 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 	};
 #undef TABLE_ENTRY
 
-#define NEXT() (cb_bytecode_get(cb_vm_state.bytecode, pc++))
+#define NEXT() (code[pc++])
 # define DISPATCH() ({ \
 		if (cb_options.debug_vm) \
 			debug_state(cb_vm_state.bytecode, pc, frame); \
@@ -453,6 +454,8 @@ DO_OP_CALL: {
 		failed = func->value.as_native(num_args,
 				&cb_vm_state.stack[cb_vm_state.sp - num_args],
 					&result);
+		/* native functions can mess with global state */
+		code = cb_vm_state.bytecode->code;
 		assert(cb_vm_state.sp > num_args);
 		cb_vm_state.sp -= (num_args + 1);
 		PUSH(result);
@@ -716,7 +719,7 @@ DO_OP_LOAD_FROM_MODULE: {
 
 DO_OP_EXPORT:
 	/* FIXME: use export IDs rather than hashmap lookups */
-	READ_SIZE_T();
+	(void) READ_SIZE_T();
 	POP();
 	DISPATCH();
 

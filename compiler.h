@@ -8,8 +8,18 @@
 #include "module.h"
 #include "str.h"
 
-typedef struct bytecode cb_bytecode;
 typedef size_t cb_instruction;
+
+typedef struct cb_bytecode {
+	cb_instruction *code;
+	size_t size, len;
+
+	ssize_t *label_addresses;
+	size_t label_addr_size, label_addr_len;
+
+	struct pending_address *pending_addresses;
+} cb_bytecode;
+
 typedef struct cstate cb_compile_state;
 
 int cb_compile_file(const char *name, const char *path, cb_bytecode **bc_out);

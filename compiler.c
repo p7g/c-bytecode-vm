@@ -441,21 +441,11 @@ struct pending_address {
 	size_t label, address;
 };
 
-struct bytecode {
-	cb_instruction *code;
-	size_t size, len;
-
-	ssize_t *label_addresses;
-	size_t label_addr_size, label_addr_len;
-
-	struct pending_address *pending_addresses;
-};
-
-struct bytecode *cb_bytecode_new()
+struct cb_bytecode *cb_bytecode_new()
 {
-	struct bytecode *bc;
+	struct cb_bytecode *bc;
 
-	bc = malloc(sizeof(struct bytecode));
+	bc = malloc(sizeof(struct cb_bytecode));
 
 	bc->code = NULL;
 	bc->size = bc->len = 0;
@@ -466,17 +456,17 @@ struct bytecode *cb_bytecode_new()
 	return bc;
 }
 
-inline cb_instruction cb_bytecode_get(struct bytecode *bc, size_t idx)
+inline cb_instruction cb_bytecode_get(struct cb_bytecode *bc, size_t idx)
 {
 	return bc->code[idx];
 }
 
-inline size_t cb_bytecode_len(struct bytecode *bc)
+inline size_t cb_bytecode_len(struct cb_bytecode *bc)
 {
 	return bc->len;
 }
 
-inline void cb_bytecode_free(struct bytecode *bc)
+inline void cb_bytecode_free(struct cb_bytecode *bc)
 {
 	struct pending_address *current, *tmp;
 	current = bc->pending_addresses;
@@ -492,7 +482,7 @@ inline void cb_bytecode_free(struct bytecode *bc)
 	free(bc);
 }
 
-static size_t bytecode_label(struct bytecode *bc)
+static size_t bytecode_label(struct cb_bytecode *bc)
 {
 	if (bc->label_addr_size <= bc->label_addr_len) {
 		bc->label_addr_size = bc->label_addr_size == 0
@@ -506,13 +496,13 @@ static size_t bytecode_label(struct bytecode *bc)
 	return bc->label_addr_len - 1;
 }
 
-static void bytecode_update_size_t(struct bytecode *bc, size_t idx,
+static void bytecode_update_size_t(struct cb_bytecode *bc, size_t idx,
 		size_t value)
 {
 	bc->code[idx] = value;
 }
 
-static void bytecode_mark_label(struct bytecode *bc, size_t label)
+static void bytecode_mark_label(struct cb_bytecode *bc, size_t label)
 {
 	struct pending_address *current, *tmp, **prev;
 
@@ -535,7 +525,7 @@ static void bytecode_mark_label(struct bytecode *bc, size_t label)
 	}
 }
 
-static void bytecode_push(struct bytecode *bc, cb_instruction byte)
+static void bytecode_push(struct cb_bytecode *bc, cb_instruction byte)
 {
 	assert(bc != NULL);
 
@@ -549,12 +539,12 @@ static void bytecode_push(struct bytecode *bc, cb_instruction byte)
 	bc->code[bc->len++] = byte;
 }
 
-static void bytecode_push_size_t(struct bytecode *bc, size_t value)
+static void bytecode_push_size_t(struct cb_bytecode *bc, size_t value)
 {
 	bytecode_push(bc, value);
 }
 
-static void bytecode_address_of(struct bytecode *bc, size_t label)
+static void bytecode_address_of(struct cb_bytecode *bc, size_t label)
 {
 	size_t value;
 	struct pending_address *addr;
@@ -576,7 +566,7 @@ static void bytecode_address_of(struct bytecode *bc, size_t label)
 	bytecode_push_size_t(bc, value);
 }
 
-static int bytecode_finalize(struct bytecode *bc)
+static int bytecode_finalize(struct cb_bytecode *bc)
 {
 	if (bc->pending_addresses != NULL) {
 		fprintf(stderr, "Missing label\n");
@@ -599,7 +589,7 @@ struct bytecode_snapshot {
 	struct pending_address *pending_addresses;
 };
 
-static void bytecode_snapshot(const struct bytecode *bc,
+static void bytecode_snapshot(const struct cb_bytecode *bc,
 		struct bytecode_snapshot *snap)
 {
 	snap->len = bc->len;
@@ -607,7 +597,7 @@ static void bytecode_snapshot(const struct bytecode *bc,
 	snap->pending_addresses = bc->pending_addresses;
 }
 
-static void bytecode_restore(struct bytecode *bc,
+static void bytecode_restore(struct cb_bytecode *bc,
 		struct bytecode_snapshot *snap)
 {
 	struct pending_address *tmp;
@@ -648,7 +638,7 @@ struct loop_state {
 };
 
 struct cstate {
-	struct bytecode *bytecode;
+	struct cb_bytecode *bytecode;
 
 	const char *input;
 	const char *filename;
@@ -2624,7 +2614,7 @@ int cb_compiler_resume(struct cstate *state)
 }
 
 int cb_compile_file(const char *name, const char *path,
-		struct bytecode **bc_out)
+		struct cb_bytecode **bc_out)
 {
 	int result;
 	FILE *f;
