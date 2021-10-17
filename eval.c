@@ -220,9 +220,9 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 #undef TABLE_ENTRY
 
 #define NEXT() (code[pc++])
-# define DISPATCH() ({ \
-		if (cb_options.debug_vm) \
-			debug_state(cb_vm_state.bytecode, pc, frame); \
+#define DISPATCH() ({ \
+		/* if (cb_options.debug_vm) */\
+			/*debug_state(cb_vm_state.bytecode, pc, frame); */\
 		size_t _next = NEXT(); \
 		assert(_next >= 0 && _next < OP_MAX); \
 		goto *dispatch_table[_next]; \
