@@ -9,7 +9,10 @@ else ifeq ($(TARGET),profile)
 endif
 
 ifneq ($(TARGET),release)
-	CFLAGS+=-fsanitize=$(SANITIZERS) -fno-omit-frame-pointer
+ifneq ($(TARGET),profile)
+	CFLAGS+=-fsanitize=$(SANITIZERS)
+endif
+	CFLAGS+=-fno-omit-frame-pointer
 endif
 
 cbcvm: *.c *.h modules/*.c modules/*.h
