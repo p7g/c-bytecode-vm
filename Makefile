@@ -28,6 +28,6 @@ profile-opt:
 	find . -name '*.gcda' -delete
 
 clean:
-	rm cbcvm
+	[ -f cbcvm ] && rm cbcvm || true
 
 .PHONY: clean profile-opt
