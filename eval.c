@@ -117,7 +117,7 @@ int cb_run(void)
 	return cb_eval(0, &frame);
 }
 
-static void stack_push(struct cb_value v)
+static inline void stack_push(struct cb_value v)
 {
 	if (cb_vm_state.sp >= cb_vm_state.stack_size) {
 		cb_vm_state.stack_size <<= 2;
@@ -127,7 +127,7 @@ static void stack_push(struct cb_value v)
 	cb_vm_state.stack[cb_vm_state.sp++] = v;
 }
 
-static struct cb_value stack_pop()
+static inline struct cb_value stack_pop()
 {
 	assert(cb_vm_state.sp > 0);
 	return cb_vm_state.stack[--cb_vm_state.sp];
