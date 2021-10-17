@@ -239,16 +239,9 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 	})
 #define READ_SIZE_T() (NEXT())
 #define TOP() (cb_vm_state.stack[cb_vm_state.sp - 1])
-#define FRAME() (frame)
 #define LOCAL_IDX(N) (frame->bp + 1 + (N))
-#define LOCAL(N) ({ \
-		struct cb_value _v = cb_vm_state.stack[LOCAL_IDX(N)]; \
-		_v; \
-	})
-#define REPLACE(N, VAL) ({ \
-		struct cb_value _v = (VAL); \
-		cb_vm_state.stack[(N)] = _v; \
-	})
+#define LOCAL(N) (cb_vm_state.stack[LOCAL_IDX(N)])
+#define REPLACE(N, VAL) (cb_vm_state.stack[(N)] = (VAL))
 #define GLOBALS() (frame->module->global_scope)
 #define CACHE() (&cb_vm_state.ic[pc - 1])
 
@@ -1094,16 +1087,16 @@ DO_OP_ROT_2: {
 }
 }
 
-#undef NEXT
+#undef CACHE
 #undef DISPATCH
 #undef ERROR
-#undef READ_SIZE_T
-#undef TOP
-#undef FRAME
-#undef LOCAL_IDX
-#undef LOCAL
-#undef REPLACE
 #undef GLOBALS
+#undef LOCAL
+#undef LOCAL_IDX
+#undef NEXT
+#undef READ_SIZE_T
+#undef REPLACE
+#undef TOP
 }
 
 #undef PUSH
