@@ -20,7 +20,7 @@ cbcvm: *.c *.h modules/*.c modules/*.h
 
 # Generate a release binary using profile-guided optimization
 profile-opt:
-	CFLAGS='-fprofile-generate' $(MAKE) TARGET=release
+	CFLAGS='-fprofile-generate' $(MAKE) clean cbcvm TARGET=release
 	./cbcvm bf.rbcvm bench.b
 	$(MAKE) clean
 	CFLAGS='-fprofile-use -fprofile-correction' $(MAKE) TARGET=release
