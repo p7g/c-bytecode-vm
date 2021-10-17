@@ -29,6 +29,6 @@ profile-opt:
 
 clean:
 	[ -f cbcvm ] && rm cbcvm || true
-	find . -name '*.gcda' -o -name '*.gcno' -o -name 'gmon.out' -delete
+	find . \( -name '*.gcda' -o -name '*.gcno' -o -name 'gmon.out' \) -delete
 
 .PHONY: clean profile-opt
