@@ -85,7 +85,7 @@ static void maybe_grow(struct cb_hashmap *m)
 	free(old_entries);
 }
 
-ssize_t cb_hashmap_find(const cb_hashmap *m, size_t key, int *empty)
+size_t cb_hashmap_find(const cb_hashmap *m, size_t key, int *empty)
 {
 	size_t idx;
 	struct entry *entry;
