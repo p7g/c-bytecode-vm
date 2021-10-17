@@ -503,13 +503,29 @@ DO_OP_POP:
 	POP();
 	DISPATCH();
 
-DO_OP_LOAD_LOCAL:
-	PUSH(LOCAL(READ_SIZE_T()));
-	DISPATCH();
+DO_OP_LOAD_LOCAL: {
+	size_t local_no;
+	struct cb_value value;
 
-DO_OP_STORE_LOCAL:
-	REPLACE(LOCAL_IDX(READ_SIZE_T()), TOP());
+	local_no = READ_SIZE_T();
+	value = LOCAL(local_no);
+	PUSH(value);
+
 	DISPATCH();
+}
+
+DO_OP_STORE_LOCAL: {
+	size_t local_no;
+	size_t local_idx;
+	struct cb_value value;
+
+	local_no = READ_SIZE_T();
+	local_idx = LOCAL_IDX(local_no);
+	value = TOP();
+	REPLACE(local_idx, value);
+
+	DISPATCH();
+}
 
 DO_OP_LOAD_GLOBAL: {
 	size_t id;
