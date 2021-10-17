@@ -406,9 +406,12 @@ DO_OP_JUMP_IF_TRUE: {
 	struct cb_value pred;
 	size_t next = READ_SIZE_T();
 	pred = POP();
-	if ((pred.type == CB_VALUE_BOOL && pred.val.as_bool)
-			|| cb_value_is_truthy(&pred))
+	if (pred.type == CB_VALUE_BOOL) {
+		if (pred.val.as_bool)
+			pc = next;
+	} else if (cb_value_is_truthy(&pred)) {
 		pc = next;
+	}
 	DISPATCH();
 }
 
@@ -416,9 +419,12 @@ DO_OP_JUMP_IF_FALSE: {
 	struct cb_value pred;
 	size_t next = READ_SIZE_T();
 	pred = POP();
-	if ((pred.type == CB_VALUE_BOOL && !pred.val.as_bool)
-			|| !cb_value_is_truthy(&pred))
+	if (pred.type == CB_VALUE_BOOL) {
+		if (!pred.val.as_bool)
+			pc = next;
+	} else if (!cb_value_is_truthy(&pred)) {
 		pc = next;
+	}
 	DISPATCH();
 }
 
@@ -921,7 +927,10 @@ DO_OP_NOT: {
 	struct cb_value a, result;
 	a = POP();
 	result.type = CB_VALUE_BOOL;
-	result.val.as_bool = !cb_value_is_truthy(&a);
+	if (a.type == CB_VALUE_BOOL)
+		result.val.as_bool = !a.val.as_bool;
+	else
+		result.val.as_bool = !cb_value_is_truthy(&a);
 	PUSH(result);
 	DISPATCH();
 }
