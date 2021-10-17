@@ -713,25 +713,31 @@ DO_OP_LOAD_FROM_MODULE: {
 	size_t mod_id, export_id, export_name;
 	struct cb_module *mod;
 	struct cb_value val;
-	int found;
+	size_t idx;
 	
 	mod_id = READ_SIZE_T();
 	export_id = READ_SIZE_T();
 	mod = &cb_vm_state.modules[mod_id];
-	export_name = cb_modspec_get_export_name(mod->spec, export_id);
-	found = cb_hashmap_get(mod->global_scope, export_name, &val);
-	/* Exports are verified at compile time */
-	assert(found);
-	(void) found; /* in release builds assertion is removed */
+
+	struct cb_load_from_module_cache *ic = &CACHE()->load_from_module;
+
+	if (ic->version == 0) {
+		int empty;
+		export_name = cb_modspec_get_export_name(mod->spec, export_id);
+		idx = cb_hashmap_find(mod->global_scope, export_name, &empty);
+		/* Exports are verified at compile time */
+		assert(!empty);
+		ic->version = cb_hashmap_version(mod->global_scope);
+		ic->index = idx;
+	} else {
+		assert(ic->version == cb_hashmap_version(mod->global_scope));
+	}
+
+	val = cb_hashmap_get_index(mod->global_scope, ic->index);
+
 	PUSH(val);
 	DISPATCH();
 }
-
-DO_OP_EXPORT:
-	/* FIXME: use export IDs rather than hashmap lookups */
-	(void) READ_SIZE_T();
-	POP();
-	DISPATCH();
 
 DO_OP_NEW_ARRAY_WITH_VALUES: {
 	struct cb_value arrayval;

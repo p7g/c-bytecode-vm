@@ -33,6 +33,10 @@ union cb_inline_cache {
 		size_t version;
 		size_t index;
 	} load_global;
+	struct cb_load_from_module_cache {
+		size_t version;
+		size_t index;
+	} load_from_module;
 };
 
 struct cb_vm_state {

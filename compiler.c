@@ -986,8 +986,7 @@ static int compile_statement(struct cstate *state)
 
 static void export_name(struct cstate *state, size_t name)
 {
-	APPEND(OP_EXPORT);
-	APPEND_SIZE_T(cb_modspec_add_export(state->modspec, name));
+	cb_modspec_add_export(state->modspec, name);
 }
 
 static int declare_name(struct cstate *state, size_t name_id, int export)

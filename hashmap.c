@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "cb_util.h"
 #include "hashmap.h"
 #include "value.h"
 
@@ -153,12 +154,13 @@ void cb_hashmap_mark_contents(cb_hashmap *m)
 	}
 }
 
-size_t cb_hashmap_version(const cb_hashmap *m)
+CB_INLINE size_t cb_hashmap_version(const cb_hashmap *m)
 {
 	return m->version;
 }
 
-struct cb_value cb_hashmap_get_index(const cb_hashmap *m, size_t index)
+CB_INLINE struct cb_value cb_hashmap_get_index(const cb_hashmap *m,
+		size_t index)
 {
 	assert(index < m->size);
 	assert(m->entries[index].in_use);
@@ -167,7 +169,8 @@ struct cb_value cb_hashmap_get_index(const cb_hashmap *m, size_t index)
 }
 
 /* The entry should already be in use */
-void cb_hashmap_set_index(cb_hashmap *m, size_t index, struct cb_value value)
+CB_INLINE void cb_hashmap_set_index(cb_hashmap *m, size_t index,
+		struct cb_value value)
 {
 	assert(index >= 0 && index < m->size);
 	struct entry *entry = &m->entries[index];
