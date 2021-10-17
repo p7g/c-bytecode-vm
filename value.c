@@ -8,6 +8,7 @@
 #include "agent.h"
 #include "alloc.h"
 #include "bytes.h"
+#include "cb_util.h"
 #include "cbcvm.h"
 #include "eval.h"
 #include "module.h"
@@ -117,7 +118,7 @@ struct cb_value cb_cfunc_new(size_t name, size_t arity,
 	return func_val;
 }
 
-size_t cb_ufunc_entry(const struct cb_function *func, size_t num_args)
+CB_INLINE size_t cb_ufunc_entry(const struct cb_function *func, size_t num_args)
 {
 	const struct cb_user_function *ufunc;
 
