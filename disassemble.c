@@ -20,7 +20,6 @@ int cb_disassemble_range(cb_bytecode *bytecode, size_t start, size_t end)
 	int result;
 
 	assert(start < end);
-	assert(start >= 0);
 	assert(end <= cb_bytecode_len(bytecode));
 
 	i = start;

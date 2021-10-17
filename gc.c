@@ -97,7 +97,6 @@ static void evaluate_mark_queue(void)
 
 static void mark(void)
 {
-	int i;
 	struct cb_module *mod;
 
 	/* Roots:
@@ -107,12 +106,12 @@ static void mark(void)
 	 */
 
 	DEBUG_LOG("marking stack values");
-	for (i = 0; i < cb_vm_state.sp; i += 1)
+	for (unsigned i = 0; i < cb_vm_state.sp; i += 1)
 		cb_value_mark(&cb_vm_state.stack[i]);
 
 	DEBUG_LOG("marking module global scopes");
 	if (cb_vm_state.modules) {
-		for (i = 0; i < cb_agent_modspec_count(); i += 1) {
+		for (unsigned i = 0; i < cb_agent_modspec_count(); i += 1) {
 			mod = &cb_vm_state.modules[i];
 			if (!mod || !mod->spec)
 				continue;

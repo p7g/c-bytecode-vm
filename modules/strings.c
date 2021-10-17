@@ -33,7 +33,7 @@ static int char_at(size_t argc, struct cb_value *argv, struct cb_value *result)
 	strval = CB_EXPECT_STRING(argv[0]);
 	CB_EXPECT_TYPE(CB_VALUE_INT, argv[1]);
 	pos = argv[1].val.as_int;
-	if (pos < 0 || cb_strlen(strval) < pos) {
+	if (pos < 0 || cb_strlen(strval) < (size_t) pos) {
 		cb_error_set(cb_value_from_string(
 					"char_at: String index out of range"));
 		return 1;

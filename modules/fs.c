@@ -257,7 +257,7 @@ static int wrapped_fread(size_t argc, struct cb_value *argv,
 	}
 
 	buf = bufv.val.as_bytes;
-	fits_buf = cb_bytes_len(buf) >= n.val.as_int;
+	fits_buf = cb_bytes_len(buf) >= (size_t) n.val.as_int;
 
 	if (!fits_buf) {
 		cb_error_set(cb_value_from_string(
@@ -306,7 +306,7 @@ static int wrapped_fgets(size_t argc, struct cb_value *argv,
 	}
 
 	buf = bufv.val.as_bytes;
-	fits_buf = cb_bytes_len(buf) >= n.val.as_int;
+	fits_buf = cb_bytes_len(buf) >= (size_t) n.val.as_int;
 
 	if (!fits_buf) {
 		cb_error_set(cb_value_from_string(

@@ -22,6 +22,7 @@
 #define INITIAL_BYTECODE_SIZE 32
 #define LENGTH(ARR) (sizeof(ARR) / sizeof(ARR[0]))
 #define VALID_ESCAPES "nrt\"'"
+#define UNNAMED ((size_t) -1)
 
 #define TOKEN_TYPE_LIST(X) \
 	X(TOK_IDENT) \
@@ -152,7 +153,8 @@ static const char *token_type_name(enum token_type t)
 static int next_token(lex_state *state, const char *input, struct token *dest)
 {
 	const char *start_of_token;
-	int is_double, c, len, i;
+	int is_double, c;
+	unsigned i, len;
 
 	assert(state != NULL);
 	assert(input != NULL);
@@ -405,7 +407,7 @@ static struct binding *scope_get_binding(struct scope *s, size_t name)
 			break; \
 		binding = (L); \
 		while (binding) { \
-			if (binding->name == name) \
+			if ((size_t) binding->name == name) \
 				return binding; \
 			binding = binding->next; \
 		} \
@@ -745,7 +747,8 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 {
 	struct binding *binding;
 	struct function_state *fstate;
-	int i, found;
+	unsigned i;
+	int found;
 
 	if (!s->scope)
 		return 0;
@@ -1130,10 +1133,10 @@ static int compile_assignment_pattern(struct cstate *state,
 			APPEND(OP_LOAD_STRUCT);
 			APPEND_SIZE_T(pat->p.struct_.name_ids[i]);
 			X(declare_name(state,
-					pat->p.struct_.aliases[i] == -1
-						? pat->p.struct_.name_ids[i]
-						: pat->p.struct_.aliases[i],
-					export));
+				pat->p.struct_.aliases[i] < 0
+					? pat->p.struct_.name_ids[i]
+					: (size_t) pat->p.struct_.aliases[i],
+				export));
 		}
 		APPEND(OP_POP);
 		break;
@@ -1175,13 +1178,12 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	struct assignment_pattern param_patterns[CB_MAX_PARAMS];
 	size_t bindings[CB_MAX_PARAMS];
 	size_t optarg_addrs[CB_MAX_PARAMS], optarg_count;
-	size_t name_id, binding_id;
+	size_t name_id, binding_id = (size_t) -1;
 	size_t num_params, local_count_pos;
 	struct scope inner_scope, *old_scope;
 	struct function_state fstate, *old_fstate;
 	size_t free_var;
 	struct binding *binding;
-	int i, j;
 	size_t start_label, end_label;
 
 	EXPECT(TOK_FUNCTION);
@@ -1197,7 +1199,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 			binding_id = scope_add_binding(state->scope, name_id, 0);
 		}
 	} else {
-		name_id = (size_t) -1;
+		name_id = UNNAMED;
 	}
 
 	start_label = LABEL();
@@ -1248,7 +1250,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	local_count_pos = cb_bytecode_len(state->bytecode);
 	APPEND_SIZE_T(0);
 
-	for (i = num_params - 1; i >= 0; i -= 1) {
+	for (int i = num_params - 1; i >= 0; i -= 1) {
 		APPEND(OP_LOAD_LOCAL);
 		APPEND_SIZE_T(bindings[i]);
 		X(compile_assignment_pattern(state, &param_patterns[i], 0));
@@ -1288,15 +1290,15 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	APPEND_SIZE_T(num_params);
 	ADDR_OF(start_label);
 	APPEND_SIZE_T(optarg_count);
-	for (i = 0; i < optarg_count; i += 1)
+	for (unsigned i = 0; i < optarg_count; i += 1)
 		APPEND_SIZE_T(optarg_addrs[i]);
 
-	if (state->is_global && name_id != -1) {
+	if (state->is_global && name_id != UNNAMED) {
 		APPEND(OP_DECLARE_GLOBAL);
 		APPEND_SIZE_T(name_id);
 		APPEND(OP_STORE_GLOBAL);
 		APPEND_SIZE_T(name_id);
-	} else if (name_id != -1) {
+	} else if (name_id != UNNAMED && binding_id != (size_t) -1) {
 		APPEND(OP_STORE_LOCAL);
 		APPEND_SIZE_T(binding_id);
 	}
@@ -1306,7 +1308,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	if (fstate.free_var_len > 0)
 		assert(state->scope != NULL);
 
-	for (j = i = 0; i < fstate.free_var_len; i += 1) {
+	for (unsigned j = 0, i = 0; i < fstate.free_var_len; i += 1) {
 		free_var = fstate.free_variables[i];
 		binding = scope_get_binding(state->scope, free_var);
 		if (binding != NULL) {
@@ -1669,7 +1671,7 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 		if (name_out)
 			*name_out = name_id;
 	} else {
-		name_id = (size_t) -1;
+		name_id = UNNAMED;
 	}
 
 	num_fields = 0;
@@ -1698,12 +1700,12 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 
 	UPDATE(nfields_pos, num_fields);
 
-	if (state->is_global && name_id != -1) {
+	if (state->is_global && name_id != UNNAMED) {
 		APPEND(OP_DECLARE_GLOBAL);
 		APPEND_SIZE_T(name_id);
 		APPEND(OP_STORE_GLOBAL);
 		APPEND_SIZE_T(name_id);
-	} else if (name_id != -1) {
+	} else if (name_id != UNNAMED) {
 		assert(state->scope != NULL);
 		binding_id = scope_add_binding(state->scope, name_id, 0);
 		APPEND(OP_STORE_LOCAL);
@@ -2066,9 +2068,9 @@ static int compile_struct_destructuring_assignment(struct cstate *state)
 		APPEND(OP_DUP);
 		APPEND(OP_LOAD_STRUCT);
 		APPEND_SIZE_T(pat.p.struct_.name_ids[i]);
-		dest_name = pat.p.struct_.aliases[i] == -1
+		dest_name = pat.p.struct_.aliases[i] < 0
 			? pat.p.struct_.name_ids[i]
-			: pat.p.struct_.aliases[i];
+			: (size_t) pat.p.struct_.aliases[i];
 		X(store_name(state, dest_name));
 		APPEND(OP_POP);
 	}
@@ -2128,7 +2130,7 @@ static int compile_anonymous_struct_literal(struct cstate *state)
 #define MAX_FIELDS 64
 	struct token field;
 	size_t fields[MAX_FIELDS], num_fields, name;
-	int first_field, i;
+	int first_field;
 
 	num_fields = 0;
 	first_field = 1;
@@ -2160,11 +2162,11 @@ static int compile_anonymous_struct_literal(struct cstate *state)
 	APPEND_SIZE_T(name);
 	APPEND_SIZE_T(num_fields);
 
-	for (i = 0; i < num_fields; i += 1)
+	for (unsigned i = 0; i < num_fields; i += 1)
 		APPEND_SIZE_T(fields[i]);
 
 	APPEND(OP_NEW_STRUCT);
-	for (i = num_fields - 1; i >= 0; i -= 1) {
+	for (int i = num_fields - 1; i >= 0; i -= 1) {
 		APPEND(OP_ROT_2);
 		APPEND(OP_ADD_STRUCT_FIELD);
 		APPEND_SIZE_T(fields[i]);

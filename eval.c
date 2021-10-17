@@ -44,10 +44,9 @@ void cb_vm_init(cb_bytecode *bytecode)
 
 void cb_vm_deinit(void)
 {
-	int i;
 	size_t num_modules = cb_agent_modspec_count();
 
-	for (i = 0; i < num_modules; i += 1) {
+	for (unsigned i = 0; i < num_modules; i += 1) {
 		if (!cb_module_is_zero(cb_vm_state.modules[i]))
 			cb_module_free(&cb_vm_state.modules[i]);
 	}
@@ -140,7 +139,7 @@ static CB_INLINE struct cb_value stack_pop()
 int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 		size_t args_len, struct cb_value *result)
 {
-	int i, ret;
+	int ret;
 	struct cb_frame frame;
 	struct cb_user_function *func;
 
@@ -152,10 +151,10 @@ int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 	frame.bp = cb_vm_state.sp;
 	PUSH(fn);
 
-	for (i = 0; i < args_len; i += 1)
+	for (unsigned i = 0; i < args_len; i += 1)
 		PUSH(args[i]);
 
-	if (func->module_id != -1)
+	if (func->module_id != (size_t) -1)
 		frame.module = &cb_vm_state.modules[func->module_id];
 	else
 		frame.module = NULL;
@@ -165,6 +164,7 @@ int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 	return ret;
 }
 
+/*
 static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame)
 {
 	size_t _name;
@@ -181,7 +181,7 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 	if (!frame->is_function) {
 		funcname = "top";
 	} else if ((_name = cb_vm_state.stack[frame->bp]
-				.val.as_function->name) != -1) {
+				.val.as_function->name) != (size_t) -1) {
 		funcname_str = cb_agent_get_string(_name);
 		funcname = cb_strptr(&funcname_str);
 	}
@@ -206,6 +206,7 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 	}
 	printf("\n\n");
 }
+*/
 
 int cb_eval(size_t pc, struct cb_frame *frame)
 {
@@ -224,7 +225,7 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 		/* if (cb_options.debug_vm) */\
 			/*debug_state(cb_vm_state.bytecode, pc, frame); */\
 		size_t _next = NEXT(); \
-		assert(_next >= 0 && _next < OP_MAX); \
+		assert(_next < OP_MAX); \
 		goto *dispatch_table[_next]; \
 	})
 
@@ -461,7 +462,7 @@ DO_OP_CALL: {
 		next_frame.parent = frame;
 		next_frame.is_function = 1;
 		next_frame.bp = cb_vm_state.sp - num_args - 1;
-		if (func->value.as_user.module_id != -1)
+		if (func->value.as_user.module_id != (size_t) -1)
 			next_frame.module = &cb_vm_state.modules[
 				func->value.as_user.module_id];
 		else
@@ -604,7 +605,7 @@ DO_OP_NEW_FUNCTION: {
 		.upvalues_size = 0,
 		.module_id = frame->module
 			? cb_modspec_id(frame->module->spec)
-			: -1,
+			: (size_t) -1,
 		.optargs = (struct cb_function_optargs) {
 			.count = nopt,
 		},

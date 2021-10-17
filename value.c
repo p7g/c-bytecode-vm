@@ -65,7 +65,6 @@ inline void cb_value_decref(struct cb_value *value)
 
 static void cb_function_deinit(void *ptr)
 {
-	int i, j;
 	struct cb_user_function ufn;
 	struct cb_function *fn = ptr;
 
@@ -75,13 +74,15 @@ static void cb_function_deinit(void *ptr)
 	ufn = fn->value.as_user;
 
 	if (ufn.upvalues_len) {
-		for (i = 0; i < ufn.upvalues_len; i += 1) {
+		for (unsigned i = 0; i < ufn.upvalues_len; i += 1) {
 			if (ufn.upvalues[i]->refcount != 0)
 				ufn.upvalues[i]->refcount -= 1;
 			if (ufn.upvalues[i]->refcount == 0)
 				free(ufn.upvalues[i]);
 			if (cb_vm_state.upvalues != NULL) {
-				for (j = 0; j < cb_vm_state.upvalues_idx; j += 1) {
+				for (unsigned j = 0;
+						j < cb_vm_state.upvalues_idx;
+						j += 1) {
 					if (cb_vm_state.upvalues[j]
 							== ufn.upvalues[i]) {
 						cb_vm_state.upvalues[j] = NULL;
@@ -363,7 +364,7 @@ cb_str cb_value_to_string(struct cb_value *val)
 		}
 
 		len = 2; /* square brackets around elements */
-		for (int i = 0; i < array_len; i += 1) {
+		for (unsigned i = 0; i < array_len; i += 1) {
 			elements[i] = cb_value_to_string(
 					&val->val.as_array->values[i]);
 			len += cb_strlen(elements[i]);
@@ -373,7 +374,7 @@ cb_str cb_value_to_string(struct cb_value *val)
 		cb_str_init(&buf, len);
 		ptr = cb_strptr(&buf);
 		*ptr++ = '[';
-		for (int i = 0; i < array_len; i += 1) {
+		for (unsigned i = 0; i < array_len; i += 1) {
 			memcpy(ptr, cb_strptr(&elements[i]),
 					cb_strlen(elements[i]));
 			cb_str_free(elements[i]);
@@ -396,7 +397,7 @@ cb_str cb_value_to_string(struct cb_value *val)
 		cb_str elements[struct_len];
 		const char *name;
 		size_t name_len;
-		if (s->spec->name == -1) {
+		if (s->spec->name == (size_t) -1) {
 			name = "<anonymous>";
 			name_len = sizeof("<anonymous>") - 1;
 		} else {
@@ -415,7 +416,7 @@ cb_str cb_value_to_string(struct cb_value *val)
 			break;
 		}
 
-		for (int i = 0; i < struct_len; i += 1) {
+		for (unsigned i = 0; i < struct_len; i += 1) {
 			elements[i] = cb_value_to_string(&s->fields[i]);
 			len += cb_strlen(elements[i]);
 			len += cb_strlen(cb_agent_get_string(
@@ -430,7 +431,7 @@ cb_str cb_value_to_string(struct cb_value *val)
 		memcpy(ptr, name, name_len);
 		ptr += name_len;
 		*ptr++ = '{';
-		for (int i = 0; i < struct_len; i += 1) {
+		for (unsigned i = 0; i < struct_len; i += 1) {
 			cb_str fname = cb_agent_get_string(
 					s->spec->fields[i]);
 			memcpy(ptr, cb_strptr(&fname), cb_strlen(fname));
@@ -458,7 +459,7 @@ cb_str cb_value_to_string(struct cb_value *val)
 		const char *name;
 		size_t name_len;
 		cb_str n;
-		if (name_id == -1) {
+		if (name_id == (size_t) -1) {
 			name = "<anonymous>";
 			name_len = sizeof("<anonymous>") - 1;
 		} else {
@@ -530,7 +531,7 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		struct cb_array *left, *right;
 		left = a->val.as_array;
 		right = b->val.as_array;
-		for (int i = 0; i < left->len; i += 1) {
+		for (unsigned i = 0; i < left->len; i += 1) {
 			if (!cb_value_eq(&left->values[i], &right->values[i]))
 				return 0;
 		}
@@ -561,7 +562,7 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		struct cb_struct *left, *right;
 		left = a->val.as_struct;
 		right = b->val.as_struct;
-		for (int i = 0; i < left->spec->nfields; i += 1) {
+		for (unsigned i = 0; i < left->spec->nfields; i += 1) {
 			if (!cb_value_eq(&left->fields[i], &right->fields[i]))
 				return 0;
 		}
@@ -768,16 +769,14 @@ void cb_value_mark(struct cb_value *val)
 		break;
 
 	case CB_VALUE_ARRAY: {
-		int i;
 		GC_LOG(val->val.as_array);
 		cb_gc_mark(&val->val.as_array->gc_header);
-		for (i = 0; i < val->val.as_array->len; i += 1)
+		for (unsigned i = 0; i < val->val.as_array->len; i += 1)
 			cb_gc_queue_mark(&val->val.as_array->values[i]);
 		break;
 	}
 
 	case CB_VALUE_FUNCTION: {
-		int i;
 		struct cb_function *fn;
 		struct cb_upvalue *uv;
 
@@ -785,7 +784,8 @@ void cb_value_mark(struct cb_value *val)
 		GC_LOG(fn);
 		cb_gc_mark(&fn->gc_header);
 		if (fn->type == CB_FUNCTION_USER) {
-			for (i = 0; i < fn->value.as_user.upvalues_len; i += 1) {
+			for (unsigned i = 0; i < fn->value.as_user.upvalues_len;
+					i += 1) {
 				uv = fn->value.as_user.upvalues[i];
 				if (!uv->is_open)
 					cb_gc_queue_mark(&uv->v.value);
@@ -795,11 +795,11 @@ void cb_value_mark(struct cb_value *val)
 	}
 
 	case CB_VALUE_STRUCT: {
-		int i;
 		GC_LOG(val->val.as_struct);
 		cb_gc_mark(&val->val.as_struct->gc_header);
 		cb_gc_mark(&val->val.as_struct->spec->gc_header);
-		for (i = 0; i < val->val.as_struct->spec->nfields; i += 1)
+		for (unsigned i = 0; i < val->val.as_struct->spec->nfields;
+				i += 1)
 			cb_gc_queue_mark(&val->val.as_struct->fields[i]);
 		break;
 	}

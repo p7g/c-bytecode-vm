@@ -71,7 +71,7 @@ error:
 
 void cb_agent_deinit(void)
 {
-	int i;
+	unsigned i;
 
 	assert(agent.inited);
 	agent.inited = 0;
@@ -195,7 +195,7 @@ CB_INLINE const cb_modspec *cb_agent_get_modspec(size_t id)
 
 cb_modspec *cb_agent_get_modspec_by_name(size_t name)
 {
-	int i;
+	unsigned i;
 
 	for (i = 0; i < agent.next_module_id; i += 1) {
 		if (!agent.modules[i])

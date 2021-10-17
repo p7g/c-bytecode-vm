@@ -31,7 +31,7 @@ void sigint_handler(int signum)
 
 int run_file(const char *filename)
 {
-	cb_bytecode *bytecode;
+	cb_bytecode *bytecode = NULL;
 	int result;
 
 	result = cb_compile_file("<script>", filename, &bytecode);
@@ -46,7 +46,8 @@ int run_file(const char *filename)
 		cb_vm_deinit();
 	}
 
-	cb_bytecode_free(bytecode);
+	if (bytecode)
+		cb_bytecode_free(bytecode);
 
 	return result;
 }

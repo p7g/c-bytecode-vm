@@ -1,4 +1,5 @@
-CFLAGS+=-g -std=gnu11 -Wall -Winline -I$(CURDIR)
+WARNINGS=-Wnull-dereference -Wall -Winline -Wextra -Wno-unused-parameter
+CFLAGS+=-g -std=gnu11 $(WARNINGS) -I$(CURDIR)
 LDFLAGS+=-lm -lreadline
 SANITIZERS+=address,undefined
 

@@ -65,7 +65,6 @@ static void maybe_grow(struct cb_hashmap *m)
 {
 	struct entry *old_entries, *entry;
 	size_t old_size;
-	int i;
 
 	if (m->num_entries / m->size < MAX_LOAD_FACTOR)
 		return;
@@ -77,7 +76,7 @@ static void maybe_grow(struct cb_hashmap *m)
 	m->num_entries = 0;
 	m->version += 1;
 
-	for (i = 0; i < old_size; i += 1) {
+	for (unsigned i = 0; i < old_size; i += 1) {
 		entry = &old_entries[i];
 		if (entry->in_use)
 			cb_hashmap_set(m, entry->key, entry->value);
@@ -172,7 +171,7 @@ CB_INLINE struct cb_value cb_hashmap_get_index(const cb_hashmap *m,
 CB_INLINE void cb_hashmap_set_index(cb_hashmap *m, size_t index,
 		struct cb_value value)
 {
-	assert(index >= 0 && index < m->size);
+	assert(index < m->size);
 	struct entry *entry = &m->entries[index];
 
 	assert(entry->in_use);

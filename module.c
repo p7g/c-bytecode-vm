@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "agent.h"
+#include "cb_util.h"
 #include "module.h"
 
 struct modspec {
@@ -36,6 +37,8 @@ void cb_modspec_free(struct modspec *spec)
 
 inline size_t cb_modspec_id(const struct modspec *spec)
 {
+	if (!spec)
+		abort();
 	return spec->id;
 }
 
@@ -66,9 +69,7 @@ inline size_t cb_modspec_get_export_name(const struct modspec *spec, size_t id)
 size_t cb_modspec_get_export_id(const struct modspec *spec, size_t name,
 		int *ok)
 {
-	int i;
-
-	for (i = 0; i < spec->exports_len; i += 1) {
+	for (unsigned i = 0; i < spec->exports_len; i += 1) {
 		if (spec->exports[i] == name) {
 			*ok = 1;
 			return i;

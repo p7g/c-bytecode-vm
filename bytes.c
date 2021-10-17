@@ -26,14 +26,14 @@ size_t cb_bytes_len(struct cb_bytes *bs)
 
 int16_t cb_bytes_get(struct cb_bytes *bs, size_t pos)
 {
-	if (pos < 0 || pos >= cb_bytes_len(bs))
+	if (pos >= cb_bytes_len(bs))
 		return -1;
 	return bs->data[pos];
 }
 
 int cb_bytes_set(struct cb_bytes *bs, size_t pos, uint8_t value)
 {
-	if (pos < 0 || pos >= cb_bytes_len(bs))
+	if (pos >= cb_bytes_len(bs))
 		return -1;
 	bs->data[pos] = value;
 	return 0;
