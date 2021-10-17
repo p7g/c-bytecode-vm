@@ -1,4 +1,4 @@
-CFLAGS+=-g -std=gnu11 -Wall -I$(CURDIR)
+CFLAGS+=-g -std=gnu11 -Wall -Winline -I$(CURDIR)
 LDFLAGS+=-lm -lreadline
 SANITIZERS+=address,undefined
 

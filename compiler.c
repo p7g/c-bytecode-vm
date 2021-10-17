@@ -12,6 +12,7 @@
 
 #include "agent.h"
 #include "builtin_modules.h"
+#include "cb_util.h"
 #include "compiler.h"
 #include "hashmap.h"
 #include "module.h"
@@ -456,17 +457,17 @@ struct cb_bytecode *cb_bytecode_new()
 	return bc;
 }
 
-inline cb_instruction cb_bytecode_get(struct cb_bytecode *bc, size_t idx)
+CB_INLINE cb_instruction cb_bytecode_get(struct cb_bytecode *bc, size_t idx)
 {
 	return bc->code[idx];
 }
 
-inline size_t cb_bytecode_len(struct cb_bytecode *bc)
+CB_INLINE size_t cb_bytecode_len(struct cb_bytecode *bc)
 {
 	return bc->len;
 }
 
-inline void cb_bytecode_free(struct cb_bytecode *bc)
+void cb_bytecode_free(struct cb_bytecode *bc)
 {
 	struct pending_address *current, *tmp;
 	current = bc->pending_addresses;
