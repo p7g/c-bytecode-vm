@@ -65,7 +65,7 @@ void cb_traceback_add_frame(struct cb_frame *frame)
 
 	tb = malloc(sizeof(struct cb_traceback));
 	tb->frame = *frame;
-	if (frame->is_function)
+	if (CB_VALUE_IS_USER_FN(&frame->func))
 		tb->func = cb_vm_state.stack[frame->bp];
 	tb->next = cb_vm_state.error->tb;
 	cb_vm_state.error->tb = tb;
@@ -77,7 +77,7 @@ void cb_traceback_print(FILE *f, struct cb_traceback *tb)
 	struct cb_user_function *ufunc;
 	const cb_modspec *spec;
 
-	if (tb->frame.is_function) {
+	if (CB_VALUE_IS_USER_FN(&tb->frame.func)) {
 		cb_str buf;
 
 		func = tb->func.val.as_function;
@@ -120,7 +120,7 @@ void cb_error_mark(void)
 
 	cb_value_mark(&e->value);
 	for (tb = e->tb; tb; tb = tb->next) {
-		if (tb->frame.is_function)
+		if (CB_VALUE_IS_USER_FN(&tb->frame.func))
 			cb_value_mark(&tb->func);
 	}
 }

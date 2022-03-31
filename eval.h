@@ -21,7 +21,7 @@ struct cb_frame {
 	struct cb_frame *parent;
 	size_t bp;
 	struct cb_module *module;
-	int is_function;
+	struct cb_value func;
 };
 
 union cb_inline_cache {

@@ -130,7 +130,7 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 	/* Make room in cb_vm_state for new module */
 	cb_vm_grow_modules_array(cb_agent_modspec_count());
 
-	frame.is_function = 0;
+	frame.func.type = CB_VALUE_NULL;
 	frame.module = NULL;
 	frame.parent = cb_vm_state.frame;
 	frame.bp = cb_vm_state.stack_top - cb_vm_state.stack;

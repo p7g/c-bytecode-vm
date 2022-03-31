@@ -20,6 +20,12 @@
 #include "struct.h"
 
 #define STACK_MAX 30000
+/* FIXME: we assume this is enough to evaluate the top level (since there is no
+ * function for us to get stack effect from...
+ *
+ * Once there are code objects, we should store the stack effect there so we
+ * can ensure there's enough stack space for modules too.
+ */
 #define STACK_INIT_SIZE 1024
 
 struct cb_vm_state cb_vm_state;
@@ -112,7 +118,7 @@ int cb_run(void)
 	frame.parent = NULL;
 	frame.module = NULL;
 	frame.bp = 0;
-	frame.is_function = 0;
+	frame.func.type = CB_VALUE_NULL;
 
 	return cb_eval(&cb_vm_state, 0, &frame);
 }
@@ -150,7 +156,7 @@ int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 	func = &fn.val.as_function->value.as_user;
 
 	frame.parent = cb_vm_state.frame;
-	frame.is_function = 1;
+	frame.func = fn;
 	frame.bp = cb_vm_state.stack_top - cb_vm_state.stack;
 	PUSH(fn);
 
@@ -181,7 +187,7 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 		modname = cb_strptr(&modname_str);
 	}
 
-	if (!frame->is_function) {
+	if (!CB_VALUE_IS_USER_FN(frame->func)) {
 		funcname = "top";
 	} else {
 		_name = cb_vm_state.stack[frame->bp].val.as_function->name;
@@ -189,7 +195,8 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 		funcname = cb_strptr(&funcname_str);
 	}
 
-	printf("%s%s%s\n", modname, !frame->is_function ? " " : ".", funcname);
+	printf("%s%s%s\n", modname, !CB_VALUE_IS_USER_FN(frame->func)
+			? " " : ".", funcname);
 	printf("pc: %zu, bp: %zu, sp: %ld\n", pc, frame->bp,
 			cb_vm_state.stack_top - cb_vm_state.stack);
 	cb_disassemble_one(bytecode, pc);
@@ -211,11 +218,32 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 }
 */
 
+static void check_stack(struct cb_vm_state *state, struct cb_frame *frame)
+{
+	if (CB_VALUE_IS_USER_FN(&frame->func)) {
+		struct cb_user_function *f =
+			&frame->func.val.as_function->value.as_user;
+		size_t stack_required = f->stack_required + f->nlocals;
+		if (state->stack_top + stack_required
+				> state->stack + state->stack_size) {
+			state->stack_size <<= 2;
+			state->stack = realloc(state->stack,
+				state->stack_size * sizeof(struct cb_value));
+		}
+		// CB_VALUE_NULL is 0, so we can just set the whole thing to 0
+		memset(state->stack_top, 0,
+				f->nlocals * sizeof(struct cb_value));
+		state->stack_top += f->nlocals;
+	}
+}
+
 int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame)
 {
 	int retval = 0;
 	cb_instruction *code = state->bytecode->code;
 	state->frame = frame;
+
+	check_stack(state, frame);
 
 #define TABLE_ENTRY(OP) &&DO_##OP,
 	static const void *dispatch_table[] = {
@@ -465,7 +493,7 @@ DO_OP_CALL: {
 		}
 	} else {
 		next_frame.parent = frame;
-		next_frame.is_function = 1;
+		next_frame.func = func_val;
 		next_frame.bp = (state->stack_top - state->stack) - num_args - 1;
 		if (func->value.as_user.module_id != (size_t) -1)
 			next_frame.module = &state->modules[
@@ -591,13 +619,15 @@ DO_OP_STORE_GLOBAL: {
 }
 
 DO_OP_NEW_FUNCTION: {
-	size_t name, arity, address, nopt, i;
+	size_t name, arity, address, nopt, i, stack_required, nlocals;
 	struct cb_function *func;
 	struct cb_value func_val;
 
 	name = READ_SIZE_T();
 	arity = READ_SIZE_T();
 	address = READ_SIZE_T();
+	nlocals = READ_SIZE_T();
+	stack_required = READ_SIZE_T();
 	nopt = READ_SIZE_T();
 
 	func = cb_function_new();
@@ -612,6 +642,8 @@ DO_OP_NEW_FUNCTION: {
 		.module_id = frame->module
 			? cb_modspec_id(frame->module->spec)
 			: (size_t) -1,
+		.nlocals = nlocals,
+		.stack_required = stack_required,
 		.optargs = (struct cb_function_optargs) {
 			.count = nopt,
 		},
@@ -629,13 +661,13 @@ DO_OP_NEW_FUNCTION: {
 
 DO_OP_BIND_LOCAL: {
 	int i;
-	struct cb_value func;
+	struct cb_value *func;
 	struct cb_upvalue *uv;
 	size_t idx = LOCAL_IDX(READ_SIZE_T());
 
-	func = POP();
-	if (func.type != CB_VALUE_FUNCTION
-			|| func.val.as_function->type != CB_FUNCTION_USER)
+	func = &TOP();
+	if (func->type != CB_VALUE_FUNCTION
+			|| func->val.as_function->type != CB_FUNCTION_USER)
 		ERROR("Can only bind upvalues to user functions");
 
 	uv = NULL;
@@ -659,26 +691,23 @@ DO_OP_BIND_LOCAL: {
 		add_upvalue(uv);
 	}
 
-	cb_function_add_upvalue(&func.val.as_function->value.as_user, uv);
-
-	PUSH(func);
+	cb_function_add_upvalue(&func->val.as_function->value.as_user, uv);
 	DISPATCH();
 }
 
 DO_OP_BIND_UPVALUE: {
-	struct cb_value *self, func;
+	struct cb_value *self, *func;
 	size_t upvalue_idx = READ_SIZE_T();
 
 	self = &state->stack[frame->bp];
 	assert(CB_VALUE_IS_USER_FN(self));
-	func = POP();
-	if (!CB_VALUE_IS_USER_FN(&func))
+	func = &TOP();
+	if (!CB_VALUE_IS_USER_FN(func))
 		ERROR("Can only bind upvalues to user functions");
 
-	cb_function_add_upvalue(&func.val.as_function->value.as_user,
+	cb_function_add_upvalue(&func->val.as_function->value.as_user,
 		self->val.as_function->value.as_user.upvalues[upvalue_idx]);
 
-	PUSH(func);
 	DISPATCH();
 }
 
@@ -981,15 +1010,6 @@ DO_OP_DUP:
 	PUSH(TOP());
 	DISPATCH();
 
-DO_OP_ALLOCATE_LOCALS: {
-	size_t nlocals = READ_SIZE_T();
-	/* CB_VALUE_NULL is 0, so we can just set the whole thing to 0 */
-	/* FIXME: lol this doesn't check if there's room or not */
-	memset(state->stack_top, 0, nlocals * sizeof(struct cb_value));
-	state->stack_top += nlocals;
-	DISPATCH();
-}
-
 DO_OP_LOAD_STRUCT: {
 	size_t fname = READ_SIZE_T();
 	struct cb_value recv = POP();
@@ -1065,6 +1085,7 @@ DO_OP_LOAD_STRUCT: {
 	RET; \
 	})
 
+/* These 2 differ in whether they leave the struct or the value on the stack */
 DO_OP_ADD_STRUCT_FIELD: {
 	struct cb_value result = DO_STORE_STRUCT_FIELD(recv);
 	PUSH(result);

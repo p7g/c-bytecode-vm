@@ -17,7 +17,6 @@ int cb_disassemble(cb_bytecode *bytecode)
 int cb_disassemble_range(cb_bytecode *bytecode, size_t start, size_t end)
 {
 	size_t i;
-	int result;
 
 	assert(start < end);
 	assert(end <= cb_bytecode_len(bytecode));
@@ -25,10 +24,11 @@ int cb_disassemble_range(cb_bytecode *bytecode, size_t start, size_t end)
 	i = start;
 
 	while (i < end) {
-		result = cb_disassemble_one(bytecode, i);
-		if (result < 0)
+		if (cb_disassemble_one(bytecode, i))
 			return 1;
-		i += result;
+		i += 1 + cb_opcode_nargs(
+				cb_opcode_assert(cb_bytecode_get(bytecode, i)),
+				bytecode->code + i + 1);
 	}
 
 	return 0;
@@ -49,7 +49,6 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 		cb_bytecode_get(bytecode, pc + offset++); \
 	})
 #define NEXT_USIZE() (NEXT())
-#define WITH_ARGS(NARGS) (1 + (NARGS))
 
 	printf("%4zu: ", pc + offset);
 	switch ((op = NEXT())) {
@@ -86,7 +85,7 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	case OP_NEW_STRUCT:
 	case OP_ROT_2:
 		printf("%s\n", cb_opcode_name(op));
-		return WITH_ARGS(0);
+		return 0;
 
 	/* one arg */
 	case OP_CONST_INT:
@@ -103,12 +102,11 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	case OP_LOAD_UPVALUE:
 	case OP_STORE_UPVALUE:
 	case OP_INIT_MODULE:
-	case OP_ALLOCATE_LOCALS:
 	case OP_ENTER_MODULE:
 	case OP_NEW_ARRAY_WITH_VALUES:
 	case OP_CALL:
 		printf("%s(%zu)\n", cb_opcode_name(op), NEXT_USIZE());
-		return WITH_ARGS(1);
+		return 0;
 
 	case OP_LOAD_GLOBAL:
 	case OP_DECLARE_GLOBAL:
@@ -118,7 +116,7 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 	case OP_ADD_STRUCT_FIELD:
 		tmp_str = cb_agent_get_string(NEXT_USIZE());
 		printf("%s(\"%s\")\n", cb_opcode_name(op), cb_strptr(&tmp_str));
-		return WITH_ARGS(1);
+		return 0;
 
 	case OP_NEW_FUNCTION: {
 		size_t arg1, arg2, arg3, nopt, tmp;
@@ -135,7 +133,7 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 				printf(", %zu", NEXT_USIZE());
 		}
 		fputs(")\n", stdout);
-		return WITH_ARGS(4 + nopt);
+		return 0;
 	}
 
 	case OP_LOAD_FROM_MODULE: {
@@ -144,7 +142,7 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 		arg2 = NEXT_USIZE();
 		printf("%s(%zu, %zu)\n", cb_opcode_name(op), arg1,
 				arg2);
-		return WITH_ARGS(2);
+		return 0;
 	}
 
 	case OP_NEW_STRUCT_SPEC: {
@@ -159,7 +157,7 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 			printf(", \"%s\"", cb_strptr(&tmp_str));
 		}
 		puts(")");
-		return WITH_ARGS(nfields + 2);
+		return 0;
 	}
 
 	default:
@@ -169,5 +167,4 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 
 #undef NEXT
 #undef NEXT_USIZE
-#undef WITH_ARGS
 }
