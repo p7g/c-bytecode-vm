@@ -63,7 +63,7 @@ int cb_repl(void)
 			make_intrinsics(mod->global_scope);
 		}
 		frame.bp = 0;
-		frame.is_function = 0;
+		frame.func.type = CB_VALUE_NULL;
 		frame.module = NULL;
 		frame.parent = NULL;
 		result = cb_eval(&cb_vm_state, pc, &frame);

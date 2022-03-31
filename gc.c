@@ -103,6 +103,7 @@ static void mark(void)
 	 * - stack
 	 * - globals
 	 * - vm state error
+	 * - functions in frames
 	 */
 
 	DEBUG_LOG("marking stack values");
@@ -125,6 +126,12 @@ static void mark(void)
 
 	DEBUG_LOG("marking error");
 	cb_error_mark();
+
+	DEBUG_LOG("marking frame functions");
+	for (struct cb_frame *f = cb_vm_state.frame; f; f = f->parent) {
+		if (CB_VALUE_IS_USER_FN(&f->func))
+			cb_value_mark(&f->func);
+	}
 
 	evaluate_mark_queue();
 }

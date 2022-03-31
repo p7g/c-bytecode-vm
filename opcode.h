@@ -1,6 +1,8 @@
 #ifndef cb_opcode_h
 #define cb_opcode_h
 
+#include "compiler.h"
+
 #define CB_OPCODE_LIST(X) \
 	X(OP_HALT) \
 	X(OP_CONST_INT) \
@@ -51,7 +53,6 @@
 	X(OP_INIT_MODULE) \
 	X(OP_END_MODULE) \
 	X(OP_DUP) \
-	X(OP_ALLOCATE_LOCALS) \
 	X(OP_ENTER_MODULE) \
 	X(OP_EXIT_MODULE) \
 	X(OP_NEW_STRUCT) \
@@ -69,5 +70,8 @@ enum cb_opcode {
 };
 
 const char *cb_opcode_name(enum cb_opcode);
+int cb_opcode_stack_effect(enum cb_opcode, cb_instruction *);
+unsigned cb_opcode_nargs(enum cb_opcode, cb_instruction *);
+enum cb_opcode cb_opcode_assert(size_t);
 
 #endif
