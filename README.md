@@ -5,6 +5,7 @@
 [![TODOs](https://badgen.net/https/api.tickgit.com/badgen/github.com/p7g/c-bytecode-vm)](https://www.tickgit.com/browse?repo=github.com/p7g/c-bytecode-vm)
 
 [Standard libary documentation](https://p7g.github.io/c-bytecode-vm/docs/stdlib)
+|
 [Performance tracking](https://p7g.github.io/c-bytecode-vm/dev/bench)
 
 This is a small, weakly and dynamically typed, interpreted programming language
