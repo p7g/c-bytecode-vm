@@ -17,7 +17,7 @@ endif
 endif
 
 cbcvm: *.c *.h modules/*.c modules/*.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o cbcvm *.c modules/*.c
+	$(CC) $(CFLAGS) -o cbcvm *.c modules/*.c $(LDFLAGS)
 
 # Generate a release binary using profile-guided optimization
 profile-opt:
