@@ -63,7 +63,7 @@ void cb_vm_init(cb_bytecode *bytecode);
 void cb_vm_deinit(void);
 void cb_vm_grow_modules_array(size_t new_size);
 
-int cb_eval(size_t pc, struct cb_frame *frame);
+int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame);
 int cb_run(void);
 struct cb_user_function *cb_caller(void);
 int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,

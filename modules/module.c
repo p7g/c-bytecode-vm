@@ -134,7 +134,7 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 	frame.module = NULL;
 	frame.parent = cb_vm_state.frame;
 	frame.bp = cb_vm_state.sp;
-	retval = cb_eval(pc, &frame);
+	retval = cb_eval(&cb_vm_state, pc, &frame);
 	goto end;
 
 err:

@@ -103,7 +103,7 @@ inline struct cb_value cb_get_upvalue(struct cb_upvalue *uv)
 	return uv->v.value;
 }
 
-int cb_eval(size_t pc, struct cb_frame *frame);
+int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame);
 
 int cb_run(void)
 {
@@ -114,7 +114,7 @@ int cb_run(void)
 	frame.bp = 0;
 	frame.is_function = 0;
 
-	return cb_eval(0, &frame);
+	return cb_eval(&cb_vm_state, 0, &frame);
 }
 
 static CB_INLINE void stack_push(struct cb_value v)
@@ -159,7 +159,7 @@ int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 	else
 		frame.module = NULL;
 
-	ret = cb_eval(func->address, &frame);
+	ret = cb_eval(&cb_vm_state, func->address, &frame);
 	*result = POP();
 	return ret;
 }
@@ -208,11 +208,11 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 }
 */
 
-int cb_eval(size_t pc, struct cb_frame *frame)
+int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame)
 {
 	int retval = 0;
-	cb_instruction *code = cb_vm_state.bytecode->code;
-	cb_vm_state.frame = frame;
+	cb_instruction *code = state->bytecode->code;
+	state->frame = frame;
 
 #define TABLE_ENTRY(OP) &&DO_##OP,
 	static const void *dispatch_table[] = {
@@ -223,7 +223,7 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 #define NEXT() (code[pc++])
 #define DISPATCH() ({ \
 		/* if (cb_options.debug_vm) */\
-			/*debug_state(cb_vm_state.bytecode, pc, frame); */\
+			/*debug_state(state->bytecode, pc, frame); */\
 		size_t _next = NEXT(); \
 		assert(_next < OP_MAX); \
 		goto *dispatch_table[_next]; \
@@ -239,20 +239,20 @@ int cb_eval(size_t pc, struct cb_frame *frame)
 		RET_WITH_TRACE(); \
 	})
 #define READ_SIZE_T() (NEXT())
-#define TOP() (cb_vm_state.stack[cb_vm_state.sp - 1])
+#define TOP() (state->stack[state->sp - 1])
 #define LOCAL_IDX(N) (frame->bp + 1 + (N))
-#define LOCAL(N) (cb_vm_state.stack[LOCAL_IDX(N)])
-#define REPLACE(N, VAL) (cb_vm_state.stack[(N)] = (VAL))
+#define LOCAL(N) (state->stack[LOCAL_IDX(N)])
+#define REPLACE(N, VAL) (state->stack[(N)] = (VAL))
 #define GLOBALS() (frame->module->global_scope)
-#define CACHE() (&cb_vm_state.ic[pc - 1])
+#define CACHE() (&state->ic[pc - 1])
 
 	DISPATCH();
 
 DO_OP_MAX:
 DO_OP_HALT:
 end:
-	cb_vm_state.frame = cb_vm_state.frame->parent;
-	if (retval && !cb_vm_state.frame) {
+	state->frame = state->frame->parent;
+	if (retval && !state->frame) {
 		fprintf(stderr, "Traceback (most recent call last):\n");
 		struct cb_traceback *tb;
 		for (tb = cb_error_tb(); tb; tb = tb->next)
@@ -436,7 +436,7 @@ DO_OP_CALL: {
 	int failed;
 
 	num_args = READ_SIZE_T();
-	func_val = cb_vm_state.stack[cb_vm_state.sp - num_args - 1];
+	func_val = state->stack[state->sp - num_args - 1];
 
 	if (func_val.type != CB_VALUE_FUNCTION)
 		ERROR("Value of type '%s' is not callable\n",
@@ -453,12 +453,12 @@ DO_OP_CALL: {
 	}
 	if (func->type == CB_FUNCTION_NATIVE) {
 		failed = func->value.as_native(num_args,
-				&cb_vm_state.stack[cb_vm_state.sp - num_args],
+				&state->stack[state->sp - num_args],
 					&result);
 		/* native functions can mess with global state */
-		code = cb_vm_state.bytecode->code;
-		assert(cb_vm_state.sp > num_args);
-		cb_vm_state.sp -= (num_args + 1);
+		code = state->bytecode->code;
+		assert(state->sp > num_args);
+		state->sp -= (num_args + 1);
 		PUSH(result);
 		if (failed) {
 			retval = 1;
@@ -467,13 +467,14 @@ DO_OP_CALL: {
 	} else {
 		next_frame.parent = frame;
 		next_frame.is_function = 1;
-		next_frame.bp = cb_vm_state.sp - num_args - 1;
+		next_frame.bp = state->sp - num_args - 1;
 		if (func->value.as_user.module_id != (size_t) -1)
-			next_frame.module = &cb_vm_state.modules[
+			next_frame.module = &state->modules[
 				func->value.as_user.module_id];
 		else
 			next_frame.module = NULL;
-		if (cb_eval(cb_ufunc_entry(func, num_args), &next_frame)) {
+		if (cb_eval(state, cb_ufunc_entry(func, num_args),
+					&next_frame)) {
 			retval = 1;
 			RET_WITH_TRACE();
 		}
@@ -490,18 +491,18 @@ DO_OP_RETURN: {
 	retval = POP();
 
 	/* close upvalues */
-	if (cb_vm_state.upvalues_idx != 0) {
-		for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
-			uv = cb_vm_state.upvalues[i];
+	if (state->upvalues_idx != 0) {
+		for (i = state->upvalues_idx - 1; i >= 0; i -= 1) {
+			uv = state->upvalues[i];
 			if (!uv || !uv->is_open || uv->v.idx < frame->bp)
 				break;
 			uv->is_open = 0;
-			uv->v.value = cb_vm_state.stack[uv->v.idx];
+			uv->v.value = state->stack[uv->v.idx];
 		}
-		cb_vm_state.upvalues_idx = i + 1;
+		state->upvalues_idx = i + 1;
 	}
 
-	cb_vm_state.sp = frame->bp;
+	state->sp = frame->bp;
 	PUSH(retval);
 	goto end;
 }
@@ -639,13 +640,13 @@ DO_OP_BIND_LOCAL: {
 		ERROR("Can only bind upvalues to user functions");
 
 	uv = NULL;
-	for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
-		if (cb_vm_state.upvalues[i] == NULL
-				|| !cb_vm_state.upvalues[i]->is_open
-				|| cb_vm_state.upvalues[i]->v.idx < frame->bp)
+	for (i = state->upvalues_idx - 1; i >= 0; i -= 1) {
+		if (state->upvalues[i] == NULL
+				|| !state->upvalues[i]->is_open
+				|| state->upvalues[i]->v.idx < frame->bp)
 			break;
-		if (cb_vm_state.upvalues[i]->v.idx == idx) {
-			uv = cb_vm_state.upvalues[i];
+		if (state->upvalues[i]->v.idx == idx) {
+			uv = state->upvalues[i];
 			break;
 		}
 	}
@@ -669,7 +670,7 @@ DO_OP_BIND_UPVALUE: {
 	struct cb_value *self, func;
 	size_t upvalue_idx = READ_SIZE_T();
 
-	self = &cb_vm_state.stack[frame->bp];
+	self = &state->stack[frame->bp];
 	assert(CB_VALUE_IS_USER_FN(self));
 	func = POP();
 	if (!CB_VALUE_IS_USER_FN(&func))
@@ -687,12 +688,12 @@ DO_OP_LOAD_UPVALUE: {
 	struct cb_upvalue *uv;
 	size_t idx = READ_SIZE_T();
 
-	self = &cb_vm_state.stack[frame->bp];
+	self = &state->stack[frame->bp];
 	assert(CB_VALUE_IS_USER_FN(self));
 
 	uv = self->val.as_function->value.as_user.upvalues[idx];
 	if (uv->is_open)
-		PUSH(cb_vm_state.stack[uv->v.idx]);
+		PUSH(state->stack[uv->v.idx]);
 	else
 		PUSH(uv->v.value);
 
@@ -704,12 +705,12 @@ DO_OP_STORE_UPVALUE: {
 	struct cb_upvalue *uv;
 	size_t idx = READ_SIZE_T();
 
-	self = &cb_vm_state.stack[frame->bp];
+	self = &state->stack[frame->bp];
 	assert(CB_VALUE_IS_USER_FN(self));
 
 	uv = self->val.as_function->value.as_user.upvalues[idx];
 	if (uv->is_open)
-		cb_vm_state.stack[uv->v.idx] = TOP();
+		state->stack[uv->v.idx] = TOP();
 	else
 		uv->v.value = TOP();
 
@@ -724,7 +725,7 @@ DO_OP_LOAD_FROM_MODULE: {
 	
 	mod_id = READ_SIZE_T();
 	export_id = READ_SIZE_T();
-	mod = &cb_vm_state.modules[mod_id];
+	mod = &state->modules[mod_id];
 
 	struct cb_load_from_module_cache *ic = &CACHE()->load_from_module;
 
@@ -752,9 +753,9 @@ DO_OP_NEW_ARRAY_WITH_VALUES: {
 	struct cb_array *array = cb_array_new(size);
 	array->len = size;
 
-	memcpy(array->values, cb_vm_state.stack + cb_vm_state.sp - size,
+	memcpy(array->values, state->stack + state->sp - size,
 			size * sizeof(struct cb_value));
-	cb_vm_state.sp -= size;
+	state->sp -= size;
 
 	arrayval.type = CB_VALUE_ARRAY;
 	arrayval.val.as_array = array;
@@ -960,15 +961,15 @@ DO_OP_INIT_MODULE: {
 	assert(spec != NULL);
 	mod.spec = spec;
 	mod.global_scope = cb_hashmap_new();
-	cb_vm_state.modules[module_id] = mod;
-	frame->module = &cb_vm_state.modules[module_id];
+	state->modules[module_id] = mod;
+	frame->module = &state->modules[module_id];
 	make_intrinsics(mod.global_scope);
 
 	DISPATCH();
 }
 
 DO_OP_ENTER_MODULE:
-	frame->module = &cb_vm_state.modules[READ_SIZE_T()];
+	frame->module = &state->modules[READ_SIZE_T()];
 	DISPATCH();
 
 
@@ -984,9 +985,9 @@ DO_OP_DUP:
 DO_OP_ALLOCATE_LOCALS: {
 	size_t nlocals = READ_SIZE_T();
 	/* CB_VALUE_NULL is 0, so we can just set the whole thing to 0 */
-	memset(cb_vm_state.stack + cb_vm_state.sp, 0,
+	memset(state->stack + state->sp, 0,
 			nlocals * sizeof(struct cb_value));
-	cb_vm_state.sp += nlocals;
+	state->sp += nlocals;
 	DISPATCH();
 }
 

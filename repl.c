@@ -66,7 +66,7 @@ int cb_repl(void)
 		frame.is_function = 0;
 		frame.module = NULL;
 		frame.parent = NULL;
-		result = cb_eval(pc, &frame);
+		result = cb_eval(&cb_vm_state, pc, &frame);
 	}
 
 	if (did_init_vm)
