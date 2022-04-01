@@ -170,7 +170,7 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 	size_t _name;
 	cb_str modname_str, funcname_str;
 	char *modname = "script";
-	char *funcname = "<anonymous>";
+	char *funcname;
 
 	if (frame->module) {
 		modname_str = cb_agent_get_string(cb_modspec_name(
@@ -180,8 +180,7 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 
 	if (!frame->is_function) {
 		funcname = "top";
-	} else if ((_name = cb_vm_state.stack[frame->bp]
-				.val.as_function->name) != (size_t) -1) {
+	} else {
 		funcname_str = cb_agent_get_string(_name);
 		funcname = cb_strptr(&funcname_str);
 	}
@@ -446,10 +445,7 @@ DO_OP_CALL: {
 	name = func->name;
 	if (func->arity > num_args) {
 		cb_str s = cb_agent_get_string(name);
-		ERROR("Too few arguments to function '%s'\n",
-				func->name == (size_t) -1
-				? "<anonymous>"
-				: cb_strptr(&s));
+		ERROR("Too few arguments to function '%s'\n", cb_strptr(&s));
 	}
 	if (func->type == CB_FUNCTION_NATIVE) {
 		failed = func->value.as_native(num_args,

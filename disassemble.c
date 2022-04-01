@@ -126,13 +126,9 @@ int cb_disassemble_one(cb_bytecode *bytecode, size_t pc)
 		arg2 = NEXT_USIZE();
 		arg3 = NEXT_USIZE();
 		nopt = NEXT_USIZE();
-		if (arg1 != (size_t) -1)
-			tmp_str = cb_agent_get_string(arg1);
+		tmp_str = cb_agent_get_string(arg1);
 		printf("%s(\"%s\", %zu, %zu, %zu", cb_opcode_name(op),
-				(arg1 == (size_t) -1)
-				? "<anonymous>"
-				: cb_strptr(&tmp_str),
-				arg2, arg3, nopt);
+				cb_strptr(&tmp_str), arg2, arg3, nopt);
 		if (nopt > 0) {
 			tmp = nopt;
 			while (tmp--)
