@@ -106,8 +106,9 @@ static void mark(void)
 	 */
 
 	DEBUG_LOG("marking stack values");
-	for (unsigned i = 0; i < cb_vm_state.sp; i += 1)
-		cb_value_mark(&cb_vm_state.stack[i]);
+	for (struct cb_value *val = cb_vm_state.stack;
+			val < cb_vm_state.stack_top; val += 1)
+		cb_value_mark(val);
 
 	DEBUG_LOG("marking module global scopes");
 	if (cb_vm_state.modules) {

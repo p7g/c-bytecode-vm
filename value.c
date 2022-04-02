@@ -471,7 +471,8 @@ cb_str cb_value_to_string(struct cb_value *val)
 	}
 
 	default:
-		fprintf(stderr, "unsupported to_string\n");
+		fprintf(stderr, "unsupported to_string (%s)\n",
+				cb_value_type_friendly_name(val->type));
 		abort();
 		break;
 	}

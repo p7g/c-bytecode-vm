@@ -44,7 +44,8 @@ struct cb_vm_state {
 	union cb_inline_cache *ic;
 
 	struct cb_value *stack;
-	size_t sp, stack_size;
+	struct cb_value *stack_top;
+	size_t stack_size;
 
 	struct cb_frame *frame;
 

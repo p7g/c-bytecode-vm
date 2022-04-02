@@ -133,7 +133,7 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 	frame.is_function = 0;
 	frame.module = NULL;
 	frame.parent = cb_vm_state.frame;
-	frame.bp = cb_vm_state.sp;
+	frame.bp = cb_vm_state.stack_top - cb_vm_state.stack;
 	retval = cb_eval(&cb_vm_state, pc, &frame);
 	goto end;
 

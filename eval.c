@@ -30,9 +30,9 @@ void cb_vm_init(cb_bytecode *bytecode)
 	cb_vm_state.ic = calloc(cb_bytecode_len(bytecode),
 			sizeof(union cb_inline_cache));
 
-	cb_vm_state.sp = 0;
 	cb_vm_state.stack = malloc(STACK_INIT_SIZE * sizeof(struct cb_value));
 	cb_vm_state.stack_size = STACK_INIT_SIZE;
+	cb_vm_state.stack_top = cb_vm_state.stack;
 
 	cb_vm_state.upvalues = calloc(32, sizeof(struct cb_upvalue *));
 	cb_vm_state.upvalues_idx = 0;
@@ -57,7 +57,7 @@ void cb_vm_deinit(void)
 	cb_vm_state.upvalues = NULL;
 	free(cb_vm_state.stack);
 	free(cb_vm_state.ic);
-	cb_vm_state.sp = 0;
+	cb_vm_state.stack_top = NULL;
 	cb_gc_collect();
 }
 
@@ -119,18 +119,21 @@ int cb_run(void)
 
 static CB_INLINE void stack_push(struct cb_value v)
 {
-	if (cb_vm_state.sp >= cb_vm_state.stack_size) {
+	ptrdiff_t stack_used = cb_vm_state.stack_top - cb_vm_state.stack;
+	assert(stack_used >= 0);
+	if ((size_t) stack_used >= cb_vm_state.stack_size) {
 		cb_vm_state.stack_size <<= 2;
 		cb_vm_state.stack = realloc(cb_vm_state.stack,
 			cb_vm_state.stack_size * sizeof(struct cb_value));
+		cb_vm_state.stack_top = cb_vm_state.stack + stack_used;
 	}
-	cb_vm_state.stack[cb_vm_state.sp++] = v;
+	*cb_vm_state.stack_top++ = v;
 }
 
 static CB_INLINE struct cb_value stack_pop()
 {
-	assert(cb_vm_state.sp > 0);
-	return cb_vm_state.stack[--cb_vm_state.sp];
+	assert(cb_vm_state.stack_top > cb_vm_state.stack);
+	return *--cb_vm_state.stack_top;
 }
 
 #define PUSH(V) (stack_push((V)))
@@ -148,7 +151,7 @@ int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 
 	frame.parent = cb_vm_state.frame;
 	frame.is_function = 1;
-	frame.bp = cb_vm_state.sp;
+	frame.bp = cb_vm_state.stack_top - cb_vm_state.stack;
 	PUSH(fn);
 
 	for (unsigned i = 0; i < args_len; i += 1)
@@ -181,25 +184,26 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 	if (!frame->is_function) {
 		funcname = "top";
 	} else {
+		_name = cb_vm_state.stack[frame->bp].val.as_function->name;
 		funcname_str = cb_agent_get_string(_name);
 		funcname = cb_strptr(&funcname_str);
 	}
 
 	printf("%s%s%s\n", modname, !frame->is_function ? " " : ".", funcname);
-	printf("pc: %zu, bp: %zu, sp: %zu\n", pc, frame->bp, cb_vm_state.sp);
+	printf("pc: %zu, bp: %zu, sp: %ld\n", pc, frame->bp,
+			cb_vm_state.stack_top - cb_vm_state.stack);
 	cb_disassemble_one(bytecode, pc);
-	printf("> %s", cb_vm_state.sp ? cb_vm_state.sp > 10
-			? "... "
-			: "" : "(empty)");
+	ptrdiff_t stack_used = cb_vm_state.stack_top - cb_vm_state.stack;
+	int big_stack = stack_used > 10;
+	printf("> %s", stack_used ? big_stack ? "... " : "" : "(empty)");
 	int _first = 1;
-	for (int _i = 10 < cb_vm_state.sp ? 10 : cb_vm_state.sp;
-			_i > 0; _i -= 1) {
-		int _idx = cb_vm_state.sp - _i;
+	for (int _i = big_stack ? 10 : stack_used; _i > 0; _i -= 1) {
+		struct cb_value *val = cb_vm_state.stack_top - _i;
 		if (_first)
 			_first = 0;
 		else
 			printf(", ");
-		cb_str _str = cb_value_to_string(&cb_vm_state.stack[_idx]);
+		cb_str _str = cb_value_to_string(val);
 		printf("%s", cb_strptr(&_str));
 		cb_str_free(_str);
 	}
@@ -221,7 +225,7 @@ int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame)
 
 #define NEXT() (code[pc++])
 #define DISPATCH() ({ \
-		/* if (cb_options.debug_vm) */\
+		/*if (cb_options.debug_vm) */\
 			/*debug_state(state->bytecode, pc, frame); */\
 		size_t _next = NEXT(); \
 		assert(_next < OP_MAX); \
@@ -238,7 +242,7 @@ int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame)
 		RET_WITH_TRACE(); \
 	})
 #define READ_SIZE_T() (NEXT())
-#define TOP() (state->stack[state->sp - 1])
+#define TOP() (state->stack_top[-1])
 #define LOCAL_IDX(N) (frame->bp + 1 + (N))
 #define LOCAL(N) (state->stack[LOCAL_IDX(N)])
 #define REPLACE(N, VAL) (state->stack[(N)] = (VAL))
@@ -435,7 +439,7 @@ DO_OP_CALL: {
 	int failed;
 
 	num_args = READ_SIZE_T();
-	func_val = state->stack[state->sp - num_args - 1];
+	func_val = state->stack_top[-num_args - 1];
 
 	if (func_val.type != CB_VALUE_FUNCTION)
 		ERROR("Value of type '%s' is not callable\n",
@@ -449,12 +453,11 @@ DO_OP_CALL: {
 	}
 	if (func->type == CB_FUNCTION_NATIVE) {
 		failed = func->value.as_native(num_args,
-				&state->stack[state->sp - num_args],
-					&result);
+				&state->stack_top[-num_args], &result);
 		/* native functions can mess with global state */
 		code = state->bytecode->code;
-		assert(state->sp > num_args);
-		state->sp -= (num_args + 1);
+		assert((size_t) (state->stack_top - state->stack) > num_args);
+		state->stack_top -= (num_args + 1);
 		PUSH(result);
 		if (failed) {
 			retval = 1;
@@ -463,7 +466,7 @@ DO_OP_CALL: {
 	} else {
 		next_frame.parent = frame;
 		next_frame.is_function = 1;
-		next_frame.bp = state->sp - num_args - 1;
+		next_frame.bp = (state->stack_top - state->stack) - num_args - 1;
 		if (func->value.as_user.module_id != (size_t) -1)
 			next_frame.module = &state->modules[
 				func->value.as_user.module_id];
@@ -498,7 +501,7 @@ DO_OP_RETURN: {
 		state->upvalues_idx = i + 1;
 	}
 
-	state->sp = frame->bp;
+	state->stack_top = state->stack + frame->bp;
 	PUSH(retval);
 	goto end;
 }
@@ -749,9 +752,9 @@ DO_OP_NEW_ARRAY_WITH_VALUES: {
 	struct cb_array *array = cb_array_new(size);
 	array->len = size;
 
-	memcpy(array->values, state->stack + state->sp - size,
+	memcpy(array->values, state->stack_top - size,
 			size * sizeof(struct cb_value));
-	state->sp -= size;
+	state->stack_top -= size;
 
 	arrayval.type = CB_VALUE_ARRAY;
 	arrayval.val.as_array = array;
@@ -981,9 +984,9 @@ DO_OP_DUP:
 DO_OP_ALLOCATE_LOCALS: {
 	size_t nlocals = READ_SIZE_T();
 	/* CB_VALUE_NULL is 0, so we can just set the whole thing to 0 */
-	memset(state->stack + state->sp, 0,
-			nlocals * sizeof(struct cb_value));
-	state->sp += nlocals;
+	/* FIXME: lol this doesn't check if there's room or not */
+	memset(state->stack_top, 0, nlocals * sizeof(struct cb_value));
+	state->stack_top += nlocals;
 	DISPATCH();
 }
 
