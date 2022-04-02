@@ -142,9 +142,6 @@ static CB_INLINE struct cb_value stack_pop()
 	return *--cb_vm_state.stack_top;
 }
 
-#define PUSH(V) (stack_push((V)))
-#define POP() (stack_pop())
-
 int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 		size_t args_len, struct cb_value *result)
 {
@@ -158,10 +155,10 @@ int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 	frame.parent = cb_vm_state.frame;
 	frame.func = fn;
 	frame.bp = cb_vm_state.stack_top - cb_vm_state.stack;
-	PUSH(fn);
+	stack_push(fn);
 
 	for (unsigned i = 0; i < args_len; i += 1)
-		PUSH(args[i]);
+		stack_push(args[i]);
 
 	if (func->module_id != (size_t) -1)
 		frame.module = &cb_vm_state.modules[func->module_id];
@@ -169,7 +166,7 @@ int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
 		frame.module = NULL;
 
 	ret = cb_eval(&cb_vm_state, func->address, &frame);
-	*result = POP();
+	*result = stack_pop();
 	return ret;
 }
 
@@ -237,13 +234,18 @@ static void check_stack(struct cb_vm_state *state, struct cb_frame *frame)
 	}
 }
 
+#define PUSH(V) (*stack_pointer++ = (V))
+#define POP() (*--stack_pointer)
+
 int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame)
 {
 	int retval = 0;
 	cb_instruction *code = state->bytecode->code;
+	struct cb_value *stack_pointer;
 	state->frame = frame;
 
 	check_stack(state, frame);
+	stack_pointer = state->stack_top;
 
 #define TABLE_ENTRY(OP) &&DO_##OP,
 	static const void *dispatch_table[] = {
@@ -253,8 +255,10 @@ int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame)
 
 #define NEXT() (code[pc++])
 #define DISPATCH() ({ \
-		/*if (cb_options.debug_vm) */\
-			/*debug_state(state->bytecode, pc, frame); */\
+		/*if (cb_options.debug_vm) {\
+			state->stack_top = stack_pointer; \
+			debug_state(state->bytecode, pc, frame); \
+		} */\
 		size_t _next = NEXT(); \
 		assert(_next < OP_MAX); \
 		goto *dispatch_table[_next]; \
@@ -270,7 +274,7 @@ int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame)
 		RET_WITH_TRACE(); \
 	})
 #define READ_SIZE_T() (NEXT())
-#define TOP() (state->stack_top[-1])
+#define TOP() (stack_pointer[-1])
 #define LOCAL_IDX(N) (frame->bp + 1 + (N))
 #define LOCAL(N) (state->stack[LOCAL_IDX(N)])
 #define REPLACE(N, VAL) (state->stack[(N)] = (VAL))
@@ -467,7 +471,7 @@ DO_OP_CALL: {
 	int failed;
 
 	num_args = READ_SIZE_T();
-	func_val = state->stack_top[-num_args - 1];
+	func_val = stack_pointer[-num_args - 1];
 
 	if (func_val.type != CB_VALUE_FUNCTION)
 		ERROR("Value of type '%s' is not callable\n",
@@ -479,22 +483,24 @@ DO_OP_CALL: {
 		cb_str s = cb_agent_get_string(name);
 		ERROR("Too few arguments to function '%s'\n", cb_strptr(&s));
 	}
+	state->stack_top = stack_pointer;
 	if (func->type == CB_FUNCTION_NATIVE) {
 		failed = func->value.as_native(num_args,
-				&state->stack_top[-num_args], &result);
+				&stack_pointer[-num_args], &result);
 		/* native functions can mess with global state */
 		code = state->bytecode->code;
-		assert((size_t) (state->stack_top - state->stack) > num_args);
-		state->stack_top -= (num_args + 1);
+		assert((size_t) (stack_pointer - state->stack) > num_args);
+		stack_pointer -= (num_args + 1);
 		PUSH(result);
 		if (failed) {
 			retval = 1;
 			RET_WITH_TRACE();
 		}
 	} else {
+		ptrdiff_t stack_used = state->stack_top - state->stack;
 		next_frame.parent = frame;
 		next_frame.func = func_val;
-		next_frame.bp = (state->stack_top - state->stack) - num_args - 1;
+		next_frame.bp = stack_used - num_args - 1;
 		if (func->value.as_user.module_id != (size_t) -1)
 			next_frame.module = &state->modules[
 				func->value.as_user.module_id];
@@ -505,6 +511,7 @@ DO_OP_CALL: {
 			retval = 1;
 			RET_WITH_TRACE();
 		}
+		stack_pointer = state->stack_top;
 	}
 
 	DISPATCH();
@@ -529,13 +536,14 @@ DO_OP_RETURN: {
 		state->upvalues_idx = i + 1;
 	}
 
-	state->stack_top = state->stack + frame->bp;
+	stack_pointer = state->stack + frame->bp;
 	PUSH(retval);
+	state->stack_top = stack_pointer;
 	goto end;
 }
 
 DO_OP_POP:
-	POP();
+	(void) POP();
 	DISPATCH();
 
 DO_OP_LOAD_LOCAL: {
@@ -781,9 +789,9 @@ DO_OP_NEW_ARRAY_WITH_VALUES: {
 	struct cb_array *array = cb_array_new(size);
 	array->len = size;
 
-	memcpy(array->values, state->stack_top - size,
+	memcpy(array->values, stack_pointer - size,
 			size * sizeof(struct cb_value));
-	state->stack_top -= size;
+	stack_pointer -= size;
 
 	arrayval.type = CB_VALUE_ARRAY;
 	arrayval.val.as_array = array;
@@ -1006,9 +1014,11 @@ DO_OP_EXIT_MODULE:
 	frame->module = NULL;
 	DISPATCH();
 
-DO_OP_DUP:
-	PUSH(TOP());
+DO_OP_DUP: {
+	struct cb_value val = TOP();
+	PUSH(val);
 	DISPATCH();
+}
 
 DO_OP_LOAD_STRUCT: {
 	size_t fname = READ_SIZE_T();
