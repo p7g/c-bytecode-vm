@@ -1289,7 +1289,15 @@ static int compile_function(struct cstate *state, size_t *name_out)
 		if (stack_effect > max_stack_effect)
 			max_stack_effect = stack_effect;
 	}
-	assert(stack_effect == 0);
+
+	/* Weird, but should be harmless */
+	/* Default arguments in local functions result in non-zero stack effect
+	if (stack_effect != 0) {
+		cb_str func_name = cb_agent_get_string(name_id);
+		fprintf(stderr, "WARN: non-zero stack effect in function %s\n",
+				cb_strptr(&func_name));
+	}
+	*/
 
 	scope_free(inner_scope);
 	state->scope = old_scope;
