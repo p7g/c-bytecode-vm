@@ -1239,9 +1239,10 @@ static int compile_function(struct cstate *state, size_t *name_out)
 		if (MAYBE_CONSUME(TOK_EQUAL)) {
 			optarg_addrs[optarg_count++] = cb_bytecode_len(
 					state->bytecode);
-			/* The default value is just left on the stack since
-			   that's where the local variable will be located */
 			X(compile_expression(state));
+			APPEND(OP_STORE_LOCAL);
+			APPEND_SIZE_T(num_params - 1);
+			APPEND(OP_POP);
 		} else if (optarg_count) {
 			EXPECT(TOK_EQUAL);
 		}
@@ -1253,6 +1254,17 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	code_start = cb_bytecode_len(state->bytecode);
 
 	for (int i = num_params - 1; i >= 0; i -= 1) {
+		if (param_patterns[i].type == PATTERN_IDENT) {
+			// FIXME
+			for (struct binding *b = inner_scope.locals;
+					b; b = b->next) {
+				if (b->index == bindings[i]) {
+					b->name = param_patterns[i].p.ident;
+					break;
+				}
+			}
+			continue;
+		}
 		APPEND(OP_LOAD_LOCAL);
 		APPEND_SIZE_T(bindings[i]);
 		X(compile_assignment_pattern(state, &param_patterns[i], 0));
@@ -1308,7 +1320,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	APPEND_SIZE_T(name_id);
 	APPEND_SIZE_T(num_params);
 	ADDR_OF(start_label);
-	APPEND_SIZE_T(inner_scope.num_locals - num_params);
+	APPEND_SIZE_T(inner_scope.num_locals - num_params + optarg_count);
 	APPEND_SIZE_T(max_stack_effect);
 	APPEND_SIZE_T(optarg_count);
 	for (unsigned i = 0; i < optarg_count; i += 1)

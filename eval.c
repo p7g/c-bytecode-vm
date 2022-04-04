@@ -488,7 +488,7 @@ DO_OP_CALL: {
 		failed = func->value.as_native(num_args,
 				&stack_pointer[-num_args], &result);
 		/* native functions can mess with global state */
-		code = state->bytecode->code;
+		stack_pointer = state->stack_top;
 		assert((size_t) (stack_pointer - state->stack) > num_args);
 		stack_pointer -= (num_args + 1);
 		PUSH(result);
@@ -513,6 +513,7 @@ DO_OP_CALL: {
 		}
 		stack_pointer = state->stack_top;
 	}
+	code = state->bytecode->code;
 
 	DISPATCH();
 }
