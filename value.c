@@ -314,41 +314,35 @@ cb_str cb_value_to_string(struct cb_value *val)
 		size_t name = func->name;
 		cb_str s, modname;
 		cb_str_init(&modname, 0);
-		if (name != (size_t) -1) {
-			s = cb_agent_get_string(name);
-			len = cb_strlen(s);
-			len += sizeof("<function >"); /* includes NUL byte */
-			/* User functions show the module name too */
-			if (func->type == CB_FUNCTION_USER) {
-				const struct cb_module *mod;
-				const struct cb_user_function *ufunc;
-				ufunc = &func->value.as_user;
-				mod = &cb_vm_state.modules[ufunc->module_id];
-				modname = cb_agent_get_string(
-						cb_modspec_name(mod->spec));
-				/* modname + '.' */
-				len += 1 + cb_strlen(modname);
-			}
-			cb_str_init(&buf, len);
-			sprintf(cb_strptr(&buf), "<function ");
-			size_t pos = sizeof("<function ") - 1;
-			if (cb_strlen(modname)) {
-				memcpy(cb_strptr(&buf) + pos,
-						cb_strptr(&modname),
-						cb_strlen(modname));
-				pos += cb_strlen(modname);
-				cb_strptr(&buf)[pos] = '.';
-				pos += 1;
-			}
-			memcpy(cb_strptr(&buf) + pos, cb_strptr(&s),
-					cb_strlen(s));
-			cb_strptr(&buf)[len - 2] = '>';
-			cb_strptr(&buf)[len - 1] = 0;
-		} else {
-			len = sizeof("<function <anonymous>>") - 1;
-			cb_str_init(&buf, len);
-			sprintf(cb_strptr(&buf), "<function <anonymous>>");
+		s = cb_agent_get_string(name);
+		len = cb_strlen(s);
+		len += sizeof("<function >"); /* includes NUL byte */
+		/* User functions show the module name too */
+		if (func->type == CB_FUNCTION_USER) {
+			const struct cb_module *mod;
+			const struct cb_user_function *ufunc;
+			ufunc = &func->value.as_user;
+			mod = &cb_vm_state.modules[ufunc->module_id];
+			modname = cb_agent_get_string(
+					cb_modspec_name(mod->spec));
+			/* modname + '.' */
+			len += 1 + cb_strlen(modname);
 		}
+		cb_str_init(&buf, len);
+		sprintf(cb_strptr(&buf), "<function ");
+		size_t pos = sizeof("<function ") - 1;
+		if (cb_strlen(modname)) {
+			memcpy(cb_strptr(&buf) + pos,
+					cb_strptr(&modname),
+					cb_strlen(modname));
+			pos += cb_strlen(modname);
+			cb_strptr(&buf)[pos] = '.';
+			pos += 1;
+		}
+		memcpy(cb_strptr(&buf) + pos, cb_strptr(&s),
+				cb_strlen(s));
+		cb_strptr(&buf)[len - 2] = '>';
+		cb_strptr(&buf)[len - 1] = 0;
 		break;
 	}
 
@@ -398,14 +392,9 @@ cb_str cb_value_to_string(struct cb_value *val)
 		cb_str elements[struct_len];
 		const char *name;
 		size_t name_len;
-		if (s->spec->name == (size_t) -1) {
-			name = "<anonymous>";
-			name_len = sizeof("<anonymous>") - 1;
-		} else {
-			cb_str n = cb_agent_get_string(s->spec->name);
-			name = cb_strptr(&n);
-			name_len = cb_strlen(n);
-		}
+		cb_str n = cb_agent_get_string(s->spec->name);
+		name = cb_strptr(&n);
+		name_len = cb_strlen(n);
 		len = name_len + 2;
 
 		if (repr_enter(&val->val.as_struct->gc_header)) {
@@ -459,15 +448,9 @@ cb_str cb_value_to_string(struct cb_value *val)
 		char *ptr;
 		const char *name;
 		size_t name_len;
-		cb_str n;
-		if (name_id == (size_t) -1) {
-			name = "<anonymous>";
-			name_len = sizeof("<anonymous>") - 1;
-		} else {
-			n = cb_agent_get_string(name_id);
-			name = cb_strptr(&n);
-			name_len = cb_strlen(n);
-		}
+		cb_str n = cb_agent_get_string(name_id);
+		name = cb_strptr(&n);
+		name_len = cb_strlen(n);
 		len = name_len + sizeof("<struct >") - 1;
 		cb_str_init(&buf, len);
 		ptr = cb_strptr(&buf);
@@ -488,7 +471,8 @@ cb_str cb_value_to_string(struct cb_value *val)
 	}
 
 	default:
-		fprintf(stderr, "unsupported to_string\n");
+		fprintf(stderr, "unsupported to_string (%s)\n",
+				cb_value_type_friendly_name(val->type));
 		abort();
 		break;
 	}

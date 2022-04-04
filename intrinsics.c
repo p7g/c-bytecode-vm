@@ -452,7 +452,7 @@ static int __gc_collect(size_t argc, struct cb_value *argv,
 static int pcall(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	int failed;
-	size_t sp;
+	ptrdiff_t sp;
 	struct cb_array *arr;
 
 	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
@@ -460,9 +460,9 @@ static int pcall(size_t argc, struct cb_value *argv, struct cb_value *result)
 	arr = result->val.as_array = cb_array_new(2);
 	arr->len = 2;
 
-	sp = cb_vm_state.sp;
+	sp = cb_vm_state.stack_top - cb_vm_state.stack;
 	failed = cb_value_call(argv[0], argv + 1, argc - 1, &arr->values[1]);
-	cb_vm_state.sp = sp;
+	cb_vm_state.stack_top = cb_vm_state.stack + sp;
 
 	arr->values[0].type = CB_VALUE_BOOL;
 	arr->values[0].val.as_bool = !failed;

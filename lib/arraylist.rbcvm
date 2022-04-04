@@ -221,7 +221,7 @@ export function find(self, func) {
 
 doc:add(
   "function",
-  "find_index(list, func)",
+  "find(list, func)",
   "Get the first element that satisfies the predicate `func`, or null if none exists.",
 );
 

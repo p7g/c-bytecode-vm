@@ -67,6 +67,8 @@ struct cb_user_function {
 	struct cb_upvalue **upvalues;
 	size_t upvalues_size, upvalues_len;
 	size_t module_id;
+	size_t nlocals;
+	size_t stack_required;
 	struct cb_function_optargs optargs;
 };
 

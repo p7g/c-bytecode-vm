@@ -22,7 +22,6 @@
 #define INITIAL_BYTECODE_SIZE 32
 #define LENGTH(ARR) (sizeof(ARR) / sizeof(ARR[0]))
 #define VALID_ESCAPES "nrt\"'"
-#define UNNAMED ((size_t) -1)
 
 #define TOKEN_TYPE_LIST(X) \
 	X(TOK_IDENT) \
@@ -1174,22 +1173,26 @@ static int compile_let_statement(struct cstate *state, int export)
 static int compile_function(struct cstate *state, size_t *name_out)
 {
 	int first_param, old_is_global;
+	int stack_effect, max_stack_effect;
 	struct token name;
 	struct assignment_pattern param_patterns[CB_MAX_PARAMS];
 	size_t bindings[CB_MAX_PARAMS];
 	size_t optarg_addrs[CB_MAX_PARAMS], optarg_count;
 	size_t name_id, binding_id = (size_t) -1;
-	size_t num_params, local_count_pos;
+	size_t num_params;
+	size_t code_start;
 	struct scope inner_scope, *old_scope;
 	struct function_state fstate, *old_fstate;
 	size_t free_var;
 	struct binding *binding;
 	size_t start_label, end_label;
+	int is_named;
 
 	EXPECT(TOK_FUNCTION);
 	if (MATCH_P(TOK_IDENT)) {
 		name = EXPECT(TOK_IDENT);
 		name_id = intern_ident(state, &name);
+		is_named = 1;
 		if (name_out)
 			*name_out = name_id;
 		if (!state->is_global) {
@@ -1199,7 +1202,8 @@ static int compile_function(struct cstate *state, size_t *name_out)
 			binding_id = scope_add_binding(state->scope, name_id, 0);
 		}
 	} else {
-		name_id = UNNAMED;
+		is_named = 0;
+		name_id = cb_agent_intern_string("<anonymous>", 11);
 	}
 
 	start_label = LABEL();
@@ -1235,9 +1239,10 @@ static int compile_function(struct cstate *state, size_t *name_out)
 		if (MAYBE_CONSUME(TOK_EQUAL)) {
 			optarg_addrs[optarg_count++] = cb_bytecode_len(
 					state->bytecode);
-			/* The default value is just left on the stack since
-			   that's where the local variable will be located */
 			X(compile_expression(state));
+			APPEND(OP_STORE_LOCAL);
+			APPEND_SIZE_T(num_params - 1);
+			APPEND(OP_POP);
 		} else if (optarg_count) {
 			EXPECT(TOK_EQUAL);
 		}
@@ -1246,11 +1251,20 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	EXPECT(TOK_LEFT_BRACE);
 
 	MARK(start_label);
-	APPEND(OP_ALLOCATE_LOCALS);
-	local_count_pos = cb_bytecode_len(state->bytecode);
-	APPEND_SIZE_T(0);
+	code_start = cb_bytecode_len(state->bytecode);
 
 	for (int i = num_params - 1; i >= 0; i -= 1) {
+		if (param_patterns[i].type == PATTERN_IDENT) {
+			// FIXME
+			for (struct binding *b = inner_scope.locals;
+					b; b = b->next) {
+				if (b->index == bindings[i]) {
+					b->name = param_patterns[i].p.ident;
+					break;
+				}
+			}
+			continue;
+		}
 		APPEND(OP_LOAD_LOCAL);
 		APPEND_SIZE_T(bindings[i]);
 		X(compile_assignment_pattern(state, &param_patterns[i], 0));
@@ -1275,10 +1289,27 @@ static int compile_function(struct cstate *state, size_t *name_out)
 
 	MARK(end_label);
 
-	/* Make room on the stack for the local variables. Arguments will
-	 * already be on the stack, so we don't need to allocate more room for
-	 * them. */
-	UPDATE(local_count_pos, inner_scope.num_locals - num_params);
+	max_stack_effect = stack_effect = 0;
+	for (size_t i = code_start; i < cb_bytecode_len(state->bytecode);
+			i += 1) {
+		enum cb_opcode op = cb_opcode_assert(cb_bytecode_get(
+					state->bytecode, i));
+		cb_instruction *opargs = state->bytecode->code + 1 + i;
+
+		stack_effect += cb_opcode_stack_effect(op, opargs);
+		i += cb_opcode_nargs(op, opargs);
+		if (stack_effect > max_stack_effect)
+			max_stack_effect = stack_effect;
+	}
+
+	/* Weird, but should be harmless */
+	/* Default arguments in local functions result in non-zero stack effect
+	if (stack_effect != 0) {
+		cb_str func_name = cb_agent_get_string(name_id);
+		fprintf(stderr, "WARN: non-zero stack effect in function %s\n",
+				cb_strptr(&func_name));
+	}
+	*/
 
 	scope_free(inner_scope);
 	state->scope = old_scope;
@@ -1289,18 +1320,23 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	APPEND_SIZE_T(name_id);
 	APPEND_SIZE_T(num_params);
 	ADDR_OF(start_label);
+	APPEND_SIZE_T(inner_scope.num_locals - num_params + optarg_count);
+	APPEND_SIZE_T(max_stack_effect);
 	APPEND_SIZE_T(optarg_count);
 	for (unsigned i = 0; i < optarg_count; i += 1)
 		APPEND_SIZE_T(optarg_addrs[i]);
 
-	if (state->is_global && name_id != UNNAMED) {
-		APPEND(OP_DECLARE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-		APPEND(OP_STORE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-	} else if (name_id != UNNAMED && binding_id != (size_t) -1) {
-		APPEND(OP_STORE_LOCAL);
-		APPEND_SIZE_T(binding_id);
+	if (is_named) {
+		if (state->is_global) {
+			APPEND(OP_DECLARE_GLOBAL);
+			APPEND_SIZE_T(name_id);
+			APPEND(OP_STORE_GLOBAL);
+			APPEND_SIZE_T(name_id);
+		} else {
+			assert(binding_id != (size_t) -1);
+			APPEND(OP_STORE_LOCAL);
+			APPEND_SIZE_T(binding_id);
+		}
 	}
 
 	EXPECT(TOK_RIGHT_BRACE);
@@ -1338,6 +1374,10 @@ static int compile_function_statement(struct cstate *state, int export)
 	size_t name;
 
 	X(compile_function(state, &name));
+	/* FIXME: The function wasn't necessarily named, but we're adding it to
+	 * the exported names regardless. The name of the export will be
+	 * whatever value the "name" variable holds without being initialized.
+	 */
 	if (export && state->is_global)
 		export_name(state, name);
 	else
@@ -1663,15 +1703,18 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 	struct token name, field;
 	size_t name_id, num_fields, binding_id, field_id, nfields_pos;
 	int first_field;
+	int is_named;
 
 	EXPECT(TOK_STRUCT);
 	if (MATCH_P(TOK_IDENT)) {
+		is_named = 1;
 		name = EXPECT(TOK_IDENT);
 		name_id = intern_ident(state, &name);
 		if (name_out)
 			*name_out = name_id;
 	} else {
-		name_id = UNNAMED;
+		is_named = 0;
+		name_id = cb_agent_intern_string("<anonymous>", 11);
 	}
 
 	num_fields = 0;
@@ -1700,16 +1743,19 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 
 	UPDATE(nfields_pos, num_fields);
 
-	if (state->is_global && name_id != UNNAMED) {
-		APPEND(OP_DECLARE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-		APPEND(OP_STORE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-	} else if (name_id != UNNAMED) {
-		assert(state->scope != NULL);
-		binding_id = scope_add_binding(state->scope, name_id, 0);
-		APPEND(OP_STORE_LOCAL);
-		APPEND_SIZE_T(binding_id);
+	if (is_named) {
+		if (state->is_global) {
+			APPEND(OP_DECLARE_GLOBAL);
+			APPEND_SIZE_T(name_id);
+			APPEND(OP_STORE_GLOBAL);
+			APPEND_SIZE_T(name_id);
+		} else {
+			assert(name_id != (size_t) -1);
+			assert(state->scope != NULL);
+			binding_id = scope_add_binding(state->scope, name_id, 0);
+			APPEND(OP_STORE_LOCAL);
+			APPEND_SIZE_T(binding_id);
+		}
 	}
 
 	return 0;
