@@ -186,7 +186,7 @@ function parse_value(next, peek) {
 
       if (result.is_ok(key)) {
         key = result.data(key);
-      } else if (type_of(result.data(key)) != "string") {
+      } else if (typeof(result.data(key)) != "string") {
         return result.error(
           E_UNEXPECTED_TOKEN,
           string_concat("Expected string, found ", key),

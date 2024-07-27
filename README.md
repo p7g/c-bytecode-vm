@@ -342,7 +342,7 @@ least for now:
 - `println`: Write a string representation of some values to stdout _with_ a
   trailing newline.
 - `tostring`: Get a string representation of a given value.
-- `type_of`: Get the type of a value as a string.
+- `typeof`: Get the type of a value as a string.
 - `ord`: Convert a character to an integer.
 - `chr`: Convert an integer to a character.
 - `tofloat`: Convert an integer to a double. This should be renamed.

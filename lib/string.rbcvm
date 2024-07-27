@@ -151,7 +151,7 @@ export function endswith(self, other) {
 doc:add("function", "endswith(string, suffix)", "Check if `suffix` is a suffix of `string`.");
 
 export function index(self, c) {
-    if (type_of(c) != "char") {
+    if (typeof(c) != "char") {
         sys.panic("index: Only finding index of char is implemented");
     }
     let len = length(self);
@@ -166,7 +166,7 @@ export function index(self, c) {
 doc:add("function", "index(string, c)", "Find the first index where `c` is found in `string`.");
 
 export function rindex(self, c) {
-    if (type_of(c) != "char") {
+    if (typeof(c) != "char") {
         sys.panic("index: Only finding index of char is implemented");
     }
     for (let i = length(self) - 1; i >= 0; i = i - 1) {

@@ -15,40 +15,40 @@
 #include "value.h"
 #include "userdata.h"
 
-#define FUNC(FN, ARITY) ({ \
+#define FUNC(NAME, FN, ARITY) ({ \
 		struct cb_value _func_val; \
 		size_t _name; \
-		_name = cb_agent_intern_string(#FN, sizeof(#FN) - 1); \
+		_name = cb_agent_intern_string(NAME, sizeof(NAME) - 1); \
 		_func_val = cb_cfunc_new(_name, (ARITY), \
 				(cb_native_function *) (FN)); \
 		cb_hashmap_set(scope, _name, _func_val); \
 	});
 
-#define DECL(NAME, _ARITY) static int NAME(size_t, struct cb_value *, \
+#define DECL(NAME, FN, _ARITY) static int FN(size_t, struct cb_value *, \
 		struct cb_value *);
 
 #define INTRINSIC_LIST(X) \
-	X(print, 0) \
-	X(println, 0) \
-	X(tostring, 1) \
-	X(type_of, 1) \
-	X(string_chars, 1) \
-	X(string_from_chars, 1) \
-	X(string_bytes, 1) \
-	X(string_concat, 0) \
-	X(ord, 1) \
-	X(chr, 1) \
-	X(truncate32, 1) \
-	X(tofloat, 1) \
-	X(read_file, 1) \
-	X(argv, 0) \
-	X(upvalues, 0) \
-	X(apply, 2) \
-	X(now, 0) \
-	X(read_file_bytes, 1) \
-	X(toint, 1) \
-	X(__gc_collect, 0) \
-	X(pcall, 1)
+	X("print", print, 0) \
+	X("println", println, 0) \
+	X("tostring", tostring, 1) \
+	X("typeof", typeof_, 1) \
+	X("string_chars", string_chars, 1) \
+	X("string_from_chars", string_from_chars, 1) \
+	X("string_bytes", string_bytes, 1) \
+	X("string_concat", string_concat, 0) \
+	X("ord", ord, 1) \
+	X("chr", chr, 1) \
+	X("truncate32", truncate32, 1) \
+	X("tofloat", tofloat, 1) \
+	X("read_file", read_file, 1) \
+	X("argv", argv, 0) \
+	X("upvalues", upvalues, 0) \
+	X("apply", apply, 2) \
+	X("now", now, 0) \
+	X("read_file_bytes", read_file_bytes, 1) \
+	X("toint", toint, 1) \
+	X("__gc_collect", __gc_collect, 0) \
+	X("pcall", pcall, 1)
 
 INTRINSIC_LIST(DECL);
 
@@ -103,7 +103,7 @@ static int tostring(size_t argc, struct cb_value *argv,
 	return 0;
 }
 
-static int type_of(size_t argc, struct cb_value *argv, struct cb_value *result)
+static int typeof_(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	const char *type;
 

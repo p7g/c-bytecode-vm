@@ -4,7 +4,7 @@ import docs;
 let doc = docs.module("iter", "Lazy iterators.");
 
 function ensure_iterable(it) {
-  if (type_of(it) == "array") {
+  if (typeof(it) == "array") {
     return array.iter(it);
   }
   return it;
