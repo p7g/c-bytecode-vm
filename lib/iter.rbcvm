@@ -1,11 +1,26 @@
-import array;
+import _array;
+import _arraylist_impl;
 import docs;
 
 let doc = docs.module("iter", "Lazy iterators.");
 
+export function _array_iter(array) {
+  let i = 0;
+  let len = _array.length(array);
+  return function array_iterator() {
+    if (i == len) {
+      return null;
+    }
+
+    let item = array[i];
+    i = i + 1;
+    return item;
+  };
+}
+
 function ensure_iterable(it) {
   if (typeof(it) == "array") {
-    return array.iter(it);
+    return _array_iter(it);
   }
   return it;
 }
@@ -17,6 +32,12 @@ doc:add(
   "collector",
   "An struct defining the required functions to convert an iterator into an arbitrary collection.",
 );
+
+export let _array_collector = collector {
+  init = _arraylist_impl.new,
+  reduce = _arraylist_impl.push,
+  finalize = _arraylist_impl.to_array,
+};
 
 export function count(n) {
   let i = n;
@@ -73,7 +94,7 @@ doc:add(
   "Call the function `fn` for every element of `it`. This evaluates the iterator.",
 );
 
-export function collect(it, collector=array.collector) {
+export function collect(it, collector=_array_collector) {
   return collector:finalize(
     fold(ensure_iterable(it), collector:init(), collector:reduce),
   );
