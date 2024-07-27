@@ -86,6 +86,8 @@ export function delete(self, index) {
   for (let i = index + 1; i < len; i = i + 1) {
     set(self, i - 1, get(self, i));
   }
+
+  self:length = len - 1;
 }
 
 doc:add(
