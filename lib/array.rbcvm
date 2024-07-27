@@ -63,7 +63,7 @@ export function find(self, func) {
 doc:add(
   "function",
   "find(array, predicate)",
-  "Find the element element for which `predicate` returns true. If there is none, returns null.",
+  "Find the element for which `predicate` returns true. If there is none, returns null.",
 );
 
 export function foreach(self, func) {
