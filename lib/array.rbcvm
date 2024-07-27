@@ -81,7 +81,7 @@ doc:add(
 );
 
 export function contains(self, thing) {
-  return null != find(self, function(i) {
+  return -1 != find_index(self, function(i) {
     return i == thing;
   });
 }
