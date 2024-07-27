@@ -3,8 +3,8 @@ import arraylist;
 import char;
 import docs;
 import hashmap;
-import result;
 import string;
+import sys;
 
 let doc = docs.module("json", "A partial implementation of a JSON parser.");
 
@@ -20,19 +20,23 @@ let T_TRUE = 8;
 let T_FALSE = 9;
 let T_NULL = 10;
 
-export let E_UNEXPECTED_TOKEN = 0;
-export let E_INVALID_JSON = 1;
+export struct UnexpectedTokenError { message }
+export struct InvalidJsonError { message }
 
 doc:add(
-  "constant",
-  "E_UNEXPECTED_TOKEN",
-  "An error returned when an unexpected token is encountered.",
+  "struct",
+  "UnexpectedTokenError",
+  "Error raised when an unexpected token is encountered.",
 );
 doc:add(
-  "constant",
-  "E_INVALID_JSON",
-  "An error returned when the input string is not able to be parsed.",
+  "struct",
+  "InvalidJsonError",
+  "Error raised when the input string is not able to be parsed.",
 );
+
+function raise(code, context) {
+  sys.panic(Error { code = code, context = context });
+}
 
 struct Token {
   type, value
@@ -122,7 +126,7 @@ function tokenize(input) {
         str = string_concat(str, tostring(c));
         i = i + 1;
       } else {
-        return result.error(E_UNEXPECTED_TOKEN, c);
+        raise(UnexpectedTokenError { message = c });
       }
 
       if (chars[i] == '.') {
@@ -130,7 +134,7 @@ function tokenize(input) {
         i = i + 1;
         str = string_concat(str, ".");
       } else if (is_float) {
-        return result.error(E_UNEXPECTED_TOKEN, chars[i]);
+        raise(UnexpectedTokenError { message = chars[i] });
       }
 
       while (i < len && char.is_digit(chars[i])) {
@@ -140,13 +144,13 @@ function tokenize(input) {
 
       token = Token{type=T_NUMBER, value=str};
     } else {
-      return result.error(E_UNEXPECTED_TOKEN, char);
+      raise(UnexpectedTokenError { message = char });
     }
 
     arraylist.push(tokens, token);
   }
 
-  return result.ok(arraylist.to_array(tokens));
+  return arraylist.to_array(tokens);
 }
 
 function parse_value(next, peek) {
@@ -173,10 +177,9 @@ function parse_value(next, peek) {
       if (!is_first) {
         let comma = next();
         if (comma:type != T_COMMA) {
-          return result.error(
-            E_UNEXPECTED_TOKEN,
-            string_concat("Expected comma, found '", comma:value, "'"),
-          );
+          raise(UnexpectedTokenError {
+            message = string_concat("Expected comma, found '", comma:value, "'"),
+          });
         }
       } else {
         is_first = false;
@@ -184,32 +187,21 @@ function parse_value(next, peek) {
 
       let key = parse_value(next, peek);
 
-      if (result.is_ok(key)) {
-        key = result.data(key);
-      } else if (typeof(result.data(key)) != "string") {
-        return result.error(
-          E_UNEXPECTED_TOKEN,
-          string_concat("Expected string, found ", key),
-        );
-      } else {
-        return result;
+      if (typeof(key) != "string") {
+        raise(UnexpectedTokenError {
+          message = string_concat("Expected string, found ", key),
+        });
       }
 
       let colon = next();
       if (colon:type != T_COLON) {
-        return result.error(
-          E_UNEXPECTED_TOKEN,
-          string_concat("Expected colon, found '", comma:value, "'"),
-        );
+        raise(UnexpectedTokenError {
+          message = string_concat("Expected colon, found '", comma:value, "'"),
+        });
       }
 
       let map_value = parse_value(next, peek);
-
-      if (result.is_ok(map_value)) {
-        hashmap.set(values, key, result.data(map_value));
-      } else {
-        return map_value;
-      }
+      hashmap.set(values, key, map_value);
     }
 
     next();  # consume right brace
@@ -223,46 +215,34 @@ function parse_value(next, peek) {
       if (!is_first) {
         let comma = next();
         if (comma:type != T_COMMA) {
-          return result.error(
-            E_UNEXPECTED_TOKEN,
-            string_concat("Expected comma, found '", comma:value, "'"),
-          );
+          raise(UnexpectedTokenError {
+            message = string_concat("Expected comma, found '", comma:value, "'"),
+          });
         }
       } else {
         is_first = false;
       }
 
-      let result = parse_value(next, peek);
-
-      if (result.is_ok(result)) {
-        arraylist.push(values, result.data(result));
-      } else {
-        return result;
-      }
+      let value = parse_value(next, peek);
+      arraylist.push(values, value);
     }
 
     next(); # consume right bracket
 
     ret = arraylist.to_array(values);
   } else {
-    return result.error(
-      E_UNEXPECTED_TOKEN,
-      string_concat("Unexpected token ", tostring(value)),
-    );
+    raise(UnexpectedTokenError {
+      message = string_concat("Unexpected token ", tostring(value)),
+    });
   }
 
-  return result.ok(ret);
+  return ret;
 }
 
 export function parse(input) {
   let tokens = tokenize(input);
-  let i = 0;
-
-  if (result.is_error(tokens)) {
-    return tokens;
-  }
-  tokens = result.data(tokens);
   let len = array.length(tokens);
+  let i = 0;
 
   function peek() {
     return tokens[i];
@@ -276,21 +256,13 @@ export function parse(input) {
 
   let data = parse_value(next, peek);
 
-  if (result.is_error(data)) {
-    return data;
-  }
-
   if (i != len) {
-    return result.error(
-      E_INVALID_JSON,
-      string_concat("Expected EOF, found ", tostring(tokens[i - 1]:value)),
-    );
+    raise(InvalidJsonError {
+      message = string_concat("Expected EOF, found ", tostring(tokens[i - 1]:value)),
+    });
   }
 
   return data;
 }
 
-doc:add("function", "parse(input)", "Parse the string `input` as JSON.
-
-The returned value is a `result`, for historical reasons (lol). See the `result`
-module for more information.");
+doc:add("function", "parse(input)", "Parse the string `input` as JSON.");
