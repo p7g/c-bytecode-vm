@@ -33,7 +33,7 @@ export function iter(str) {
   let len = array.length(cs);
   return function string_iterator() {
     if (i >= len) {
-      return null;
+      return iter.STOP;
     }
     let c = cs[i];
     i = i + 1;

@@ -194,7 +194,7 @@ export function entries(self) {
 
   return function next() {
     if (i >= len) {
-      return null;
+      return iter.STOP;
     }
     let bucket = null;
     while (i < len) {
@@ -204,7 +204,7 @@ export function entries(self) {
         return [bucket:key, bucket:value];
       }
     }
-    return null;
+    return iter.STOP;
   };
 }
 
