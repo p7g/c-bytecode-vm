@@ -1,5 +1,4 @@
 import array;
-import box;
 import docs;
 import iter;
 
@@ -10,13 +9,13 @@ struct Node {
 }
 
 export function new() {
-  return box.new(null);
+  return null;
 }
 
 doc:add("function", "new()", "Create a new, empty linked list.");
 
 export function iter(self) {
-  let current = box.get(self);
+  let current = self;
   return function list_iterator() {
     if (current == null) {
       return iter.STOP;
@@ -30,12 +29,10 @@ export function iter(self) {
 doc:add("function", "iter(list)", "Create an iterator over `list`.");
 
 export function length(self) {
-  let current = box.get(self);
   let len = 0;
 
-  while (current) {
+  for (let current = self; current; current = current:cdr) {
     len = len + 1;
-    current = current:cdr;
   }
 
   return len;
@@ -46,37 +43,23 @@ doc:add("function", "length(list)", "Get the length of the list.
 Note that this is O(n) (i.e. requires traversing the entire list).");
 
 export function prepend(self, value) {
-  let current = box.get(self);
-  box.set(self, Node{car=value, cdr=current});
+  return Node{car=value, cdr=self};
 }
 
-doc:add("function", "prepend(list, value)", "Add a value to the front of the list.
+doc:add("function", "prepend(list, value)", "Return a new list with `value` added to the front.
 
 This function is O(1) (i.e. takes the same time regardless of the length of the list).");
 
 export function append(self, value) {
-  let current = box.get(self);
-  let prev = null;
-  if (current == null) {
-    box.set(self, Node{car=value, cdr=null});
-    return;
-  }
-
-  while (current) {
-    prev = current;
-    current = current:cdr;
-  }
-
-  prev:cdr = [value, null];
+  return reverse(prepend(reverse(self), value));
 }
 
-doc:add("function", "append(list, value)", "Add a value to the end of the list.
+doc:add("function", "append(list, value)", "Return a new list with `value` added to the end.
 
 Like `length`, this function is O(n).");
 
 export function foreach(self, func) {
-  let current = box.get(self);
-
+  let current = self;
   for (let i = 0; current; i = i + 1) {
     func(current:car, i, self);
     current = current:cdr;
@@ -86,8 +69,7 @@ export function foreach(self, func) {
 doc:add("function", "foreach(list, func)", "Call `func` for every element of `list`.");
 
 export function find(self, func) {
-  let current = box.get(self);
-
+  let current = self;
   for (let i = 0; current; i = i + 1) {
     if (func(current:car, i, self)) {
       return current:car;
@@ -106,36 +88,24 @@ If none is found, this function returns `null`.",
 );
 
 export function reverse(self) {
-  let new_list = new();
-
-  foreach(self, function(val) {
-    prepend(new_list, val);
-  });
-
-  return new_list;
+  return foldl(self, new(), prepend);
 }
 
 doc:add("function", "reverse(list)", "Make a new linked list that is the reverse of `list`.");
 
 export let collector = iter.collector {
   init = new,
-  reduce = function (list, value) {
-    prepend(list, value);
-    return list;
-  },
+  reduce = prepend,
   finalize = reverse,
 };
 
 doc:add("object", "collector", "A collector to convert an iterator into a list.");
 
 export function map(self, func) {
-  let new_list = new();
-
-  foreach(self, function(val, i) {
-    prepend(new_list, func(val, i, self));
+  let new_list = foldl(self, new(), function (new_list, val) {
+    return func(val, i, self);
   });
-
-  return reverse(new_list);
+  return reversed(new_list);
 }
 
 doc:add(
@@ -155,3 +125,13 @@ export function to_array(self) {
 }
 
 doc:add("function", "to_array(list)", "Create a new array with the elements of `list`.");
+
+export function foldl(self, init, reducer) {
+  for (let current = self, i = 0; current; current = current:cdr) {
+    init = reducer(init, current:car, i, self);
+    i = i + 1;
+  }
+  return init;
+}
+
+doc:add("function", "foldl(list, init, reducer)", "Reduce the list from the left.");
