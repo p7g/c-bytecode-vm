@@ -17,11 +17,7 @@ void cb_sys_build_spec(cb_modspec *spec)
 
 static int panic(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	cb_str msg;
-
-	msg = CB_EXPECT_STRING(argv[0]);
-	cb_error_set(cb_value_from_fmt("%.*s", (int) cb_strlen(msg),
-				cb_strptr(&msg)));
+	cb_error_set(argv[0]);
 	return 1;
 }
 
