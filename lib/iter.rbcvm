@@ -64,19 +64,13 @@ export function range(to) {
 
 doc:add("function", "range(to)", "Create an iterator that counts from 0 to `to`.");
 
-export function enumerate(_it) {
-  let it = ensure_iterable(_it);
-  let i = 0;
-  return function() {
-    let val = it();
-    if (val == null) {
-      return null;
-    }
-
-    let retval = [i, val];
+export function enumerate(it, start=0) {
+  let i = start;
+  return map(it, function enumerate_map(item) {
+    let result = [i, item];
     i = i + 1;
-    return retval;
-  };
+    return result;
+  });
 }
 
 doc:add("function", "enumerate(it)", "Create an iterator that yields pairs of index and value from `it`.");
