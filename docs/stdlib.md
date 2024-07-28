@@ -2,9 +2,9 @@
 
 Index:
 - [docs](#docs-module)
-- [arraylist](#arraylist-module)
-- [array](#array-module)
 - [iter](#iter-module)
+- [array](#array-module)
+- [arraylist](#arraylist-module)
 - [assoclist](#assoclist-module)
 - [bytes](#bytes-module)
 - [char](#char-module)
@@ -18,7 +18,6 @@ Index:
 - [fs](#fs-module)
 - [hash](#hash-module)
 - [hashmap](#hashmap-module)
-- [result](#result-module)
 - [json](#json-module)
 - [list](#list-module)
 - [obj](#obj-module)
@@ -54,155 +53,13 @@ The interface for a documentation generator.
 
 Create an object to document members of a module.
 
-## arraylist module
-
-A growable array.
-
-### function `to_iter(list)`
-
-Create an iterator over the arraylist.
-
-### function `contains(list, thing)`
-
-Check if any element in `list` is equal to `thing`.
-
-### function `some(list, func)`
-
-Check if any element in `list` satisfies the predicate `func`.
-
-### function `find_index(list, func)`
-
-Get the first element that satisfies the predicate `func`, or null if none exists.
-
-### function `find_index(list, func)`
-
-Get the index of the first element that satisfies the predicate `func`, or -1
-if none exists.
-
-### function `foreach(list, func)`
-
-Call `func` for each element of `list`.
-
-### function `pop(list)`
-
-Remove and return the last element of `list`.
-
-### object `collector`
-
-A collector for converting an iterator into an arraylist.
-
-### function `push(list, value)`
-
-Push `value` on to the end of `list`, growing it if necessary.
-
-### function `to_array(list)`
-
-Copy the elements of `list` into a fixed-length array.
-
-### function `delete(list, idx)`
-
-Remove the element at index `idx` from `list`. This involves shuffling all
-elements after `idx` leftward, so it's not very efficient.
-
-### function `set(list, idx, value)`
-
-Set the element of `list` at index `idx` to `value`.
-
-### function `get(list, idx)`
-
-Get the element of `list` at index `idx`.
-
-### function `capacity(list)`
-
-Get the maximum number of items `list` can hold.
-
-### function `length(list)`
-
-Get the number of items in `list`.
-
-### function `new()`
-
-Create an empty arraylist with default initial capacity.
-
-### function `with_capacity(cap)`
-
-Create an empty arraylist with the given initial capacity.
-
-### function `iter(list)`
-
-Create an iterator over arraylist `list`.
-
-### function `from_array(len, array)`
-
-Create a new arraylist from `array`. The `len` argument should be the length
-of `array`.
-
-## array module
-
-Functions for working with arrays.
-
-### function `slice(array, start, end)`
-
-Returns a slice of `array` starting at index `start` and ending at index `end`.
-
-### function `reversed(array)`
-
-Create a new array with the elements of `array` reversed.
-
-### function `reverse(array)`
-
-Reverse `array` in place.
-
-### function `foldl(array, init, reducer)`
-
-Reduce `array` from the left, using the first value of `array` as the initial
-value for the accumulator.
-
-### function `foldl(array, init, reducer)`
-
-Reduce `array` from the left, using `init` as the initial value for the
-accumulator.
-
-### function `map(array, func)`
-
-Create a new array where each element is the result of calling `func` on the
-corresponding element of `array`.
-
-### function `contains(array, thing)`
-
-Returns true if any element of `array` is equal to `thing`.
-
-### function `foreach(array, func)`
-
-Call `func` with the element, index, and array for each element of `array`.
-
-### function `find(array, predicate)`
-
-Find the element element for which `predicate` returns true. If there is none, returns null.
-
-### function `find_index(array, predicate)`
-
-Find the index of the element for which `predicate` returns true. If there is none, returns -1.
-
-### object `collector`
-
-A collector for converting an iterator into an array.
-
-### function `iter(array)`
-
-Create an iterator from array `array`.
-
-### function `length(array)`
-
-Get the length of array `array`.
-
-### function `new(len)`
-
-Create a new array of length `len`.
-
 ## iter module
 
 Lazy iterators.
+
+### function `intersperse(it, val)`
+
+Yield `val` in between each element of `it`.
 
 ### function `repeat(val, n)`
 
@@ -277,6 +134,157 @@ Create an iterator that counts up from `n` indefinitely.
 
 An struct defining the required functions to convert an iterator into an arbitrary collection.
 
+### object `STOP`
+
+A sentinel value indicating that an iterator has been exhausted.
+
+## array module
+
+Functions for working with arrays.
+
+### function `slice(array, start, end)`
+
+Returns a slice of `array` starting at index `start` and ending at index `end`.
+
+### function `reversed(array)`
+
+Create a new array with the elements of `array` reversed.
+
+### function `reverse(array)`
+
+Reverse `array` in place.
+
+### function `foldl(array, init, reducer)`
+
+Reduce `array` from the left, using the first value of `array` as the initial
+value for the accumulator.
+
+### function `foldl(array, init, reducer)`
+
+Reduce `array` from the left, using `init` as the initial value for the
+accumulator.
+
+### function `map(array, func)`
+
+Create a new array where each element is the result of calling `func` on the
+corresponding element of `array`.
+
+### function `contains(array, thing)`
+
+Returns true if any element of `array` is equal to `thing`.
+
+### function `foreach(array, func)`
+
+Call `func` with the element, index, and array for each element of `array`.
+
+### function `find(array, predicate)`
+
+Find the element for which `predicate` returns true. If there is none, returns null.
+
+### function `find_index(array, predicate)`
+
+Find the index of the element for which `predicate` returns true. If there is none, returns -1.
+
+### object `collector`
+
+A collector for converting an iterator into an array.
+
+### function `iter(array)`
+
+Create an iterator from array `array`.
+
+### function `length(array)`
+
+Get the length of array `array`.
+
+### function `new(len)`
+
+Create a new array of length `len`.
+
+## arraylist module
+
+A growable array.
+
+### function `contains(list, thing)`
+
+Check if any element in `list` is equal to `thing`.
+
+### function `some(list, func)`
+
+Check if any element in `list` satisfies the predicate `func`.
+
+### function `find(list, func)`
+
+Get the first element that satisfies the predicate `func`, or null if none exists.
+
+### function `map(list, func)`
+
+Create a new arraylist where each element is the result of calling `func` on
+the corresponding element of `list`.
+
+### function `find_index(list, func)`
+
+Get the index of the first element that satisfies the predicate `func`, or -1
+if none exists.
+
+### function `foreach(list, func)`
+
+Call `func` for each element of `list`.
+
+### function `pop(list)`
+
+Remove and return the last element of `list`.
+
+### object `collector`
+
+A collector for converting an iterator into an arraylist.
+
+### function `push(list, value)`
+
+Push `value` on to the end of `list`, growing it if necessary.
+
+### function `to_array(list)`
+
+Copy the elements of `list` into a fixed-length array.
+
+### function `delete(list, idx)`
+
+Remove the element at index `idx` from `list`. This involves shuffling all
+elements after `idx` leftward, so it's not very efficient.
+
+### function `set(list, idx, value)`
+
+Set the element of `list` at index `idx` to `value`.
+
+### function `get(list, idx)`
+
+Get the element of `list` at index `idx`.
+
+### function `capacity(list)`
+
+Get the maximum number of items `list` can hold.
+
+### function `length(list)`
+
+Get the number of items in `list`.
+
+### function `new()`
+
+Create an empty arraylist with default initial capacity.
+
+### function `with_capacity(cap)`
+
+Create an empty arraylist with the given initial capacity.
+
+### function `iter(list)`
+
+Create an iterator over arraylist `list`.
+
+### function `from_array(len, array)`
+
+Create a new arraylist from `array`. The `len` argument should be the length
+of `array`.
+
 ## assoclist module
 
 A map data structure backed by an arraylist of key-value pairs.
@@ -325,6 +333,10 @@ Create an empty assoclist.
 ## bytes module
 
 A compact byte array type.
+
+### function `iter(bytes)`
+
+Create an iterator over `bytes`.
 
 ### object `collector`
 
@@ -516,6 +528,10 @@ Performs `a == b`.
 
 Functions for working with strings.
 
+### function `join(strings, sep)`
+
+Join all `strings` together with `sep` in between each.
+
 ### function `split(string, on)`
 
 Break a string into an array of parts, where each part is separated by `on`.
@@ -575,6 +591,10 @@ or strings into a string.
 
 Create an iterator over the characters in `str`.
 
+### function `from_bytes(bytes)`
+
+Convert a byte array to a string.
+
 ### function `char_at(string, idx)`
 
 Get the `idx`th character of `string`.
@@ -606,6 +626,10 @@ Testing utilities.
 ### function `assert(cond)`
 
 Panics if `cond` is not truthy.
+
+### struct `AssertionError`
+
+Error raised when an assertion fails.
 
 ## base64 module
 
@@ -789,52 +813,6 @@ Create a new hashmap with `n` buckets.
 Create a collector for converting
 an iterator of entries into a hashmap.
 
-## result module
-
-A result type. Probably rendered obsolete by panicking.
-
-### function `map_error(result, fn)`
-
-Return a new result where the value has been processed by `fn` if the result
-was unsuccessful.
-
-### function `map(result, fn)`
-
-Return a new result where the value has been processed by `fn` if the result
-was successful.
-
-### function `data(result)`
-
-Get the value from `result`.
-
-### function `code(result)`
-
-Get the error code from `result`.
-
-### function `is_error(result)`
-
-Check if `result` was unsuccessful.
-
-### function `is_ok(result)`
-
-Check if `result` was successful.
-
-### function `error(code, value)`
-
-Create a failed result with error code `code` and data `value`.
-
-### function `ok(value)`
-
-Create a successful result containing `value`.
-
-### constant `ERROR`
-
-A sentinel value representing an unsuccessful result.
-
-### constant `OK`
-
-A sentinel value representing a successful result.
-
 ## json module
 
 A partial implementation of a JSON parser.
@@ -843,20 +821,21 @@ A partial implementation of a JSON parser.
 
 Parse the string `input` as JSON.
 
-The returned value is a `result`, for historical reasons (lol). See the `result`
-module for more information.
+### struct `InvalidJsonError`
 
-### constant `E_INVALID_JSON`
+Error raised when the input string is not able to be parsed.
 
-An error returned when the input string is not able to be parsed.
+### struct `UnexpectedTokenError`
 
-### constant `E_UNEXPECTED_TOKEN`
-
-An error returned when an unexpected token is encountered.
+Error raised when an unexpected token is encountered.
 
 ## list module
 
 A linked list implementation.
+
+### function `foldl(list, init, reducer)`
+
+Reduce the list from the left.
 
 ### function `to_array(list)`
 
@@ -886,13 +865,13 @@ Call `func` for every element of `list`.
 
 ### function `append(list, value)`
 
-Add a value to the end of the list.
+Return a new list with `value` added to the end.
 
 Like `length`, this function is O(n).
 
 ### function `prepend(list, value)`
 
-Add a value to the front of the list.
+Return a new list with `value` added to the front.
 
 This function is O(1) (i.e. takes the same time regardless of the length of the list).
 
@@ -954,6 +933,10 @@ Define a class that extends `super`.
 
 The `methods` value should be a hashmap of functions.
 
+
+### struct `NoSuchMethodError`
+
+Error raised when an unrecognized message is sent to an object.
 
 ## path module
 
