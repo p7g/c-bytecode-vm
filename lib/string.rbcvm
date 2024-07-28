@@ -57,18 +57,16 @@ export let collector = iter.collector {
 doc:add("object", "collector", "A collector to convert an iterator of characters
 or strings into a string.");
 
-export function parse_integer(str, base) {
-  let sum = 0;
+export function parse_integer(str, base=10) {
   let cs = chars(str);
   array.reverse(cs);
 
-  array.foreach(cs, function(char, i) {
-    if (char.is_digit(char)) {
-      sum = sum + toint(char.to_digit(char) * base ** i);
+  return array.foldl(cs, 0, function(sum, char, i) {
+    if (!char.is_digit(char)) {
+      return sum;
     }
+    return sum + toint(char.to_digit(char) * base ** i);
   });
-
-  return sum;
 }
 
 doc:add(
