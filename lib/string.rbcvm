@@ -44,11 +44,14 @@ export function iter(str) {
 doc:add("function", "iter(str)", "Create an iterator over the characters in `str`.");
 
 export let collector = iter.collector {
-  init = function () { return ""; },
-  reduce = function (a, b) {
-    return concat(tostring(a), tostring(b));
+  init = arraylist.new,
+  reduce = function (parts, value) {
+    arraylist.push(parts, tostring(value));
+    return parts;
   },
-  finalize = function (s) { return s; },
+  finalize = function (parts) {
+    return join(arraylist.to_array(parts), "");
+  },
 };
 
 doc:add("object", "collector", "A collector to convert an iterator of characters
