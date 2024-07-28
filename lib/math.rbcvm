@@ -27,10 +27,11 @@ export let shr = _math.shr;
 doc:add("function", "shr(a, b)", "Shift `a` to the right by `b` bits.");
 
 export function ceil(n) {
-    if (n > toint(n)) {
-        return toint(n) + 1;
+    let floored = floor(n);
+    if (n > floored) {
+        return floored + 1;
     }
-    return toint(n);
+    return floored;
 }
 
 doc:add("function", "ceil(n)", "Round `n` up to the next integer value.");
