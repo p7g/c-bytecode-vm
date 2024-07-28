@@ -243,6 +243,7 @@ int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame)
 	cb_instruction *code = state->bytecode->code;
 	struct cb_value *stack_pointer;
 	state->frame = frame;
+	size_t bp = frame->bp;
 
 	check_stack(state, frame);
 	stack_pointer = state->stack_top;
@@ -275,7 +276,7 @@ int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame)
 	})
 #define READ_SIZE_T() (NEXT())
 #define TOP() (stack_pointer[-1])
-#define LOCAL_IDX(N) (frame->bp + 1 + (N))
+#define LOCAL_IDX(N) (bp + 1 + (N))
 #define LOCAL(N) (state->stack[LOCAL_IDX(N)])
 #define REPLACE(N, VAL) (state->stack[(N)] = (VAL))
 #define GLOBALS() (frame->module->global_scope)
