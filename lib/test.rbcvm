@@ -4,9 +4,13 @@ import sys;
 
 let doc = docs.module("test", "Testing utilities.");
 
-export function assert(cond) {
+export struct AssertionError { message }
+
+doc:add("struct", "AssertionError", "Error raised when an assertion fails.");
+
+export function assert(cond, message="Failed assertion") {
     if (!cond) {
-        sys.panic("Failed assertion");
+        sys.panic(AssertionError { message = message });
     }
 }
 
