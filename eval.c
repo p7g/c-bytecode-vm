@@ -184,7 +184,7 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 		modname = cb_strptr(&modname_str);
 	}
 
-	if (!CB_VALUE_IS_USER_FN(frame->func)) {
+	if (!CB_VALUE_IS_USER_FN(&frame->func)) {
 		funcname = "top";
 	} else {
 		_name = cb_vm_state.stack[frame->bp].val.as_function->name;
@@ -192,7 +192,7 @@ static void debug_state(cb_bytecode *bytecode, size_t pc, struct cb_frame *frame
 		funcname = cb_strptr(&funcname_str);
 	}
 
-	printf("%s%s%s\n", modname, !CB_VALUE_IS_USER_FN(frame->func)
+	printf("%s%s%s\n", modname, !CB_VALUE_IS_USER_FN(&frame->func)
 			? " " : ".", funcname);
 	printf("pc: %zu, bp: %zu, sp: %ld\n", pc, frame->bp,
 			cb_vm_state.stack_top - cb_vm_state.stack);
@@ -255,10 +255,10 @@ int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame)
 
 #define NEXT() (code[pc++])
 #define DISPATCH() ({ \
-		/*if (cb_options.debug_vm) {\
+		/*if (cb_options.debug_vm) { \
 			state->stack_top = stack_pointer; \
 			debug_state(state->bytecode, pc, frame); \
-		} */\
+		}*/ \
 		size_t _next = NEXT(); \
 		assert(_next < OP_MAX); \
 		goto *dispatch_table[_next]; \

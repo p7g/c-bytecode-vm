@@ -1,6 +1,7 @@
 import array;
 import arraylist;
 import fs;
+import iter;
 import string;
 
 struct Tape { get, inc, move }
@@ -31,7 +32,7 @@ function parse(it) {
     let ops = arraylist.new();
     let c;
 
-    while ((c = it())) {
+    while ((c = it()) != iter.STOP) {
         if (c == '+') {
             arraylist.push(ops, Op{type="inc", value=1});
         } else if (c == '-') {
