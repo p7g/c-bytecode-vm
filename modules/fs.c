@@ -133,7 +133,10 @@ struct cb_struct_spec *get_stat_struct_spec(void)
 	F("mtime");
 	F("ctime");
 
-	cb_gc_adjust_refcount(&spec->gc_header, 1); /* Never collect it */
+	struct cb_value spec_value;
+	spec_value.type = CB_VALUE_STRUCT_SPEC;
+	spec_value.val.as_struct_spec = spec;
+	cb_gc_hold(spec_value); /* Never collect it */
 	return spec;
 #undef F
 }

@@ -16,54 +16,6 @@
 #include "struct.h"
 #include "value.h"
 
-static void adjust_refcount(struct cb_value *value, int amount)
-{
-	cb_gc_header *header;
-
-	switch (value->type) {
-	case CB_VALUE_ARRAY:
-		header = &value->val.as_array->gc_header;
-		break;
-	case CB_VALUE_STRING:
-		header = &value->val.as_string->gc_header;
-		break;
-	case CB_VALUE_BYTES:
-		header = &value->val.as_bytes->gc_header;
-		break;
-	case CB_VALUE_FUNCTION:
-		header = &value->val.as_function->gc_header;
-		break;
-	case CB_VALUE_STRUCT:
-		header = &value->val.as_struct->gc_header;
-		break;
-	case CB_VALUE_USERDATA:
-		header = &value->val.as_userdata->gc_header;
-		break;
-
-	default:
-		return;
-	}
-
-	if (cb_options.debug_gc) {
-		cb_str as_str = cb_value_to_string(value);
-		printf("GC: adjusted refcount by %d for object at %p: %s\n",
-				amount, header, cb_strptr(&as_str));
-		cb_str_free(as_str);
-	}
-
-	cb_gc_adjust_refcount(header, amount);
-}
-
-inline void cb_value_incref(struct cb_value *value)
-{
-	adjust_refcount(value, 1);
-}
-
-inline void cb_value_decref(struct cb_value *value)
-{
-	adjust_refcount(value, -1);
-}
-
 static void cb_function_deinit(void *ptr)
 {
 	struct cb_user_function ufn;
