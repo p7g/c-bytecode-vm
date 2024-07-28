@@ -1,11 +1,13 @@
 import array;
 import docs;
 import hashmap;
-import result;
+import sys;
 
 let doc = docs.module("obj", "A simple object system.");
 
-export let E_NO_SUCH_METHOD = -1;
+export struct NoSuchMethodError { method_name }
+
+doc:add("struct", "NoSuchMethodError", "Error raised when an unrecognized message is sent to an object.");
 
 struct Class { super, methods }
 struct Object { class, dict }
@@ -52,7 +54,7 @@ export function _send(cls, obj, msg, args) {
   if (meth == null) {
     meth = resolve_method(cls, "method_missing");
     if (meth == null) {
-        return result.error(E_NO_SUCH_METHOD, msg);
+      sys.panic(NoSuchMethodError { method_name = msg });
     }
     let args_len = array.length(args);
     let new_args = array.new(args_len + 2);
