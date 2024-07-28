@@ -251,3 +251,21 @@ doc:add(
   "split(string, on)",
   "Break a string into an array of parts, where each part is separated by `on`.",
 );
+
+export function join(it, sep="") {
+  if (sep == "") {
+    if (typeof(it) == "array") {
+      return apply(concat, it);
+    } else {
+      return apply(concat, iter.collect(it));
+    }
+  } else {
+    return apply(concat, iter.collect(iter.intersperse(it, sep)));
+  }
+}
+
+doc:add(
+  "function",
+  "join(strings, sep)",
+  "Join all `strings` together with `sep` in between each.",
+);

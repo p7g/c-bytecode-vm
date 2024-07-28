@@ -296,3 +296,27 @@ doc:add(
   "repeat(val, n)",
   "Create an iterator that repeats `val` `n` times.",
 );
+
+export function intersperse(_it, sep) {
+  let it = ensure_iterable(_it);
+  let yield_sep = false;
+  return function intersperse_next() {
+    if (yield_sep) {
+      yield_sep = false;
+      return sep;
+    } else {
+      let val = it();
+      if (val == STOP) {
+        return STOP;
+      }
+      yield_sep = true;
+      return val;
+    }
+  };
+}
+
+doc:add(
+  "function",
+  "intersperse(it, val)",
+  "Yield `val` in between each element of `it`.",
+);
