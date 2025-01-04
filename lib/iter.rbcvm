@@ -81,7 +81,7 @@ doc:add("function", "enumerate(it)", "Create an iterator that yields pairs of in
 export function foreach(_it, fn) {
   let it = ensure_iterable(_it);
   for (let val; (val = it()) != STOP;) {
-    fn(val);
+    if (fn(val) == STOP) break;
   }
 }
 

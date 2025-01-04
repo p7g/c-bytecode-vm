@@ -325,13 +325,11 @@ let t = test;
 
 ## Garbage Collection
 
-c-bytecode-vm has a tracing (mark-and-sweep) garbage collector with some
-(potentially-flawed) reference-counting extensions. Such a GC is immune to
-cycles, at the expense of taking longer to collect.
+c-bytecode-vm has a tracing (mark-and-sweep) garbage collector.
 
-The ref-counting mechanism is to allow C extensions to make sure a value is not
-collected while they are using it. This works, but it could be unergonomic since
-an incremented ref on an array does not apply to its contents, for example.
+To allow C extensions to safely hold onto values without them being collected,
+use `cb_gc_hold` to add it to a GC root, and `cb_gc_release` to remove it from
+the root. The next time the GC runs the value may be eligible for collection.
 
 ## Intrinsic Functions
 
@@ -394,7 +392,8 @@ iter.foreach(range(10), function (n) {
 });
 ```
 
-Of course, the same issues in trying to exit the loop prematurely exist.
+To "break" out of `foreach` just return `iter.STOP` (the same sentinel used to
+signal when an iterator is exhausted).
 
 Modules that declare "types" that can be iterated over should export an `iter`
 function that returns this kind of iterator.
