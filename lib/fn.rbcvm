@@ -3,6 +3,7 @@ import docs;
 
 let doc = docs.module("fn", "Functional programming utilities.");
 
+# Re-export the intrinsic apply function.
 let _apply = apply;
 export let apply = _apply;
 

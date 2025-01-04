@@ -1,11 +1,29 @@
-import array;
+import _array;
+import _arraylist_impl;
 import docs;
 
 let doc = docs.module("iter", "Lazy iterators.");
 
+export let STOP = struct {};
+doc:add("object", "STOP", "A sentinel value indicating that an iterator has been exhausted.");
+
+export function _array_iter(array) {
+  let i = 0;
+  let len = _array.length(array);
+  return function array_iterator() {
+    if (i == len) {
+      return STOP;
+    }
+
+    let item = array[i];
+    i = i + 1;
+    return item;
+  };
+}
+
 function ensure_iterable(it) {
-  if (type_of(it) == "array") {
-    return array.iter(it);
+  if (typeof(it) == "array") {
+    return _array_iter(it);
   }
   return it;
 }
@@ -17,6 +35,12 @@ doc:add(
   "collector",
   "An struct defining the required functions to convert an iterator into an arbitrary collection.",
 );
+
+export let _array_collector = collector {
+  init = _arraylist_impl.new,
+  reduce = _arraylist_impl.push,
+  finalize = _arraylist_impl.to_array,
+};
 
 export function count(n) {
   let i = n;
@@ -33,7 +57,7 @@ export function range(to) {
   let i = 0;
   return function() {
     if (i >= to) {
-      return null;
+      return STOP;
     }
     let val = i;
     i = i + 1;
@@ -43,27 +67,23 @@ export function range(to) {
 
 doc:add("function", "range(to)", "Create an iterator that counts from 0 to `to`.");
 
-export function enumerate(_it) {
-  let it = ensure_iterable(_it);
-  let i = 0;
-  return function() {
-    let val = it();
-    if (val == null) {
-      return null;
-    }
-
-    let retval = [i, val];
+export function enumerate(it, start=0) {
+  let i = start;
+  return map(it, function enumerate_map(item) {
+    let result = [i, item];
     i = i + 1;
-    return retval;
-  };
+    return result;
+  });
 }
 
 doc:add("function", "enumerate(it)", "Create an iterator that yields pairs of index and value from `it`.");
 
 export function foreach(_it, fn) {
   let it = ensure_iterable(_it);
-  for (let val; (val = it()) != null;) {
-    fn(val);
+  for (let val; (val = it()) != STOP;) {
+    if (fn(val) == STOP) {
+        break;
+    }
   }
 }
 
@@ -73,7 +93,7 @@ doc:add(
   "Call the function `fn` for every element of `it`. This evaluates the iterator.",
 );
 
-export function collect(it, collector=array.collector) {
+export function collect(it, collector=_array_collector) {
   return collector:finalize(
     fold(ensure_iterable(it), collector:init(), collector:reduce),
   );
@@ -89,8 +109,8 @@ export function map(_it, fn) {
   let it = ensure_iterable(_it);
   return function() {
     let val = it();
-    if (val == null) {
-      return null;
+    if (val == STOP) {
+      return STOP;
     }
     return fn(val);
   };
@@ -107,7 +127,7 @@ export function take(_it, n) {
   let i = 0;
   return function() {
     if (i >= n) {
-      return null;
+      return STOP;
     }
     i = i + 1;
     return it();
@@ -146,13 +166,13 @@ export function take_while(_it, pred) {
 
   return function() {
     if (done) {
-      return null;
+      return STOP;
     }
 
     let val = it();
-    if (!pred(val)) {
+    if (val == STOP || !pred(val)) {
       done = true;
-      return null;
+      return STOP;
     }
 
     return val;
@@ -172,10 +192,15 @@ export function zip(_a, _b) {
     let val_a = a();
     let val_b = b();
 
-    if (val_a == null && val_b == null) {
-      return null;
+    if (val_a == STOP && val_b == STOP) {
+      return STOP;
+    } else if (val_a == STOP) {
+      return [null, val_b];
+    } else if (val_b == STOP) {
+      return [val_a, null];
+    } else {
+      return [val_a, val_b];
     }
-    return [val_a, val_b];
   };
 }
 
@@ -188,15 +213,15 @@ export function flat(_it) {
   return function next() {
     if (current) {
       let val = current();
-      if (val == null) {
+      if (val == STOP) {
         current = null;
         return next();
       }
       return val;
     }
     current = it();
-    if (current == null) {
-      return null;
+    if (current == STOP) {
+      return STOP;
     }
     return next();
   };
@@ -261,7 +286,7 @@ doc:add(
 export function repeat(val, times) {
   return function repeat_iterator() {
     if (times == 0) {
-      return null;
+      return STOP;
     }
     times = times - 1;
     return val;
@@ -272,4 +297,28 @@ doc:add(
   "function",
   "repeat(val, n)",
   "Create an iterator that repeats `val` `n` times.",
+);
+
+export function intersperse(_it, sep) {
+  let it = ensure_iterable(_it);
+  let yield_sep = false;
+  return function intersperse_next() {
+    if (yield_sep) {
+      yield_sep = false;
+      return sep;
+    } else {
+      let val = it();
+      if (val == STOP) {
+        return STOP;
+      }
+      yield_sep = true;
+      return val;
+    }
+  };
+}
+
+doc:add(
+  "function",
+  "intersperse(it, val)",
+  "Yield `val` in between each element of `it`.",
 );

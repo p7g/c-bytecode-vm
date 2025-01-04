@@ -16,41 +16,41 @@
 #include "value.h"
 #include "userdata.h"
 
-#define FUNC(FN, ARITY) ({ \
+#define FUNC(NAME, FN, ARITY) ({ \
 		struct cb_value _func_val; \
 		size_t _name; \
-		_name = cb_agent_intern_string(#FN, sizeof(#FN) - 1); \
+		_name = cb_agent_intern_string(NAME, sizeof(NAME) - 1); \
 		_func_val = cb_cfunc_new(_name, (ARITY), \
 				(cb_native_function *) (FN)); \
 		cb_hashmap_set(scope, _name, _func_val); \
 	});
 
-#define DECL(NAME, _ARITY) static int NAME(size_t, struct cb_value *, \
+#define DECL(NAME, FN, _ARITY) static int FN(size_t, struct cb_value *, \
 		struct cb_value *);
 
 #define INTRINSIC_LIST(X) \
-	X(print, 0) \
-	X(println, 0) \
-	X(tostring, 1) \
-	X(type_of, 1) \
-	X(string_chars, 1) \
-	X(string_from_chars, 1) \
-	X(string_bytes, 1) \
-	X(string_concat, 0) \
-	X(ord, 1) \
-	X(chr, 1) \
-	X(truncate32, 1) \
-	X(tofloat, 1) \
-	X(read_file, 1) \
-	X(argv, 0) \
-	X(__upvalues, 1) \
-	X(apply, 2) \
-	X(now, 0) \
-	X(read_file_bytes, 1) \
-	X(toint, 1) \
-	X(__gc_collect, 0) \
-	X(pcall, 1) \
-	X(__dis, 1)
+	X("print", print, 0) \
+	X("println", println, 0) \
+	X("tostring", tostring, 1) \
+	X("typeof", typeof_, 1) \
+	X("string_chars", string_chars, 1) \
+	X("string_from_chars", string_from_chars, 1) \
+	X("string_bytes", string_bytes, 1) \
+	X("string_concat", string_concat, 0) \
+	X("ord", ord, 1) \
+	X("chr", chr, 1) \
+	X("truncate32", truncate32, 1) \
+	X("tofloat", tofloat, 1) \
+	X("read_file", read_file, 1) \
+	X("argv", argv, 0) \
+	X("__upvalues", upvalues, 1) \
+	X("apply", apply, 2) \
+	X("now", now, 0) \
+	X("read_file_bytes", read_file_bytes, 1) \
+	X("toint", toint, 1) \
+	X("__gc_collect", __gc_collect, 0) \
+	X("pcall", pcall, 1) \
+	X("__dis", __dis, 1)
 
 INTRINSIC_LIST(DECL);
 
@@ -61,11 +61,11 @@ void make_intrinsics(cb_hashmap *scope)
 
 static int print(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	int i, first;
+	int first;
 	cb_str as_string;
 
 	first = 1;
-	for (i = 0; i < argc; i += 1) {
+	for (unsigned i = 0; i < argc; i += 1) {
 		as_string = cb_value_to_string(argv[i]);
 		printf("%s%s", first ? "" : " ", cb_strptr(&as_string));
 		if (first)
@@ -105,7 +105,7 @@ static int tostring(size_t argc, struct cb_value *argv,
 	return 0;
 }
 
-static int type_of(size_t argc, struct cb_value *argv, struct cb_value *result)
+static int typeof_(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	const char *type;
 
@@ -133,7 +133,7 @@ static int string_chars(size_t argc, struct cb_value *argv,
 	result->val.as_array = cb_array_new(len);
 	result->val.as_array->len = len;
 
-	for (int i = 0; i < len; i += 1) {
+	for (unsigned i = 0; i < len; i += 1) {
 		result->val.as_array->values[i] = (struct cb_value) {
 			.type = CB_VALUE_CHAR,
 			.val.as_char = cb_str_at(str, i),
@@ -156,7 +156,7 @@ static int string_from_chars(size_t argc, struct cb_value *argv,
 	len = arr.val.as_array->len;
 	str = malloc(len + 1);
 
-	for (int i = 0; i < len; i += 1) {
+	for (unsigned i = 0; i < len; i += 1) {
 		if (arr.val.as_array->values[i].type != CB_VALUE_CHAR) {
 			cb_error_set(cb_value_from_string(
 					"string_from_chars: Expected array of chars\n"));
@@ -199,7 +199,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 	char *buf;
 
 	len = 0;
-	for (int i = 0; i < argc; i += 1) {
+	for (unsigned i = 0; i < argc; i += 1) {
 		str = CB_EXPECT_STRING(argv[i]);
 		len += cb_strlen(str);
 	}
@@ -207,7 +207,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 	offset = 0;
 	buf = malloc(len + 1);
 
-	for (int i = 0; i < argc; i += 1) {
+	for (unsigned i = 0; i < argc; i += 1) {
 		str = CB_EXPECT_STRING(argv[i]);
 		memcpy(buf + offset, cb_strptr(&str), cb_strlen(str));
 		offset += cb_strlen(str);
@@ -312,7 +312,6 @@ static int read_file_bytes(size_t argc, struct cb_value *argv,
 	FILE *f;
 	size_t len;
 	char *buf;
-	int i;
 
 	str = CB_EXPECT_STRING(argv[0]);
 
@@ -343,7 +342,7 @@ static int read_file_bytes(size_t argc, struct cb_value *argv,
 	result->val.as_array = cb_array_new(len);
 	result->val.as_array->len = len;
 
-	for (i = 0; i < len; i += 1) {
+	for (unsigned i = 0; i < len; i += 1) {
 		result->val.as_array->values[i] = (struct cb_value) {
 			.type = CB_VALUE_INT,
 			.val.as_int = buf[i] & 0xFF,
@@ -382,7 +381,7 @@ static int argv(size_t argc, struct cb_value *argv_, struct cb_value *result)
 	return 0;
 }
 
-static int __upvalues(size_t argc, struct cb_value *argv, struct cb_value *result)
+static int upvalues(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	struct cb_user_function *func;
 	int i;

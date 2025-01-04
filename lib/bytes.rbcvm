@@ -37,7 +37,7 @@ export function iter(bytes) {
     let len = length(bytes);
     return function bytes_iter() {
         if (i >= len) {
-            return null;
+            return iter.STOP;
         }
         let val = get(bytes, i);
         i = i + 1;

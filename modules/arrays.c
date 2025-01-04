@@ -3,7 +3,7 @@
 #include "module.h"
 #include "value.h"
 
-size_t ident_new, ident_length;
+static size_t ident_new, ident_length;
 
 void cb_arrays_build_spec(cb_modspec *spec)
 {

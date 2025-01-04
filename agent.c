@@ -6,6 +6,7 @@
 
 #include "agent.h"
 #include "builtin_modules.h"
+#include "cb_util.h"
 #include "eval.h"
 #include "module.h"
 #include "str.h"
@@ -70,7 +71,7 @@ error:
 
 void cb_agent_deinit(void)
 {
-	int i;
+	unsigned i;
 
 	assert(agent.inited);
 	agent.inited = 0;
@@ -144,7 +145,7 @@ size_t cb_agent_intern_string(const char *str, size_t len)
 }
 
 /* Strings returned from this function should not be freed */
-inline cb_str cb_agent_get_string(size_t id)
+CB_INLINE cb_str cb_agent_get_string(size_t id)
 {
 	assert(id < agent.next_string_id);
 
@@ -164,7 +165,7 @@ static void maybe_grow_modules()
 		cb_vm_grow_modules_array(agent.next_module_id + 1);
 }
 
-inline void cb_agent_add_modspec(cb_modspec *spec)
+CB_INLINE void cb_agent_add_modspec(cb_modspec *spec)
 {
 	assert(spec != NULL);
 	agent.modules[cb_modspec_id(spec)] = spec;
@@ -185,13 +186,13 @@ inline size_t cb_agent_reserve_modspec_id()
 	return id;
 }
 
-inline void cb_agent_unreserve_modspec_id(size_t id)
+CB_INLINE void cb_agent_unreserve_modspec_id(size_t id)
 {
 	assert(id == agent.next_module_id - 1);
 	agent.next_module_id -= 1;
 }
 
-inline const cb_modspec *cb_agent_get_modspec(size_t id)
+CB_INLINE const cb_modspec *cb_agent_get_modspec(size_t id)
 {
 	assert(id < agent.next_module_id);
 	return agent.modules[id];
@@ -199,7 +200,7 @@ inline const cb_modspec *cb_agent_get_modspec(size_t id)
 
 cb_modspec *cb_agent_get_modspec_by_name(size_t name)
 {
-	int i;
+	unsigned i;
 
 	for (i = 0; i < agent.next_module_id; i += 1) {
 		if (!agent.modules[i])
@@ -211,7 +212,7 @@ cb_modspec *cb_agent_get_modspec_by_name(size_t name)
 	return NULL;
 }
 
-inline size_t cb_agent_modspec_count(void)
+CB_INLINE size_t cb_agent_modspec_count(void)
 {
 	return agent.next_module_id;
 }

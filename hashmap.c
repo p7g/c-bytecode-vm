@@ -1,7 +1,9 @@
+#include <assert.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "cb_util.h"
 #include "hashmap.h"
 #include "value.h"
 
@@ -17,7 +19,7 @@ struct entry {
 };
 
 struct cb_hashmap {
-	size_t size, num_entries;
+	size_t size, num_entries, version;
 	struct entry *entries;
 };
 
@@ -46,6 +48,9 @@ struct cb_hashmap *cb_hashmap_new(void)
 	m->entries = calloc(INITIAL_SIZE, sizeof(struct entry));
 	m->size = INITIAL_SIZE;
 	m->num_entries = 0;
+	/* Initial hashmap version is 0 so zeroed out inline cache
+	 * (i.e. version == 0) can mean that there is no cache. */
+	m->version = 1;
 
 	return m;
 }
@@ -60,7 +65,6 @@ static void maybe_grow(struct cb_hashmap *m)
 {
 	struct entry *old_entries, *entry;
 	size_t old_size;
-	int i;
 
 	if (m->num_entries / m->size < MAX_LOAD_FACTOR)
 		return;
@@ -70,8 +74,9 @@ static void maybe_grow(struct cb_hashmap *m)
 	m->size = NEXT_CAPACITY(m->size);
 	m->entries = calloc(m->size, sizeof(struct entry));
 	m->num_entries = 0;
+	m->version += 1;
 
-	for (i = 0; i < old_size; i += 1) {
+	for (unsigned i = 0; i < old_size; i += 1) {
 		entry = &old_entries[i];
 		if (entry->in_use)
 			cb_hashmap_set(m, entry->key, entry->value);
@@ -80,42 +85,60 @@ static void maybe_grow(struct cb_hashmap *m)
 	free(old_entries);
 }
 
-int cb_hashmap_get(cb_hashmap *m, size_t key, struct cb_value *out)
+size_t cb_hashmap_find(const cb_hashmap *m, size_t key, int *empty)
 {
 	size_t idx;
 	struct entry *entry;
 
+	assert(empty);
 	idx = hash_size_t(key);
-	while ((entry = &m->entries[WRAP(m, idx++)])->in_use) {
+
+	for (; (entry = &m->entries[WRAP(m, idx)])->in_use; idx += 1) {
 		if (entry->key == key) {
-			if (out)
-				*out = entry->value;
-			return 1;
+			*empty = 0;
+			return WRAP(m, idx);
 		}
 	}
-	return 0;
+
+	*empty = 1;
+	return WRAP(m, idx);
+}
+
+int cb_hashmap_get(const cb_hashmap *m, size_t key, struct cb_value *out)
+{
+	ssize_t idx;
+	int empty;
+
+	idx = cb_hashmap_find(m, key, &empty);
+	if (empty)
+		return 0;
+
+	if (out)
+		*out = m->entries[idx].value;
+	return 1;
 }
 
 void cb_hashmap_set(cb_hashmap *m, size_t key, struct cb_value value)
 {
-	size_t idx;
+	ssize_t idx;
 	struct entry *entry;
+	int empty;
 
 	maybe_grow(m);
 
-	idx = hash_size_t(key);
-
-	while ((entry = &m->entries[WRAP(m, idx++)])->in_use) {
-		if (entry->key == key) {
-			entry->value = value;
-			return;
-		}
+	idx = cb_hashmap_find(m, key, &empty);
+	if (empty) {
+		entry = &m->entries[idx];
+		assert(!entry->in_use);
+		entry->in_use = 1;
+		entry->key = key;
+		entry->value = value;
+		m->num_entries += 1;
+	} else {
+		entry = &m->entries[idx];
+		assert(entry->in_use);
+		entry->value = value;
 	}
-
-	entry->in_use = 1;
-	entry->key = key;
-	entry->value = value;
-	m->num_entries += 1;
 }
 
 void cb_hashmap_mark_contents(cb_hashmap *m)
@@ -128,4 +151,29 @@ void cb_hashmap_mark_contents(cb_hashmap *m)
 		if (entry->in_use)
 			cb_value_mark(entry->value);
 	}
+}
+
+CB_INLINE size_t cb_hashmap_version(const cb_hashmap *m)
+{
+	return m->version;
+}
+
+CB_INLINE struct cb_value cb_hashmap_get_index(const cb_hashmap *m,
+		size_t index)
+{
+	assert(index < m->size);
+	assert(m->entries[index].in_use);
+
+	return m->entries[index].value;
+}
+
+/* The entry should already be in use */
+CB_INLINE void cb_hashmap_set_index(cb_hashmap *m, size_t index,
+		struct cb_value value)
+{
+	assert(index < m->size);
+	struct entry *entry = &m->entries[index];
+
+	assert(entry->in_use);
+	entry->value = value;
 }

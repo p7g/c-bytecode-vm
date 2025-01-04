@@ -33,7 +33,7 @@ export function iter(str) {
   let len = array.length(cs);
   return function string_iterator() {
     if (i >= len) {
-      return null;
+      return iter.STOP;
     }
     let c = cs[i];
     i = i + 1;
@@ -44,28 +44,29 @@ export function iter(str) {
 doc:add("function", "iter(str)", "Create an iterator over the characters in `str`.");
 
 export let collector = iter.collector {
-  init = function () { return ""; },
-  reduce = function (a, b) {
-    return concat(tostring(a), tostring(b));
+  init = arraylist.new,
+  reduce = function (parts, value) {
+    arraylist.push(parts, tostring(value));
+    return parts;
   },
-  finalize = function (s) { return s; },
+  finalize = function (parts) {
+    return join(arraylist.to_array(parts), "");
+  },
 };
 
 doc:add("object", "collector", "A collector to convert an iterator of characters
 or strings into a string.");
 
-export function parse_integer(str, base) {
-  let sum = 0;
+export function parse_integer(str, base=10) {
   let cs = chars(str);
   array.reverse(cs);
 
-  array.foreach(cs, function(char, i) {
-    if (char.is_digit(char)) {
-      sum = sum + toint(char.to_digit(char) * base ** i);
+  return array.foldl(cs, 0, function(sum, char, i) {
+    if (!char.is_digit(char)) {
+      return sum;
     }
+    return sum + toint(char.to_digit(char) * base ** i);
   });
-
-  return sum;
 }
 
 doc:add(
@@ -151,7 +152,7 @@ export function endswith(self, other) {
 doc:add("function", "endswith(string, suffix)", "Check if `suffix` is a suffix of `string`.");
 
 export function index(self, c) {
-    if (type_of(c) != "char") {
+    if (typeof(c) != "char") {
         sys.panic("index: Only finding index of char is implemented");
     }
     let len = length(self);
@@ -166,7 +167,7 @@ export function index(self, c) {
 doc:add("function", "index(string, c)", "Find the first index where `c` is found in `string`.");
 
 export function rindex(self, c) {
-    if (type_of(c) != "char") {
+    if (typeof(c) != "char") {
         sys.panic("index: Only finding index of char is implemented");
     }
     for (let i = length(self) - 1; i >= 0; i = i - 1) {
@@ -250,4 +251,22 @@ doc:add(
   "function",
   "split(string, on)",
   "Break a string into an array of parts, where each part is separated by `on`.",
+);
+
+export function join(it, sep="") {
+  if (sep == "") {
+    if (typeof(it) == "array") {
+      return apply(concat, it);
+    } else {
+      return apply(concat, iter.collect(it));
+    }
+  } else {
+    return apply(concat, iter.collect(iter.intersperse(it, sep)));
+  }
+}
+
+doc:add(
+  "function",
+  "join(strings, sep)",
+  "Join all `strings` together with `sep` in between each.",
 );

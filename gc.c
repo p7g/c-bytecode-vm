@@ -29,7 +29,6 @@ inline void cb_gc_register(struct cb_gc_header *obj, size_t size,
 {
 	obj->deinit = deinit_fn;
 	obj->mark = 0;
-	obj->refcount = 0;
 	obj->size = size;
 	obj->next = allocated;
 	allocated = obj;
@@ -57,18 +56,6 @@ inline int cb_gc_should_collect(void)
 {
 	return hint > GC_HINT_THRESHOLD
 		|| amount_allocated > next_allocation_threshold;
-}
-
-inline void cb_gc_adjust_refcount(cb_gc_header *obj, int amount)
-{
-	obj->refcount += amount;
-	if (obj->refcount == 0) {
-		hint += 1;
-		if (cb_gc_should_collect()) {
-			DEBUG_LOG("collecting due to refcount hint");
-			cb_gc_collect();
-		}
-	}
 }
 
 inline void cb_gc_mark(struct cb_gc_header *obj)
@@ -111,9 +98,36 @@ static void evaluate_mark_queue(void)
 	}
 }
 
+struct cext_root {
+	struct cext_root *prev, *next;
+	struct cb_value value;
+};
+
+static struct cext_root *cext_root = NULL;
+
+struct cext_root *cb_gc_hold(struct cb_value value)
+{
+	struct cext_root *node = malloc(sizeof(struct cext_root));
+	node->prev = NULL;
+	node->next = cext_root;
+	node->value = value;
+	cext_root = node;
+	return node;
+}
+
+void cb_gc_release(struct cext_root *node)
+{
+	if (node->prev)
+		node->prev->next = node->next;
+	if (node->next)
+		node->next->prev = node->prev;
+	if (node == cext_root)
+		cext_root = node->next;
+	free(node);
+}
+
 static void mark(void)
 {
-	size_t i;
 	struct cb_module *mod;
 	struct cb_frame *frame;
 	struct cb_value *sp;
@@ -123,6 +137,7 @@ static void mark(void)
 	 * - stack
 	 * - globals
 	 * - vm state error
+	 * - functions in frames
 	 */
 
 	DEBUG_LOG("marking stack values");
@@ -134,7 +149,7 @@ static void mark(void)
 
 	DEBUG_LOG("marking module global scopes");
 	if (cb_vm_state.modules) {
-		for (i = 0; i < cb_agent_modspec_count(); i += 1) {
+		for (unsigned i = 0; i < cb_agent_modspec_count(); i += 1) {
 			mod = &cb_vm_state.modules[i];
 			if (!mod || !mod->spec)
 				continue;
@@ -148,6 +163,10 @@ static void mark(void)
 	DEBUG_LOG("marking error");
 	cb_error_mark();
 
+	DEBUG_LOG("marking c ext roots");
+	for (struct cext_root *node = cext_root; node; node = node->next)
+		cb_value_mark(node->value);
+
 	evaluate_mark_queue();
 }
 
@@ -160,7 +179,7 @@ static void sweep(void)
 	while (current) {
 		tmp = current;
 		current = current->next;
-		if (!tmp->mark && tmp->refcount == 0) {
+		if (!tmp->mark) {
 			*prev_ptr = tmp->next;
 			if (tmp->deinit)
 				tmp->deinit(tmp);
@@ -168,8 +187,7 @@ static void sweep(void)
 			amount_allocated -= tmp->size;
 			free(tmp);
 		} else {
-			/* DEBUG_LOG("not freeing object at %p (%s)", tmp, */
-			/* 		tmp->mark ? "mark" : "refcount"); */
+			/* DEBUG_LOG("not freeing object at %p", tmp); */
 			tmp->mark = 0;
 			prev_ptr = &tmp->next;
 		}

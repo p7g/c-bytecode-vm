@@ -35,7 +35,6 @@
 	X(OP_LOAD_UPVALUE) \
 	X(OP_STORE_UPVALUE) \
 	X(OP_LOAD_FROM_MODULE) \
-	X(OP_EXPORT) \
 	X(OP_NEW_ARRAY_WITH_VALUES) \
 	X(OP_ARRAY_GET) \
 	X(OP_ARRAY_SET) \
@@ -72,5 +71,6 @@ enum cb_opcode {
 const char *cb_opcode_name(enum cb_opcode);
 size_t cb_opcode_arity(const cb_instruction *);
 int cb_opcode_stack_effect(const cb_instruction *);
+enum cb_opcode cb_opcode_assert(size_t);
 
 #endif

@@ -1,18 +1,11 @@
 import _array;
+import _arraylist_impl;
 import docs;
+import iter;
 
 let doc = docs.module("arraylist", "A growable array.");
 
-struct ArrayList {
-  length,
-  array,
-}
-
-let INITIAL_SIZE = 16;
-
-export function from_array(len, array) {
-  return ArrayList{length=len, array=array};
-}
+export let from_array = _arraylist_impl.from_array;
 
 doc:add(
   "function",
@@ -26,7 +19,7 @@ export function iter(self) {
 
   return function arraylist_iterator() {
     if (i >= self:length) {
-      return null;
+      return iter.STOP;
     }
     let val = get(self, i);
     i = i + 1;
@@ -36,9 +29,7 @@ export function iter(self) {
 
 doc:add("function", "iter(list)", "Create an iterator over arraylist `list`.");
 
-export function with_capacity(cap) {
-  return from_array(0, _array.new(cap));
-}
+export let with_capacity = _arraylist_impl.with_capacity;
 
 doc:add(
   "function",
@@ -46,9 +37,7 @@ doc:add(
   "Create an empty arraylist with the given initial capacity.",
 );
 
-export function new() {
-  return with_capacity(INITIAL_SIZE);
-}
+export let new = _arraylist_impl.new;
 
 doc:add(
   "function",
@@ -56,37 +45,23 @@ doc:add(
   "Create an empty arraylist with default initial capacity.",
 );
 
-export function length(self) {
-  return self:length;
-}
+export let length = _arraylist_impl.length;
 
 doc:add("function", "length(list)", "Get the number of items in `list`.");
 
-export function capacity(self) {
-  return _array.length(self:array);
-}
+export let capacity = _arraylist_impl.capacity;
 
 doc:add("function", "capacity(list)", "Get the maximum number of items `list` can hold.");
 
-export function get(self, idx) {
-  return self:array[idx];
-}
+export let get = _arraylist_impl.get;
 
 doc:add("function", "get(list, idx)", "Get the element of `list` at index `idx`.");
 
-export function set(self, idx, value) {
-  self:array[idx] = value;
-}
+export let set = _arraylist_impl.set;
 
 doc:add("function", "set(list, idx, value)", "Set the element of `list` at index `idx` to `value`.");
 
-export function delete(self, index) {
-  let len = self:length;
-
-  for (let i = index + 1; i < len; i = i + 1) {
-    set(self, i - 1, get(self, i));
-  }
-}
+export let delete = _arraylist_impl.delete;
 
 doc:add(
   "function",
@@ -95,35 +70,11 @@ doc:add(
 elements after `idx` leftward, so it's not very efficient.",
 );
 
-export function to_array(self) {
-  let new_array = _array.new(self:length);
-
-  foreach(self, function(val, i) {
-    new_array[i] = val;
-  });
-
-  return new_array;
-}
+export let to_array = _arraylist_impl.to_array;
 
 doc:add("function", "to_array(list)", "Copy the elements of `list` into a fixed-length array.");
 
-export function push(self, value) {
-  let next_idx = self:length;
-  let array = self:array;
-  let len = _array.length(array);
-
-  if (next_idx >= len) {
-    let new_array = _array.new(2 * len);
-    for (let i = 0; i < next_idx; i = i + 1) {
-      new_array[i] = array[i];
-    }
-    self:array = array = new_array;
-  }
-
-  array[next_idx] = value;
-  self:length = next_idx + 1;
-  return self;  # Return `self` to enable use as a reducer function.
-}
+export let push = _arraylist_impl.push;
 
 doc:add(
   "function",
@@ -131,8 +82,7 @@ doc:add(
   "Push `value` on to the end of `list`, growing it if necessary.",
 );
 
-# don't use exported struct from `iter` to avoid circular import
-export let collector = struct {
+export let collector = iter.collector {
   init = new,
   reduce = push,
   finalize = function (list) { return list; },
@@ -140,14 +90,7 @@ export let collector = struct {
 
 doc:add("object", "collector", "A collector for converting an iterator into an arraylist.");
 
-export function pop(self) {
-  if (self:length <= 0) {
-    return null;
-  }
-
-  let i = self:length = self:length - 1;
-  return self:array[i];
-}
+export let pop = _arraylist_impl.pop;
 
 doc:add(
   "function",
@@ -155,14 +98,7 @@ doc:add(
   "Remove and return the last element of `list`.",
 );
 
-export function foreach(self, func) {
-  let len = self:length;
-  let array = self:array;
-
-  for (let i = 0; i < len; i = i + 1) {
-    func(array[i], i, self);
-  }
-}
+export let foreach = _arraylist_impl.foreach;
 
 doc:add(
   "function",
@@ -221,7 +157,7 @@ export function find(self, func) {
 
 doc:add(
   "function",
-  "find_index(list, func)",
+  "find(list, func)",
   "Get the first element that satisfies the predicate `func`, or null if none exists.",
 );
 
@@ -245,24 +181,4 @@ doc:add(
   "function",
   "contains(list, thing)",
   "Check if any element in `list` is equal to `thing`.",
-);
-
-export function to_iter(self) {
-  let pos = 0;
-
-  return function next() {
-    if (pos >= self:length) {
-      return null;
-    }
-
-    let val = get(self, pos);
-    pos = pos + 1;
-    return val;
-  };
-}
-
-doc:add(
-  "function",
-  "to_iter(list)",
-  "Create an iterator over the arraylist.",
 );

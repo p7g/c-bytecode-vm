@@ -7,7 +7,7 @@
 #include "module.h"
 #include "value.h"
 
-size_t ident_get, ident_set, ident_perror, ident_strerror;
+static size_t ident_get, ident_set, ident_perror, ident_strerror;
 
 void cb_errno_build_spec(cb_modspec *spec)
 {

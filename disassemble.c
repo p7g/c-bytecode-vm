@@ -50,13 +50,9 @@ int cb_disassemble_recursive(struct cb_code *code)
 			continue;
 		}
 
-		if (name_id == -1) {
-			printf("%s <anonymous>\n", cb_const_type_name(c->type));
-		} else {
-			cb_str name = cb_agent_get_string(name_id);
-			printf("%s %s\n", cb_const_type_name(c->type),
-					cb_strptr(&name));
-		}
+		cb_str name = cb_agent_get_string(name_id);
+		printf("%s %s\n", cb_const_type_name(c->type),
+				cb_strptr(&name));
 		result |= cb_disassemble_recursive(inner_code);
 	}
 
@@ -65,16 +61,13 @@ int cb_disassemble_recursive(struct cb_code *code)
 
 int cb_disassemble(struct cb_code *code)
 {
-	int result;
-
 	puts("constants:");
 	print_const_pool(code);
 	puts("");
 	for (size_t i = 0; i < code->bytecode_len;) {
-		result = cb_disassemble_one(&code->bytecode[i], i);
-		if (result < 0)
+		if (cb_disassemble_one(&code->bytecode[i], i))
 			return 1;
-		i += result;
+		i += 1 + cb_opcode_arity(&code->bytecode[i]);
 	}
 
 	return 0;
@@ -87,7 +80,6 @@ int cb_disassemble_one(cb_instruction *bytecode, size_t offset)
 
 #define NEXT() (*bytecode++)
 #define NEXT_USIZE() (NEXT())
-#define WITH_ARGS(NARGS) (1 + (NARGS))
 
 	printf("%4ld: ", offset);
 	switch ((op = NEXT())) {
@@ -122,7 +114,7 @@ int cb_disassemble_one(cb_instruction *bytecode, size_t offset)
 	case OP_NEW_STRUCT:
 	case OP_ROT_2:
 		printf("%s\n", cb_opcode_name(op));
-		return WITH_ARGS(0);
+		return 0;
 
 	/* one arg */
 	case OP_CONST_INT:
@@ -136,19 +128,18 @@ int cb_disassemble_one(cb_instruction *bytecode, size_t offset)
 	case OP_LOAD_UPVALUE:
 	case OP_STORE_UPVALUE:
 	case OP_ALLOCATE_LOCALS:
-	case OP_EXPORT:
 	case OP_NEW_ARRAY_WITH_VALUES:
 	case OP_CALL:
 	case OP_IMPORT_MODULE: {
 		printf("%s(%zu)\n", cb_opcode_name(op), NEXT_USIZE());
-		return WITH_ARGS(1);
+		return 0;
 	}
 
 	case OP_CONST_STRING: {
 		size_t string_id = NEXT_USIZE();
 		cb_str string = cb_agent_get_string(string_id);
 		printf("%s(\"%s\")\n", cb_opcode_name(op), cb_strptr(&string));
-		return WITH_ARGS(1);
+		return 0;
 	}
 
 	case OP_APPLY_DEFAULT_ARG: {
@@ -156,13 +147,13 @@ int cb_disassemble_one(cb_instruction *bytecode, size_t offset)
 		       next_param_addr = NEXT_USIZE();
 		printf("%s(%zu, %zu)\n", cb_opcode_name(op), param_num,
 				next_param_addr);
-		return WITH_ARGS(2);
+		return 0;
 	}
 
 	case OP_LOAD_CONST:
 		/* TODO: show constant value */
 		printf("%s(%zu)\n", cb_opcode_name(op), NEXT_USIZE());
-		return WITH_ARGS(1);
+		return 0;
 
 	case OP_LOAD_GLOBAL:
 	case OP_DECLARE_GLOBAL:
@@ -172,7 +163,7 @@ int cb_disassemble_one(cb_instruction *bytecode, size_t offset)
 	case OP_ADD_STRUCT_FIELD:
 		tmp_str = cb_agent_get_string(NEXT_USIZE());
 		printf("%s(\"%s\")\n", cb_opcode_name(op), cb_strptr(&tmp_str));
-		return WITH_ARGS(1);
+		return 0;
 
 	case OP_BIND_LOCAL:
 	case OP_BIND_UPVALUE: {
@@ -180,7 +171,7 @@ int cb_disassemble_one(cb_instruction *bytecode, size_t offset)
 		dest = NEXT_USIZE();
 		src = NEXT_USIZE();
 		printf("%s(%zu, %zu)\n", cb_opcode_name(op), dest, src);
-		return WITH_ARGS(2);
+		return 0;
 	}
 
 	case OP_LOAD_FROM_MODULE: {
@@ -195,7 +186,7 @@ int cb_disassemble_one(cb_instruction *bytecode, size_t offset)
 				cb_modspec_get_export_name(spec, arg2));
 		printf("%s(\"%s\", \"%s\")\n", cb_opcode_name(op),
 				cb_strptr(&modname), cb_strptr(&import_name));
-		return WITH_ARGS(2);
+		return 0;
 	}
 
 	case OP_NEW_STRUCT_SPEC: {
@@ -210,7 +201,7 @@ int cb_disassemble_one(cb_instruction *bytecode, size_t offset)
 			printf(", \"%s\"", cb_strptr(&tmp_str));
 		}
 		puts(")");
-		return WITH_ARGS(nfields + 2);
+		return 0;
 	}
 
 	case OP_MAX:
@@ -222,5 +213,4 @@ int cb_disassemble_one(cb_instruction *bytecode, size_t offset)
 
 #undef NEXT
 #undef NEXT_USIZE
-#undef WITH_ARGS
 }

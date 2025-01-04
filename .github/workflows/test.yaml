@@ -1,0 +1,17 @@
+on: [push]
+
+jobs:
+  runt-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential libreadline-dev
+      - name: compile
+        run: make
+      - name: run tests
+        run: |
+          CBCVM_PATH=lib scripts/run-tests

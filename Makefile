@@ -1,4 +1,5 @@
-CFLAGS+=-g -std=gnu11 -Wall -I$(CURDIR)
+WARNINGS=-Wnull-dereference -Wall -Winline -Wextra -Wno-unused-parameter
+CFLAGS+=-g -std=gnu11 $(WARNINGS) -I$(CURDIR)
 LDFLAGS+=-lm -lreadline
 SANITIZERS+=address,undefined
 
@@ -9,7 +10,10 @@ else ifeq ($(TARGET),profile)
 endif
 
 ifneq ($(TARGET),release)
-	CFLAGS+=-fsanitize=$(SANITIZERS) -fno-omit-frame-pointer
+ifneq ($(TARGET),profile)
+	CFLAGS+=-fsanitize=$(SANITIZERS)
+endif
+	CFLAGS+=-fno-omit-frame-pointer
 endif
 
 ifeq ($(TARGET),debug)
@@ -17,17 +21,18 @@ ifeq ($(TARGET),debug)
 endif
 
 cbcvm: *.c *.h modules/*.c modules/*.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o cbcvm *.c modules/*.c
+	$(CC) $(CFLAGS) -o cbcvm *.c modules/*.c $(LDFLAGS)
 
 # Generate a release binary using profile-guided optimization
 profile-opt:
-	CFLAGS='-fprofile-generate' $(MAKE) TARGET=release
+	CFLAGS='-fprofile-generate' $(MAKE) clean cbcvm TARGET=release
 	./cbcvm bf.rbcvm bench.b
 	$(MAKE) clean
 	CFLAGS='-fprofile-use -fprofile-correction' $(MAKE) TARGET=release
 	find . -name '*.gcda' -delete
 
 clean:
-	rm cbcvm
+	[ -f cbcvm ] && rm cbcvm || true
+	find . \( -name '*.gcda' -o -name '*.gcno' -o -name 'gmon.out' \) -delete
 
 .PHONY: clean profile-opt

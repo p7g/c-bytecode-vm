@@ -3,7 +3,7 @@
 
 #include "opcode.h"
 
-struct cb_options {
+extern struct cb_options {
 	int debug_vm,
 	    debug_gc,
 	    debug_hashmap,

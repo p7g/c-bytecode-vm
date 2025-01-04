@@ -12,11 +12,12 @@
 
 #include "agent.h"
 #include "builtin_modules.h"
+#include "cb_util.h"
 #include "code.h"
 #include "compiler.h"
 #include "constant.h"
+#include "eval.h"
 #include "hashmap.h"
-#include "list.h"
 #include "module.h"
 #include "opcode.h"
 #include "struct.h"
@@ -26,8 +27,6 @@
 #define INITIAL_BYTECODE_SIZE 32
 #define LENGTH(ARR) (sizeof(ARR) / sizeof(ARR[0]))
 #define VALID_ESCAPES "nrt\"'"
-
-DECLARE_LIST_T(size_t);
 
 #define TOKEN_TYPE_LIST(X) \
 	X(TOK_IDENT) \
@@ -157,7 +156,8 @@ static int next_token(struct lex_state *state, const char *input,
 		struct token *dest)
 {
 	const char *start_of_token;
-	int is_double, c, len, i;
+	int is_double, c;
+	unsigned i, len;
 
 	assert(state != NULL);
 	assert(input != NULL);
@@ -410,7 +410,7 @@ static struct binding *scope_get_binding(struct scope *s, size_t name)
 			break; \
 		binding = (L); \
 		while (binding) { \
-			if (binding->name == name) \
+			if ((size_t) binding->name == name) \
 				return binding; \
 			binding = binding->next; \
 		} \
@@ -472,7 +472,7 @@ static struct cb_bytecode *cb_bytecode_new()
 	return bc;
 }
 
-static size_t cb_bytecode_len(struct cb_bytecode *bc)
+static CB_INLINE size_t cb_bytecode_len(struct cb_bytecode *bc)
 {
 	return bc->len;
 }
@@ -605,7 +605,6 @@ struct parse_state {
 struct module_state {
 	cb_modspec *spec;
 	cb_hashmap *imported;
-	LIST_T(size_t) exports;
 };
 
 struct function_state {
@@ -670,7 +669,6 @@ static struct module_state *module_state_new(cb_modspec *spec)
 	state = malloc(sizeof(struct module_state));
 	state->spec = spec;
 	state->imported = cb_hashmap_new();
-	LIST_INIT(&state->exports);
 
 	return state;
 }
@@ -735,7 +733,8 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 {
 	struct binding *binding;
 	struct function_state *fstate;
-	int i, found;
+	unsigned i;
+	int found;
 
 	/* i.e. we're in the global scope */
 	if (s->function_state == NULL)
@@ -918,6 +917,7 @@ static struct cb_code *create_code(struct cstate *state)
 	code->const_pool = realloc(state->consts,
 			state->consts_len * sizeof(struct cb_const));
 	code->modspec = state->module_state->spec;
+	code->ic = calloc(code->bytecode_len, sizeof(union cb_inline_cache));
 
 	/* ownership taken */
 	state->consts = NULL;
@@ -1015,16 +1015,10 @@ static int compile_statement(struct cstate *state)
 
 static void export_name(struct cstate *state, size_t name)
 {
-	size_t export_idx;
-
 	/* Can't export something from inside a function */
 	assert(cstate_is_global(state));
 
 	cb_modspec_add_export(state->module_state->spec, name);
-	APPEND(OP_EXPORT);
-	export_idx = LIST_LEN(&state->module_state->exports);
-	LIST_PUSH(&state->module_state->exports, name);
-	APPEND_SIZE_T(export_idx);
 }
 
 static int declare_name(struct cstate *state, size_t name_id, int export)
@@ -1169,10 +1163,10 @@ static int compile_assignment_pattern(struct cstate *state,
 			APPEND(OP_LOAD_STRUCT);
 			APPEND_SIZE_T(pat->p.struct_.name_ids[i]);
 			X(declare_name(state,
-					pat->p.struct_.aliases[i] == -1
-						? pat->p.struct_.name_ids[i]
-						: pat->p.struct_.aliases[i],
-					export));
+				pat->p.struct_.aliases[i] < 0
+					? pat->p.struct_.name_ids[i]
+					: (size_t) pat->p.struct_.aliases[i],
+				export));
 		}
 		APPEND(OP_POP);
 		break;
@@ -1219,7 +1213,6 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	       binding_id,
 	       num_params,
 	       next_opt_param,
-	       body_addr,
 	       local_count_pos,
 	       num_opt_params;
 	int is_first_param;
@@ -1256,7 +1249,9 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 				*binding_id_out = binding_id;
 		}
 	} else {
-		name_id = (size_t) -1;
+		name_id = cb_agent_intern_string("<anonymous>", 11);
+		if (binding_id_out)
+			*binding_id_out = -1;
 	}
 
 	num_params = 0;
@@ -1301,15 +1296,24 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	inner_fn_state.arity = num_params;
 
 	MARK_INNER(next_opt_param);
-	/* Address used when all arguments are passed */
-	body_addr = cb_bytecode_len(inner_state.bytecode);
 
 	APPEND_INNER(OP_ALLOCATE_LOCALS);
 	local_count_pos = cb_bytecode_len(inner_state.bytecode);
 	APPEND_SIZE_T_INNER(0);
 
-	/* FIXME: Avoid copying all arguments that aren't patterns */
 	for (ssize_t i = num_params - 1; i >= 0; i -= 1) {
+		/* Avoid copying all arguments that aren't patterns */
+		if (param_patterns[i].type == PATTERN_IDENT) {
+			// FIXME
+			for (struct binding *b = inner_fn_state.scope->locals;
+					b; b = b->next) {
+				if (b->index == bindings[i]) {
+					b->name = param_patterns[i].p.ident;
+					break;
+				}
+			}
+			continue;
+		}
 		APPEND_INNER(OP_LOAD_LOCAL);
 		APPEND_SIZE_T_INNER(bindings[i]);
 		if (compile_assignment_pattern(&inner_state,
@@ -1380,12 +1384,12 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	APPEND(OP_LOAD_CONST);
 	APPEND_SIZE_T(const_id);
 
-	if (!cstate_is_global(state) && func->name != -1) {
+	if (!cstate_is_global(state) && binding_id != (size_t) -1) {
 		APPEND(OP_STORE_LOCAL);
 		APPEND_SIZE_T(binding_id);
 	}
 
-	for (j = i = 0; i < free_var_len; i += 1) {
+	for (j = i = 0; i < (size_t) free_var_len; i += 1) {
 		free_var = free_vars[i];
 		binding = scope_get_binding(state->function_state->scope,
 				free_var);
@@ -1422,7 +1426,9 @@ static int compile_function_statement(struct cstate *state, int export)
 	size_t name;
 
 	X(compile_function(state, &name));
-	if (name != -1)
+	/* FIXME: all functions have names, so this is declaring anonymous
+	   functions as "<anonymous>" */
+	if (name != (size_t) -1)
 		declare_name(state, name, export);
 
 	return 0;
@@ -1761,15 +1767,18 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 	struct token name, field;
 	size_t name_id, num_fields, binding_id, field_id, nfields_pos;
 	int first_field;
+	int is_named;
 
 	EXPECT(TOK_STRUCT);
 	if (MATCH_P(TOK_IDENT)) {
+		is_named = 1;
 		name = EXPECT(TOK_IDENT);
 		name_id = intern_ident(state, &name);
 		if (name_out)
 			*name_out = name_id;
 	} else {
-		name_id = (size_t) -1;
+		is_named = 0;
+		name_id = cb_agent_intern_string("<anonymous>", 11);
 	}
 
 	num_fields = 0;
@@ -1798,16 +1807,18 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 
 	UPDATE(nfields_pos, num_fields);
 
-	if (cstate_is_global(state) && name_id != -1) {
-		APPEND(OP_DECLARE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-		APPEND(OP_STORE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-	} else if (name_id != -1) {
-		binding_id = scope_add_binding(state->function_state->scope,
-				name_id, 0);
-		APPEND(OP_STORE_LOCAL);
-		APPEND_SIZE_T(binding_id);
+	if (is_named) {
+		if (cstate_is_global(state)) {
+			APPEND(OP_DECLARE_GLOBAL);
+			APPEND_SIZE_T(name_id);
+			APPEND(OP_STORE_GLOBAL);
+			APPEND_SIZE_T(name_id);
+		} else {
+			binding_id = scope_add_binding(state->function_state->scope,
+					name_id, 0);
+			APPEND(OP_STORE_LOCAL);
+			APPEND_SIZE_T(binding_id);
+		}
 	}
 
 	return 0;
@@ -2167,9 +2178,9 @@ static int compile_struct_destructuring_assignment(struct cstate *state)
 		APPEND(OP_DUP);
 		APPEND(OP_LOAD_STRUCT);
 		APPEND_SIZE_T(pat.p.struct_.name_ids[i]);
-		dest_name = pat.p.struct_.aliases[i] == -1
+		dest_name = pat.p.struct_.aliases[i] < 0
 			? pat.p.struct_.name_ids[i]
-			: pat.p.struct_.aliases[i];
+			: (size_t) pat.p.struct_.aliases[i];
 		X(store_name(state, dest_name));
 		APPEND(OP_POP);
 	}
@@ -2183,13 +2194,12 @@ static int compile_array_expression(struct cstate *state)
 	int first_elem;
 	struct parse_state og_parse_state;
 	struct assignment_pattern pat;
-	struct token tok;
 
 	og_parse_state = *state->parse_state;
 
 	if (!parse_assignment_pattern(state, &pat, 1) && MATCH_P(TOK_EQUAL)) {
 		assert(pat.type == PATTERN_ARRAY);
-		tok = EXPECT(TOK_EQUAL);
+		EXPECT(TOK_EQUAL);
 
 		X(compile_expression(state));
 		for (i = 0; i < pat.p.array.nassigns; i += 1) {
@@ -2230,7 +2240,7 @@ static int compile_anonymous_struct_literal(struct cstate *state)
 #define MAX_FIELDS 64
 	struct token field;
 	size_t fields[MAX_FIELDS], num_fields, name;
-	int first_field, i;
+	int first_field;
 
 	num_fields = 0;
 	first_field = 1;
@@ -2262,11 +2272,11 @@ static int compile_anonymous_struct_literal(struct cstate *state)
 	APPEND_SIZE_T(name);
 	APPEND_SIZE_T(num_fields);
 
-	for (i = 0; i < num_fields; i += 1)
+	for (unsigned i = 0; i < num_fields; i += 1)
 		APPEND_SIZE_T(fields[i]);
 
 	APPEND(OP_NEW_STRUCT);
-	for (i = num_fields - 1; i >= 0; i -= 1) {
+	for (int i = num_fields - 1; i >= 0; i -= 1) {
 		APPEND(OP_ROT_2);
 		APPEND(OP_ADD_STRUCT_FIELD);
 		APPEND_SIZE_T(fields[i]);

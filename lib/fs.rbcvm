@@ -4,6 +4,7 @@ import bytes;
 import docs;
 import errno;
 import fn;
+import iter;
 import string;
 import sys;
 
@@ -65,7 +66,7 @@ export function directory_entries(path) {
             }
             _fs.closedir(dirp);
             dirp = null;
-            return null;
+            return iter.STOP;
         } else if (ent == "." || ent == "..") {
             return next();
         }

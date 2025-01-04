@@ -1,33 +1,29 @@
 import array;
 import arraylist;
+import fs;
 import iter;
 import string;
 
-struct Tape {
-    pos,
-    data,
-}
+struct Tape { get, inc, move }
 
 function tape_new() {
+    let pos = 0;
+    let data = arraylist.from_array(1, [0]);
+
     return Tape {
-        pos = 0,
-        data = arraylist.from_array(1, [0]),
+        get = function() {
+            return arraylist.get(data, pos);
+        },
+        inc = function(n) {
+            arraylist.set(data, pos, arraylist.get(data, pos) + n);
+        },
+        move = function(n) {
+            pos = pos + n;
+            if (pos >= arraylist.length(data)) {
+                arraylist.push(data, 0);
+            }
+        },
     };
-}
-
-function tape_get(t) {
-    return arraylist.get(t:data, t:pos);
-}
-
-function tape_inc(t, n) {
-    arraylist.set(t:data, t:pos, arraylist.get(t:data, t:pos) + n);
-}
-
-function tape_move(t, n) {
-    t:pos = t:pos + n;
-    if (t:pos >= arraylist.length(t:data)) {
-        arraylist.push(t:data, 0);
-    }
 }
 
 struct Op { type, value }
@@ -36,7 +32,7 @@ function parse(it) {
     let ops = arraylist.new();
     let c;
 
-    while ((c = it())) {
+    while ((c = it()) != iter.STOP) {
         if (c == '+') {
             arraylist.push(ops, Op{type="inc", value=1});
         } else if (c == '-') {
@@ -57,20 +53,21 @@ function parse(it) {
     return arraylist.to_array(ops);
 }
 
-function run(ops, tape) {
+function run(tape, ops) {
     let len = array.length(ops);
+
     for (let i = 0; i < len; i = i + 1) {
         let op = ops[i];
-        let type = op:type;
-        if (type == "inc") {
-            tape_inc(tape, op:value);
-        } else if (type == "move") {
-            tape_move(tape, op:value);
-        } else if (type == "print") {
-            print(chr(tape_get(tape)));
-        } else if (type == "loop") {
-            while (tape_get(tape) != 0) {
-                run(op:value, tape);
+
+        if (op:type == "inc") {
+            tape:inc(op:value);
+        } else if (op:type == "move") {
+            tape:move(op:value);
+        } else if (op:type == "print") {
+            print(chr(tape:get()));
+        } else if (op:type == "loop") {
+            while (tape:get() != 0) {
+                run(tape, op:value);
             }
         }
     }
@@ -80,6 +77,6 @@ let args = argv();
 if (array.length(args) != 1) {
     println("Usage: ./cbcvm bf3.rbcvm <program>");
 } else {
-    let it = array.iter(string.chars(read_file(args[0])));
-    run(parse(it), tape_new());
+    let it = array.iter(string.chars(fs.read_file(args[0])));
+    run(tape_new(), parse(it));
 }

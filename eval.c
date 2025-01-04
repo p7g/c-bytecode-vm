@@ -7,6 +7,7 @@
 
 #include "agent.h"
 #include "cbcvm.h"
+#include "cb_util.h"
 #include "compiler.h"
 #include "disassemble.h"
 #include "error.h"
@@ -43,10 +44,9 @@ void cb_vm_init(void)
 
 void cb_vm_deinit(void)
 {
-	int i;
 	size_t num_modules = cb_agent_modspec_count();
 
-	for (i = 0; i < num_modules; i += 1) {
+	for (unsigned i = 0; i < num_modules; i += 1) {
 		if (!cb_module_is_zero(cb_vm_state.modules[i]))
 			cb_module_free(&cb_vm_state.modules[i]);
 	}
@@ -90,7 +90,7 @@ static void add_upvalue(struct cb_upvalue *uv)
 static struct cb_frame *find_upvalue_frame(struct cb_upvalue *uv)
 {
 	assert(uv->call_depth >= 0);
-	assert(uv->call_depth <= cb_vm_state.call_depth);
+	assert((size_t) uv->call_depth <= cb_vm_state.call_depth);
 
 	struct cb_frame *frame = cb_vm_state.frame;
 	for (int i = cb_vm_state.call_depth; i > uv->call_depth; i -= 1)
@@ -110,7 +110,7 @@ inline struct cb_value cb_load_upvalue(struct cb_upvalue *uv)
 	return frame->stack[uv->v.idx];
 }
 
-static inline void store_upvalue(struct cb_upvalue *uv, struct cb_value val)
+static CB_INLINE void store_upvalue(struct cb_upvalue *uv, struct cb_value val)
 {
 	if (uv->call_depth < 0) {
 		uv->v.value = val;
@@ -195,7 +195,7 @@ static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 	size_t _name;
 	cb_str modname_str, funcname_str;
 	char *modname = "script";
-	char *funcname = "<anonymous>";
+	char *funcname;
 
 	if (frame->module) {
 		modname_str = cb_agent_get_string(cb_modspec_name(
@@ -250,7 +250,7 @@ int cb_eval(struct cb_frame *frame)
 #define DISPATCH() ({ \
 		DEBUG_STATE(); \
 		size_t _next = NEXT(); \
-		assert(_next >= 0 && _next < OP_MAX); \
+		assert(_next < OP_MAX); \
 		goto *dispatch_table[_next]; \
 	})
 
@@ -274,6 +274,7 @@ int cb_eval(struct cb_frame *frame)
 #define GLOBALS() (frame->module->global_scope)
 #define PUSH(V) (*sp++ = (V))
 #define POP() (*--sp)
+#define CACHE() (&frame->code->ic[ip - frame->code->bytecode - 1])
 
 	struct cb_value *sp = frame->stack + frame->is_function + frame->num_args;
 	cb_instruction *ip = frame->code->bytecode;
@@ -497,15 +498,12 @@ DO_OP_CALL: {
 		: 0;
 	if (func->arity - num_opt_params > num_args) {
 		cb_str s = cb_agent_get_string(name);
-		ERROR("Too few arguments to function '%s'\n",
-				func->name == (size_t) -1
-				? "<anonymous>"
-				: cb_strptr(&s));
+		ERROR("Too few arguments to function '%s'\n", cb_strptr(&s));
 	}
 	if (func->type == CB_FUNCTION_NATIVE) {
 		failed = func->value.as_native(num_args, sp - num_args,
 				&result);
-		assert(sp - frame->stack > num_args);
+		assert(sp - frame->stack > (ssize_t) num_args);
 		sp -= (num_args + 1);
 		PUSH(result);
 		if (failed) {
@@ -553,7 +551,7 @@ DO_OP_RETURN: {
 			uv = cb_vm_state.upvalues[i];
 			/* XXX: is the <0 check actually needed? */
 			if (!uv || uv->call_depth < 0 ||
-					uv->call_depth < cb_vm_state.call_depth)
+					(size_t) uv->call_depth < cb_vm_state.call_depth)
 				break;
 			uv->call_depth = -1;
 			uv->v.value = frame->stack[uv->v.idx];
@@ -567,7 +565,7 @@ DO_OP_RETURN: {
 }
 
 DO_OP_POP:
-	POP();
+	(void) POP();
 	DISPATCH();
 
 DO_OP_LOAD_LOCAL: {
@@ -577,18 +575,31 @@ DO_OP_LOAD_LOCAL: {
 	DISPATCH();
 }
 
-DO_OP_STORE_LOCAL:
-	REPLACE_LOCAL(READ_SIZE_T(), TOP());
+DO_OP_STORE_LOCAL: {
+	size_t idx = READ_SIZE_T();
+	struct cb_value val = TOP();
+	REPLACE_LOCAL(idx, val);
 	DISPATCH();
+}
 
 DO_OP_LOAD_GLOBAL: {
 	size_t id;
 	struct cb_value value;
 
 	id = READ_SIZE_T();
-	if (!cb_hashmap_get(GLOBALS(), id, &value)) {
-		cb_str s = cb_agent_get_string(id);
-		ERROR("Unbound global '%s'", cb_strptr(&s));
+
+	struct cb_load_global_cache *ic = &CACHE()->load_global;
+	/* non-zero version means that there is a cache. */
+	if (ic->version != 0 && ic->version == cb_hashmap_version(GLOBALS())) {
+		value = cb_hashmap_get_index(GLOBALS(), ic->index);
+	} else {
+		int empty;
+		ssize_t idx = cb_hashmap_find(GLOBALS(), id, &empty);
+		if (empty) {
+			cb_str s = cb_agent_get_string(id);
+			ERROR("Unbound global '%s'", cb_strptr(&s));
+		}
+		value = cb_hashmap_get_index(GLOBALS(), idx);
 	}
 
 	PUSH(value);
@@ -610,7 +621,21 @@ DO_OP_STORE_GLOBAL: {
 	size_t id;
 
 	id = READ_SIZE_T();
-	cb_hashmap_set(GLOBALS(), id, TOP());
+
+	struct cb_load_global_cache *ic = &CACHE()->load_global;
+	if (ic->version != 0 && ic->version == cb_hashmap_version(GLOBALS())) {
+		cb_hashmap_set_index(GLOBALS(), ic->index, TOP());
+	} else {
+		int empty;
+		ssize_t idx = cb_hashmap_find(GLOBALS(), id, &empty);
+		/* ignore storing globals that haven't been declared */
+		if (!empty) {
+			ic->index = idx;
+			ic->version = cb_hashmap_version(GLOBALS());
+			cb_hashmap_set_index(GLOBALS(), idx, TOP());
+		}
+	}
+
 	DISPATCH();
 }
 
@@ -630,11 +655,9 @@ DO_OP_BIND_LOCAL: {
 	for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
 		if (cb_vm_state.upvalues[i] == NULL
 				|| cb_vm_state.upvalues[i]->call_depth < 0
-				|| cb_vm_state.upvalues[i]->call_depth
+				|| (size_t) cb_vm_state.upvalues[i]->call_depth
 					< cb_vm_state.call_depth)
 			break;
-		// FIXME: local indexes are not global anymore; upvalues need
-		// to be scoped to the code? Switch away from upvalues?
 		if (cb_vm_state.upvalues[i]->v.idx == idx) {
 			uv = cb_vm_state.upvalues[i];
 			break;
@@ -658,20 +681,19 @@ DO_OP_BIND_LOCAL: {
 }
 
 DO_OP_BIND_UPVALUE: {
-	struct cb_value *self, func;
+	struct cb_value *self, *func;
 	size_t dest_idx = READ_SIZE_T();
 	size_t upvalue_idx = READ_SIZE_T();
 
 	self = &frame->stack[0];
 	assert(CB_VALUE_IS_USER_FN(self));
-	func = POP();
-	if (!CB_VALUE_IS_USER_FN(&func))
+	func = &TOP();
+	if (!CB_VALUE_IS_USER_FN(func))
 		ERROR("Can only bind upvalues to user functions");
 
-	cb_function_add_upvalue(&func.val.as_function->value.as_user, dest_idx,
+	cb_function_add_upvalue(&func->val.as_function->value.as_user, dest_idx,
 		self->val.as_function->value.as_user.upvalues[upvalue_idx]);
 
-	PUSH(func);
 	DISPATCH();
 }
 
@@ -709,24 +731,31 @@ DO_OP_LOAD_FROM_MODULE: {
 	size_t mod_id, export_id, export_name;
 	struct cb_module *mod;
 	struct cb_value val;
-	int found;
+	size_t idx;
 	
 	mod_id = READ_SIZE_T();
 	export_id = READ_SIZE_T();
 	mod = &cb_vm_state.modules[mod_id];
-	export_name = cb_modspec_get_export_name(mod->spec, export_id);
-	found = cb_hashmap_get(mod->global_scope, export_name, &val);
-	/* Exports are verified at compile time */
-	assert(found);
+
+	struct cb_load_from_module_cache *ic = &CACHE()->load_from_module;
+
+	if (ic->version == 0) {
+		int empty;
+		export_name = cb_modspec_get_export_name(mod->spec, export_id);
+		idx = cb_hashmap_find(mod->global_scope, export_name, &empty);
+		/* Exports are verified at compile time */
+		assert(!empty);
+		ic->version = cb_hashmap_version(mod->global_scope);
+		ic->index = idx;
+	} else {
+		assert(ic->version == cb_hashmap_version(mod->global_scope));
+	}
+
+	val = cb_hashmap_get_index(mod->global_scope, ic->index);
+
 	PUSH(val);
 	DISPATCH();
 }
-
-DO_OP_EXPORT:
-	/* FIXME: use export IDs rather than hashmap lookups */
-	READ_SIZE_T();
-	POP();
-	DISPATCH();
 
 DO_OP_NEW_ARRAY_WITH_VALUES: {
 	struct cb_value arrayval;
@@ -908,7 +937,10 @@ DO_OP_NOT: {
 	struct cb_value a, result;
 	a = POP();
 	result.type = CB_VALUE_BOOL;
-	result.val.as_bool = !cb_value_is_truthy(&a);
+	if (a.type == CB_VALUE_BOOL)
+		result.val.as_bool = !a.val.as_bool;
+	else
+		result.val.as_bool = !cb_value_is_truthy(&a);
 	PUSH(result);
 	DISPATCH();
 }
@@ -949,7 +981,22 @@ DO_OP_LOAD_STRUCT: {
 		ERROR("Cannot get field of non-struct type %s",
 				cb_value_type_friendly_name(recv.type));
 	struct cb_struct *s = recv.val.as_struct;
-	struct cb_value *val = cb_struct_get_field(s, fname);
+
+	struct cb_load_struct_cache *ic = &CACHE()->load_struct;
+
+	struct cb_value *val;
+	if (ic->spec != NULL) {
+		if (ic->spec == s->spec) {
+			val = &s->fields[ic->index];
+			PUSH(*val);
+			DISPATCH();
+		}
+		/* deopt */
+		ic->spec = NULL;
+		ic->index = -1;
+	}
+	ssize_t idx;
+	val = cb_struct_get_field(s, fname, &idx);
 	if (!val) {
 		cb_str fname_str, specname_str;
 
@@ -958,6 +1005,10 @@ DO_OP_LOAD_STRUCT: {
 		ERROR("No such field '%s' on struct '%s'",
 				cb_strptr(&fname_str),
 				cb_strptr(&specname_str));
+	}
+	if (ic->index != -1) {
+		ic->spec = s->spec;
+		ic->index = idx;
 	}
 	PUSH(*val);
 	DISPATCH();
@@ -971,7 +1022,19 @@ DO_OP_LOAD_STRUCT: {
 		ERROR("Cannot set field of non-struct type %s", \
 				cb_value_type_friendly_name(recv.type)); \
 	struct cb_struct *s = recv.val.as_struct; \
-	if (cb_struct_set_field(s, fname, val)) { \
+	struct cb_load_struct_cache *ic = &CACHE()->load_struct; \
+	if (ic->spec != NULL) { \
+		if (ic->spec == s->spec) { \
+			s->fields[ic->index] = val; \
+			PUSH(RET); \
+			DISPATCH(); \
+		} \
+		/* deopt */ \
+		ic->spec = NULL; \
+		ic->index = -1; \
+	} \
+	ssize_t idx; \
+	if (cb_struct_set_field(s, fname, val, &idx)) { \
 		cb_str _fname_str, _specname_str; \
 		_fname_str = cb_agent_get_string(fname); \
 		_specname_str = cb_agent_get_string(s->spec->name); \
@@ -979,9 +1042,14 @@ DO_OP_LOAD_STRUCT: {
 				cb_strptr(&_fname_str), \
 				cb_strptr(&_specname_str)); \
 	} \
+	if (ic->index != -1) { \
+		ic->spec = s->spec; \
+		ic->index = idx; \
+	} \
 	RET; \
 	})
 
+/* These 2 differ in whether they leave the struct or the value on the stack */
 DO_OP_ADD_STRUCT_FIELD: {
 	struct cb_value result = DO_STORE_STRUCT_FIELD(recv);
 	PUSH(result);
@@ -1088,15 +1156,16 @@ DO_OP_APPLY_DEFAULT_ARG: {
 }
 }
 
-#undef NEXT
+#undef CACHE
 #undef DISPATCH
 #undef ERROR
-#undef READ_SIZE_T
-#undef TOP
 #undef LOCAL_IDX
 #undef LOCAL
 #undef REPLACE_LOCAL
 #undef GLOBALS
+#undef NEXT
+#undef READ_SIZE_T
+#undef TOP
 }
 
 #undef PUSH

@@ -29,7 +29,7 @@ void cb_const_free(struct cb_const *obj)
 
 	case CB_CONST_ARRAY: {
 		struct cb_const_array *arr = obj->val.as_array;
-		for (int i = 0; i < arr->len; i += 1)
+		for (unsigned i = 0; i < arr->len; i += 1)
 			cb_const_free(&arr->elements[i]);
 		free(arr);
 		break;
@@ -37,7 +37,7 @@ void cb_const_free(struct cb_const *obj)
 
 	case CB_CONST_STRUCT: {
 		struct cb_const_struct *struct_ = obj->val.as_struct;
-		for (int i = 0; i < struct_->nfields; i += 1)
+		for (unsigned i = 0; i < struct_->nfields; i += 1)
 			cb_const_free(&struct_->fields[i].value);
 		free(struct_);
 		break;
@@ -88,7 +88,7 @@ struct cb_value cb_const_to_value(const struct cb_const *const_)
 	case CB_CONST_ARRAY: {
 		struct cb_const_array *const_array = const_->val.as_array;
 		struct cb_array *array = cb_array_new(const_array->len);
-		for (int i = 0; i < const_array->len; i += 1)
+		for (unsigned i = 0; i < const_array->len; i += 1)
 			array->values[i] = cb_const_to_value(
 					&const_array->elements[i]);
 		ret.type = CB_VALUE_ARRAY;
@@ -97,21 +97,20 @@ struct cb_value cb_const_to_value(const struct cb_const *const_)
 	}
 
 	case CB_CONST_STRUCT: {
-		int i;
 		struct cb_const_struct *strct = const_->val.as_struct;
 
 		struct cb_struct_spec *spec = cb_struct_spec_new(
 				cb_agent_intern_string("<anonymous>", 11),
 				strct->nfields);
-		for (i = 0; i < strct->nfields; i += 1)
+		for (unsigned i = 0; i < strct->nfields; i += 1)
 			cb_struct_spec_set_field_name(spec, i,
 					strct->fields[i].name);
 
 		struct cb_struct *struct_val = cb_struct_spec_instantiate(spec);
-		for (i = 0; i < strct->nfields; i += 1) {
+		for (unsigned i = 0; i < strct->nfields; i += 1) {
 			struct cb_value fieldval = cb_const_to_value(
 					&strct->fields[i].value);
-			cb_struct_set_field(struct_val, i, fieldval);
+			cb_struct_set_field(struct_val, i, fieldval, NULL);
 		}
 
 		ret.type = CB_VALUE_STRUCT;

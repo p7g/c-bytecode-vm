@@ -23,12 +23,28 @@ struct cb_upvalue {
 struct cb_frame {
 	struct cb_frame *parent;
 	struct cb_module *module;
-	int is_function, num_args;
+	unsigned is_function, num_args;
 	struct cb_code *code;
 	struct cb_value *stack;
 	/* A pointer to the sp variable for the GC */
 	struct cb_value *const *sp;
 };
+
+union cb_inline_cache {
+	struct cb_load_struct_cache {
+		const struct cb_struct_spec *spec;
+		ssize_t index;
+	} load_struct;
+	struct cb_load_global_cache {
+		size_t version;
+		size_t index;
+	} load_global;
+	struct cb_load_from_module_cache {
+		size_t version;
+		size_t index;
+	} load_from_module;
+};
+
 
 struct cb_vm_state {
 	struct cb_frame *frame;

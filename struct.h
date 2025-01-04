@@ -25,7 +25,9 @@ struct cb_struct_spec *cb_struct_spec_new(size_t name, size_t nfields);
 void cb_struct_spec_set_field_name(struct cb_struct_spec *spec, size_t i,
 		size_t name);
 struct cb_struct *cb_struct_spec_instantiate(struct cb_struct_spec *spec);
-struct cb_value *cb_struct_get_field(struct cb_struct *s, size_t name);
-int cb_struct_set_field(struct cb_struct *s, size_t name, struct cb_value val);
+struct cb_value *cb_struct_get_field(struct cb_struct *s, size_t name,
+		ssize_t *idx_out);
+int cb_struct_set_field(struct cb_struct *s, size_t name, struct cb_value val,
+		ssize_t *idx_out);
 
 #endif

@@ -4,7 +4,9 @@
 
 [![TODOs](https://badgen.net/https/api.tickgit.com/badgen/github.com/p7g/c-bytecode-vm)](https://www.tickgit.com/browse?repo=github.com/p7g/c-bytecode-vm)
 
-[Standard libary documentation](https://github.com/p7g/c-bytecode-vm/blob/master/docs/stdlib.md)
+[Standard libary documentation](https://p7g.github.io/c-bytecode-vm/docs/stdlib)
+|
+[Performance tracking](https://p7g.github.io/c-bytecode-vm/dev/bench)
 
 This is a small, weakly and dynamically typed, interpreted programming language
 that doesn't really have a name. My goal is to see how close I can get to a
@@ -321,13 +323,11 @@ let t = test;
 
 ## Garbage Collection
 
-c-bytecode-vm has a tracing (mark-and-sweep) garbage collector with some
-(potentially-flawed) reference-counting extensions. Such a GC is immune to
-cycles, at the expense of taking longer to collect.
+c-bytecode-vm has a tracing (mark-and-sweep) garbage collector.
 
-The ref-counting mechanism is to allow C extensions to make sure a value is not
-collected while they are using it. This works, but it could be unergonomic since
-an incremented ref on an array does not apply to its contents, for example.
+To allow C extensions to safely hold onto values without them being collected,
+use `cb_gc_hold` to add it to a GC root, and `cb_gc_release` to remove it from
+the root. The next time the GC runs the value may be eligible for collection.
 
 ## Intrinsic Functions
 
@@ -338,7 +338,7 @@ least for now:
 - `println`: Write a string representation of some values to stdout _with_ a
   trailing newline.
 - `tostring`: Get a string representation of a given value.
-- `type_of`: Get the type of a value as a string.
+- `typeof`: Get the type of a value as a string.
 - `ord`: Convert a character to an integer.
 - `chr`: Convert an integer to a character.
 - `tofloat`: Convert an integer to a double. This should be renamed.
@@ -390,7 +390,8 @@ iter.foreach(range(10), function (n) {
 });
 ```
 
-Of course, the same issues in trying to exit the loop prematurely exist.
+To "break" out of `foreach` just return `iter.STOP` (the same sentinel used to
+signal when an iterator is exhausted).
 
 Modules that declare "types" that can be iterated over should export an `iter`
 function that returns this kind of iterator.

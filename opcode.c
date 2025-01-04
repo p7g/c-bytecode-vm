@@ -1,5 +1,8 @@
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 
+#include "compiler.h"
 #include "opcode.h"
 #include "compiler.h"
 
@@ -67,7 +70,6 @@ size_t cb_opcode_arity(const cb_instruction *ops)
 	case OP_LOAD_UPVALUE:
 	case OP_STORE_UPVALUE:
 	case OP_ALLOCATE_LOCALS:
-	case OP_EXPORT:
 	case OP_NEW_ARRAY_WITH_VALUES:
 	case OP_CALL:
 	case OP_LOAD_GLOBAL:
@@ -137,7 +139,6 @@ int cb_opcode_stack_effect(const cb_instruction *ops)
 	case OP_RETURN:
 	case OP_JUMP_IF_TRUE:
 	case OP_JUMP_IF_FALSE:
-	case OP_EXPORT:
 	case OP_STORE_STRUCT:
 	case OP_ADD_STRUCT_FIELD:
 		return -1;
@@ -169,5 +170,17 @@ int cb_opcode_stack_effect(const cb_instruction *ops)
 
 	case OP_CALL:
 		return -ops[1];
+	}
+}
+
+enum cb_opcode cb_opcode_assert(size_t n)
+{
+	switch (n) {
+#define CASE(OP) case OP: return OP;
+	CB_OPCODE_LIST(CASE)
+#undef CASE
+	default:
+		fprintf(stderr, "Invalid opcode: %zu\n", n);
+		abort();
 	}
 }

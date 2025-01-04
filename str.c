@@ -3,14 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "cb_util.h"
 #include "str.h"
 
-inline size_t cb_strlen(cb_str s)
+CB_INLINE size_t cb_strlen(cb_str s)
 {
 	return s.len;
 }
 
-inline char *cb_strptr(cb_str *s)
+char *cb_strptr(cb_str *s)
 {
 	char *ptr;
 
@@ -56,6 +57,7 @@ cb_str cb_str_take_cstr(char *str, size_t len)
 	s.len = len;
 	if (CB_STR_CAN_INLINE(len)) {
 		memcpy(s.chars.small, str, len);
+		free(str);
 	} else {
 		s.chars.big = str;
 	}
@@ -76,7 +78,7 @@ void cb_str_free(cb_str s)
 		free(s.chars.big);
 }
 
-inline uint32_t cb_str_at(cb_str s, size_t idx)
+CB_INLINE uint32_t cb_str_at(cb_str s, size_t idx)
 {
 	/* FIXME: unicode */
 	return cb_strptr(&s)[idx];

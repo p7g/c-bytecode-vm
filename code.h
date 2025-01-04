@@ -19,6 +19,7 @@ struct cb_code {
 	cb_instruction *bytecode;
 	size_t bytecode_len;
 	struct cb_const *const_pool;
+	union cb_inline_cache *ic;
 };
 
 struct cb_code *cb_code_new(void);

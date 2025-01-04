@@ -8,63 +8,16 @@
 #include "agent.h"
 #include "alloc.h"
 #include "bytes.h"
+#include "cb_util.h"
 #include "cbcvm.h"
 #include "eval.h"
+#include "module.h"
 #include "str.h"
 #include "struct.h"
 #include "value.h"
 
-static void adjust_refcount(struct cb_value value, int amount)
-{
-	cb_gc_header *header;
-
-	switch (value.type) {
-	case CB_VALUE_ARRAY:
-		header = &value.val.as_array->gc_header;
-		break;
-	case CB_VALUE_STRING:
-		header = &value.val.as_string->gc_header;
-		break;
-	case CB_VALUE_BYTES:
-		header = &value.val.as_bytes->gc_header;
-		break;
-	case CB_VALUE_FUNCTION:
-		header = &value.val.as_function->gc_header;
-		break;
-	case CB_VALUE_STRUCT:
-		header = &value.val.as_struct->gc_header;
-		break;
-	case CB_VALUE_USERDATA:
-		header = &value.val.as_userdata->gc_header;
-		break;
-
-	default:
-		return;
-	}
-
-	if (cb_options.debug_gc) {
-		cb_str as_str = cb_value_to_string(value);
-		printf("GC: adjusted refcount by %d for object at %p: %s\n",
-				amount, header, cb_strptr(&as_str));
-		cb_str_free(as_str);
-	}
-
-	cb_gc_adjust_refcount(header, amount);
-}
-
-inline void cb_value_incref(struct cb_value value)
-{
-	adjust_refcount(value, 1);
-}
-
-inline void cb_value_decref(struct cb_value value)
-{
-	adjust_refcount(value, -1);
-}
-
 static void cb_function_deinit(void *ptr)
 {
-	int i, j;
 	struct cb_user_function ufn;
 	struct cb_function *fn = ptr;
 
@@ -74,7 +27,7 @@ static void cb_function_deinit(void *ptr)
 	ufn = fn->value.as_user;
 
 	if (ufn.code->nupvalues) {
-		for (i = 0; i < ufn.code->nupvalues; i += 1) {
+		for (unsigned i = 0; i < ufn.code->nupvalues; i += 1) {
 			if (ufn.upvalues[i] == NULL)
 				continue;
 			if (ufn.upvalues[i]->refcount != 0)
@@ -82,7 +35,9 @@ static void cb_function_deinit(void *ptr)
 			if (ufn.upvalues[i]->refcount == 0)
 				free(ufn.upvalues[i]);
 			if (cb_vm_state.upvalues != NULL) {
-				for (j = 0; j < cb_vm_state.upvalues_idx; j += 1) {
+				for (unsigned j = 0;
+						j < cb_vm_state.upvalues_idx;
+						j += 1) {
 					if (cb_vm_state.upvalues[j]
 							== ufn.upvalues[i]) {
 						cb_vm_state.upvalues[j] = NULL;
@@ -297,23 +252,37 @@ cb_str cb_value_to_string(struct cb_value val)
 		break;
 
 	case CB_VALUE_FUNCTION: {
-		size_t name = val.val.as_function->name;
-		cb_str s;
-		if (name != (size_t) -1) {
-			s = cb_agent_get_string(name);
-			len = cb_strlen(s);
-			len += sizeof("<function >"); /* includes NUL byte */
-			cb_str_init(&buf, len - 1);
-			snprintf(cb_strptr(&buf), sizeof("<function "), "<function ");
-			memcpy(cb_strptr(&buf) + sizeof("<function ") - 1,
-					cb_strptr(&s), cb_strlen(s));
-			cb_strptr(&buf)[len - 2] = '>';
-			cb_strptr(&buf)[len - 1] = 0;
-		} else {
-			len = sizeof("<function <anonymous>>") - 1;
-			cb_str_init(&buf, len);
-			snprintf(cb_strptr(&buf), len + 1, "<function <anonymous>>");
+		const struct cb_function *func = val.val.as_function;
+		size_t name = func->name;
+		cb_str s, modname;
+		cb_str_init(&modname, 0);
+		s = cb_agent_get_string(name);
+		len = cb_strlen(s);
+		len += sizeof("<function >"); /* includes NUL byte */
+		/* User functions show the module name too */
+		if (func->type == CB_FUNCTION_USER) {
+			const struct cb_user_function *ufunc;
+			ufunc = &func->value.as_user;
+			modname = cb_agent_get_string(
+					cb_modspec_name(ufunc->code->modspec));
+			/* modname + '.' */
+			len += 1 + cb_strlen(modname);
 		}
+		cb_str_init(&buf, len - 1);
+		snprintf(cb_strptr(&buf), sizeof("<function "), "<function ");
+		size_t pos = sizeof("<function ") - 1;
+		if (cb_strlen(modname)) {
+			memcpy(cb_strptr(&buf) + pos,
+					cb_strptr(&modname),
+					cb_strlen(modname));
+			pos += cb_strlen(modname);
+			cb_strptr(&buf)[pos] = '.';
+			pos += 1;
+		}
+		memcpy(cb_strptr(&buf) + pos, cb_strptr(&s),
+				cb_strlen(s));
+		cb_strptr(&buf)[len - 2] = '>';
+		cb_strptr(&buf)[len - 1] = 0;
 		break;
 	}
 
@@ -330,7 +299,7 @@ cb_str cb_value_to_string(struct cb_value val)
 		}
 
 		len = 2; /* square brackets around elements */
-		for (int i = 0; i < array_len; i += 1) {
+		for (unsigned i = 0; i < array_len; i += 1) {
 			elements[i] = cb_value_to_string(
 					val.val.as_array->values[i]);
 			len += cb_strlen(elements[i]);
@@ -340,7 +309,7 @@ cb_str cb_value_to_string(struct cb_value val)
 		cb_str_init(&buf, len);
 		ptr = cb_strptr(&buf);
 		*ptr++ = '[';
-		for (int i = 0; i < array_len; i += 1) {
+		for (unsigned i = 0; i < array_len; i += 1) {
 			memcpy(ptr, cb_strptr(&elements[i]),
 					cb_strlen(elements[i]));
 			cb_str_free(elements[i]);
@@ -363,15 +332,9 @@ cb_str cb_value_to_string(struct cb_value val)
 		cb_str elements[struct_len];
 		const char *name;
 		size_t name_len;
-		cb_str name_str;
-		if (s->spec->name == -1) {
-			name = "<anonymous>";
-			name_len = sizeof("<anonymous>") - 1;
-		} else {
-			name_str = cb_agent_get_string(s->spec->name);
-			name = cb_strptr(&name_str);
-			name_len = cb_strlen(name_str);
-		}
+		cb_str n = cb_agent_get_string(s->spec->name);
+		name = cb_strptr(&n);
+		name_len = cb_strlen(n);
 		len = name_len + 2;
 
 		if (repr_enter(&val.val.as_struct->gc_header)) {
@@ -383,7 +346,7 @@ cb_str cb_value_to_string(struct cb_value val)
 			break;
 		}
 
-		for (int i = 0; i < struct_len; i += 1) {
+		for (unsigned i = 0; i < struct_len; i += 1) {
 			elements[i] = cb_value_to_string(s->fields[i]);
 			len += cb_strlen(elements[i]);
 			len += cb_strlen(cb_agent_get_string(
@@ -398,7 +361,7 @@ cb_str cb_value_to_string(struct cb_value val)
 		memcpy(ptr, name, name_len);
 		ptr += name_len;
 		*ptr++ = '{';
-		for (int i = 0; i < struct_len; i += 1) {
+		for (unsigned i = 0; i < struct_len; i += 1) {
 			cb_str fname = cb_agent_get_string(
 					s->spec->fields[i]);
 			memcpy(ptr, cb_strptr(&fname), cb_strlen(fname));
@@ -425,15 +388,9 @@ cb_str cb_value_to_string(struct cb_value val)
 		char *ptr;
 		const char *name;
 		size_t name_len;
-		cb_str name_str;
-		if (name_id == -1) {
-			name = "<anonymous>";
-			name_len = sizeof("<anonymous>") - 1;
-		} else {
-			name_str = cb_agent_get_string(name_id);
-			name = cb_strptr(&name_str);
-			name_len = cb_strlen(name_str);
-		}
+		cb_str n = cb_agent_get_string(name_id);
+		name = cb_strptr(&n);
+		name_len = cb_strlen(n);
 		len = name_len + sizeof("<struct >") - 1;
 		cb_str_init(&buf, len);
 		ptr = cb_strptr(&buf);
@@ -454,7 +411,8 @@ cb_str cb_value_to_string(struct cb_value val)
 	}
 
 	default:
-		fprintf(stderr, "unsupported to_string\n");
+		fprintf(stderr, "unsupported to_string (%s)\n",
+				cb_value_type_friendly_name(val.type));
 		abort();
 		break;
 	}
@@ -498,7 +456,7 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		struct cb_array *left, *right;
 		left = a->val.as_array;
 		right = b->val.as_array;
-		for (int i = 0; i < left->len; i += 1) {
+		for (unsigned i = 0; i < left->len; i += 1) {
 			if (!cb_value_eq(&left->values[i], &right->values[i]))
 				return 0;
 		}
@@ -528,7 +486,7 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		struct cb_struct *left, *right;
 		left = a->val.as_struct;
 		right = b->val.as_struct;
-		for (int i = 0; i < left->spec->nfields; i += 1) {
+		for (unsigned i = 0; i < left->spec->nfields; i += 1) {
 			if (!cb_value_eq(&left->fields[i], &right->fields[i]))
 				return 0;
 		}
@@ -679,6 +637,9 @@ inline cb_gc_header *cb_value_gc_header(const struct cb_value val)
 	case CB_VALUE_STRUCT_SPEC:
 		return &val.val.as_struct_spec->gc_header;
 	}
+
+	fprintf(stderr, "Unknown value type %d\n", val.type);
+	abort();
 }
 
 void cb_value_mark(struct cb_value val)
@@ -721,22 +682,21 @@ void cb_value_mark(struct cb_value val)
 		break;
 
 	case CB_VALUE_ARRAY: {
-		int i;
 		GC_LOG(val.val.as_array);
-		for (i = 0; i < val.val.as_array->len; i += 1)
+		for (unsigned i = 0; i < val.val.as_array->len; i += 1)
 			cb_gc_queue_mark(val.val.as_array->values[i]);
 		break;
 	}
 
 	case CB_VALUE_FUNCTION: {
-		int i;
 		struct cb_function *fn;
 		struct cb_upvalue *uv;
 
 		fn = val.val.as_function;
 		GC_LOG(fn);
 		if (fn->type == CB_FUNCTION_USER) {
-			for (i = 0; i < fn->value.as_user.code->nupvalues;
+			for (unsigned i = 0;
+					i < fn->value.as_user.code->nupvalues;
 					i += 1) {
 				uv = fn->value.as_user.upvalues[i];
 				if (uv->call_depth < 0)
@@ -747,10 +707,10 @@ void cb_value_mark(struct cb_value val)
 	}
 
 	case CB_VALUE_STRUCT: {
-		int i;
 		GC_LOG(val.val.as_struct);
 		cb_gc_mark(&val.val.as_struct->spec->gc_header);
-		for (i = 0; i < val.val.as_struct->spec->nfields; i += 1)
+		for (unsigned i = 0; i < val.val.as_struct->spec->nfields;
+				i += 1)
 			cb_gc_queue_mark(val.val.as_struct->fields[i]);
 		break;
 	}

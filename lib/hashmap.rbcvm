@@ -1,5 +1,4 @@
 import array;
-import arraylist;
 import docs;
 import hash;
 import iter;
@@ -8,6 +7,7 @@ let doc = docs.module("hashmap", "An implementation of a hash map.");
 
 let INITIAL_CAPACITY = toint(2 ** 3);
 let LOAD_FACTOR = 0.7;
+let TOMBSTONE = struct {};
 
 struct HashMap {
   cap, load, hash_fn, buckets
@@ -29,7 +29,7 @@ function grow(self) {
   self:load = 0;
 
   array.foreach(old_buckets, function(bucket) {
-    if (!bucket) {
+    if (!bucket || bucket == TOMBSTONE) {
       return;
     }
     set(self, bucket:key, bucket:value);
@@ -110,7 +110,7 @@ export function get(self, key) {
     return null;
   }
 
-  while (bucket:key != key) {
+  while (bucket == TOMBSTONE || bucket:key != key) {
     hashed = next_hash(self, hashed);
     bucket = self:buckets[hashed];
   }
@@ -126,13 +126,13 @@ export function set(self, key, value) {
   let bucket;
   while (true) {
     bucket = self:buckets[hashed];
-    if (bucket == null || bucket:key == key) {
+    if (bucket == null || bucket == TOMBSTONE || bucket:key == key) {
       break;
     }
     hashed = next_hash(self, hashed);
   }
 
-  if (bucket) {
+  if (bucket && bucket != TOMBSTONE) {
     bucket:value = value;
   } else {
     self:buckets[hashed] = Bucket { key=key, value=value };
@@ -156,7 +156,7 @@ export function delete(self, key) {
   let bucket;
   while (true) {
     bucket = self:buckets[hashed];
-    if (!bucket) {
+    if (!bucket || bucket == TOMBSTONE) {
       return false;
     }
     if (bucket:key == key) {
@@ -165,7 +165,7 @@ export function delete(self, key) {
     hashed = next_hash(self, hashed);
   }
 
-  self:buckets[hashed] = null;
+  self:buckets[hashed] = TOMBSTONE;
   self:load = self:load - 1;
   return true;
 }
@@ -177,7 +177,7 @@ export function has(self, key) {
 
   while (true) {
     let bucket = self:buckets[hashed];
-    if (!bucket) {
+    if (!bucket || bucket == TOMBSTONE) {
       return false;
     }
     if (bucket:key == key) {
@@ -195,17 +195,17 @@ export function entries(self) {
 
   return function next() {
     if (i >= len) {
-      return null;
+      return iter.STOP;
     }
     let bucket = null;
     while (i < len) {
       let bucket = self:buckets[i];
       i = i + 1;
-      if (bucket) {
+      if (bucket && bucket != TOMBSTONE) {
         return [bucket:key, bucket:value];
       }
     }
-    return null;
+    return iter.STOP;
   };
 }
 

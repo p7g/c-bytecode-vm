@@ -51,23 +51,29 @@ static ssize_t field_index(const struct cb_struct_spec *spec, size_t name)
 	return -1;
 }
 
-struct cb_value *cb_struct_get_field(struct cb_struct *s, size_t name)
+struct cb_value *cb_struct_get_field(struct cb_struct *s, size_t name,
+		ssize_t *idx_out)
 {
 	ssize_t idx;
 
 	idx = field_index(s->spec, name);
-	if (idx > s->spec->nfields || s < 0)
+	if (idx_out)
+		*idx_out = idx;
+	if (idx < 0 || (size_t) idx > s->spec->nfields)
 		return NULL;
 
 	return &s->fields[idx];
 }
 
-int cb_struct_set_field(struct cb_struct *s, size_t name, struct cb_value val)
+int cb_struct_set_field(struct cb_struct *s, size_t name, struct cb_value val,
+		ssize_t *idx_out)
 {
 	ssize_t idx;
 
 	idx = field_index(s->spec, name);
-	if (idx > s->spec->nfields || s < 0)
+	if (idx_out)
+		*idx_out = idx;
+	if (idx < 0 || (size_t) idx > s->spec->nfields)
 		return 1;
 
 	s->fields[idx] = val;
