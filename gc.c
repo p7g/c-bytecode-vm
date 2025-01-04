@@ -36,6 +36,23 @@ inline void cb_gc_register(struct cb_gc_header *obj, size_t size,
 	amount_allocated += size;
 }
 
+void cb_gc_update_size(struct cb_gc_header *obj, size_t size)
+{
+	size_t old_size;
+
+	if (size == obj->size)
+		return;
+
+	old_size = obj->size;
+	obj->size = size;
+	amount_allocated += size - old_size;
+}
+
+size_t cb_gc_size(struct cb_gc_header *obj)
+{
+	return obj->size;
+}
+
 inline int cb_gc_should_collect(void)
 {
 	return hint > GC_HINT_THRESHOLD
@@ -65,13 +82,13 @@ inline int cb_gc_is_marked(struct cb_gc_header *obj)
 }
 
 struct mark_queue_node {
-	struct cb_value *val;
+	struct cb_value val;
 	struct mark_queue_node *next;
 };
 
 static struct mark_queue_node *mark_queue = NULL;
 
-void cb_gc_queue_mark(struct cb_value *obj)
+void cb_gc_queue_mark(struct cb_value obj)
 {
 	struct mark_queue_node *node;
 
@@ -89,16 +106,18 @@ static void evaluate_mark_queue(void)
 	while (mark_queue) {
 		tmp = mark_queue;
 		mark_queue = tmp->next;
-		if (!cb_value_is_marked(tmp->val))
-			cb_value_mark(tmp->val);
+		cb_value_mark(tmp->val);
 		free(tmp);
 	}
 }
 
 static void mark(void)
 {
-	int i;
+	size_t i;
 	struct cb_module *mod;
+	struct cb_frame *frame;
+	struct cb_value *sp;
+	const struct cb_value *frame_sp;
 
 	/* Roots:
 	 * - stack
@@ -107,8 +126,11 @@ static void mark(void)
 	 */
 
 	DEBUG_LOG("marking stack values");
-	for (i = 0; i < cb_vm_state.sp; i += 1)
-		cb_value_mark(&cb_vm_state.stack[i]);
+	for (frame = cb_vm_state.frame; frame; frame = frame->parent) {
+		frame_sp = *frame->sp;
+		for (sp = frame->stack; sp < frame_sp; sp += 1)
+			cb_value_mark(*sp);
+	}
 
 	DEBUG_LOG("marking module global scopes");
 	if (cb_vm_state.modules) {
@@ -142,12 +164,12 @@ static void sweep(void)
 			*prev_ptr = tmp->next;
 			if (tmp->deinit)
 				tmp->deinit(tmp);
-			DEBUG_LOG("freeing object at %p", tmp);
+			/* DEBUG_LOG("freeing object at %p", tmp); */
 			amount_allocated -= tmp->size;
 			free(tmp);
 		} else {
-			DEBUG_LOG("not freeing object at %p (%s)", tmp,
-					tmp->mark ? "mark" : "refcount");
+			/* DEBUG_LOG("not freeing object at %p (%s)", tmp, */
+			/* 		tmp->mark ? "mark" : "refcount"); */
 			tmp->mark = 0;
 			prev_ptr = &tmp->next;
 		}

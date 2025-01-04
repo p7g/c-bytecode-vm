@@ -17,10 +17,10 @@ int cb_error_p(void)
 	return cb_vm_state.error != NULL;
 }
 
-struct cb_value *cb_error_value(void)
+struct cb_value cb_error_value(void)
 {
 	assert(cb_error_p());
-	return &cb_vm_state.error->value;
+	return cb_vm_state.error->value;
 }
 
 void cb_error_set(struct cb_value value)
@@ -66,7 +66,7 @@ void cb_traceback_add_frame(struct cb_frame *frame)
 	tb = malloc(sizeof(struct cb_traceback));
 	tb->frame = *frame;
 	if (frame->is_function)
-		tb->func = cb_vm_state.stack[frame->bp];
+		tb->func = frame->stack[0];
 	tb->next = cb_vm_state.error->tb;
 	cb_vm_state.error->tb = tb;
 }
@@ -85,12 +85,12 @@ void cb_traceback_print(FILE *f, struct cb_traceback *tb)
 		/* FIXME: add module information to native functions */
 		if (func->type == CB_FUNCTION_USER) {
 			ufunc = &func->value.as_user;
-			spec = cb_agent_get_modspec(ufunc->module_id);
+			spec = ufunc->code->modspec;
 			cb_str modname = cb_agent_get_string(
 					cb_modspec_name(spec));
 			fprintf(f, "%s.", cb_strptr(&modname));
 		}
-		buf = cb_value_to_string(&tb->func);
+		buf = cb_value_to_string(tb->func);
 		fprintf(f, "%s\n", cb_strptr(&buf));
 		cb_str_free(buf);
 	} else {
@@ -118,9 +118,9 @@ void cb_error_mark(void)
 	if (!e)
 		return;
 
-	cb_value_mark(&e->value);
+	cb_value_mark(e->value);
 	for (tb = e->tb; tb; tb = tb->next) {
 		if (tb->frame.is_function)
-			cb_value_mark(&tb->func);
+			cb_value_mark(tb->func);
 	}
 }

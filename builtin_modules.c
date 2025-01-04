@@ -37,11 +37,12 @@ const size_t cb_builtin_module_count = sizeof(builtins) / sizeof(builtins[0]);
 void cb_initialize_builtin_modules(void)
 {
 	cb_modspec *modspec;
+	size_t name;
 
 	for (size_t i = 0; i < cb_builtin_module_count; i += 1) {
-		modspec = cb_modspec_new(cb_agent_intern_string(
-					builtins[i].name,
-					strlen(builtins[i].name)));
+		name = cb_agent_intern_string(builtins[i].name,
+					strlen(builtins[i].name));
+		modspec = cb_modspec_new(name);
 
 		builtins[i].build_spec(modspec);
 		cb_agent_add_modspec(modspec);

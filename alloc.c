@@ -18,8 +18,8 @@ void *cb_malloc(size_t bytes, cb_deinit_fn deinit_fn)
 	ptr = malloc(bytes);
 	cb_gc_register((cb_gc_header*) ptr, bytes, deinit_fn);
 
-	if (cb_options.debug_gc)
-		printf("GC: allocated %zu bytes at %p\n", bytes, ptr);
+	/* if (cb_options.debug_gc) */
+	/* 	printf("GC: allocated %zu bytes at %p\n", bytes, ptr); */
 
 	return ptr;
 }

@@ -12,15 +12,22 @@
 
 #include "agent.h"
 #include "builtin_modules.h"
+#include "code.h"
 #include "compiler.h"
+#include "constant.h"
 #include "hashmap.h"
+#include "list.h"
 #include "module.h"
 #include "opcode.h"
 #include "struct.h"
 
+#include "disassemble.h"
+
 #define INITIAL_BYTECODE_SIZE 32
 #define LENGTH(ARR) (sizeof(ARR) / sizeof(ARR[0]))
 #define VALID_ESCAPES "nrt\"'"
+
+DECLARE_LIST_T(size_t);
 
 #define TOKEN_TYPE_LIST(X) \
 	X(TOK_IDENT) \
@@ -93,20 +100,18 @@ struct token {
 	size_t line, column;
 };
 
-/* Opaque lexer state */
-typedef struct lex_state {
-	const char *filename;
+struct lex_state {
+	size_t name;
 	size_t current_line, current_column;
 	const char *ptr;
-} lex_state;
+};
 
-static inline lex_state lex_state_new(const char *name)
+static void lex_state_init(struct lex_state *state, size_t name)
 {
-	return (lex_state) {
-		.filename = name,
-		.current_line = 1,
-		.current_column = 1,
-	};
+	state->name = name;
+	state->current_line = 1;
+	state->current_column = 1;
+	state->ptr = NULL;
 }
 
 #define KW(S, T) { S, sizeof(S) - 1, T }
@@ -148,7 +153,8 @@ static const char *token_type_name(enum token_type t)
 }
 
 /* Read the next token from the given input string */
-static int next_token(lex_state *state, const char *input, struct token *dest)
+static int next_token(struct lex_state *state, const char *input,
+		struct token *dest)
 {
 	const char *start_of_token;
 	int is_double, c, len, i;
@@ -162,10 +168,14 @@ static int next_token(lex_state *state, const char *input, struct token *dest)
 	}
 
 /* Print an error message and location data */
-#define ERROR(message, ...) \
-	fprintf(stderr, "Error in %s at %zu:%zu: " message "\n", \
-		state->filename, state->current_line, state->current_column, \
-		##__VA_ARGS__)
+#define ERROR(message, ...) do { \
+		cb_str __name = cb_agent_get_string(state->name); \
+		fprintf(stderr, "Error in %s at %zu:%zu: " message "\n", \
+			cb_strptr(&__name), \
+				state->current_line, \
+				state->current_column, \
+			##__VA_ARGS__); \
+	} while (0)
 #define NEXT() (state->current_column += 1, *state->ptr++)
 #define PEEK() (*state->ptr)
 #define TOKEN(TYPE) ({ dest->type = (TYPE); goto end; })
@@ -340,18 +350,12 @@ struct scope {
 	       num_upvalues;
 };
 
-static struct scope scope_new()
+static struct scope *scope_new()
 {
-	return (struct scope) {
-		.parent = NULL,
-		.locals = NULL,
-		.upvalues = NULL,
-		.num_locals = 0,
-		.num_upvalues = 0,
-	};
+	return calloc(1, sizeof(struct scope));
 }
 
-static void scope_free(struct scope s)
+static void scope_free(struct scope *s)
 {
 	struct binding *current, *tmp;
 
@@ -367,10 +371,12 @@ static void scope_free(struct scope s)
 		} \
 	} while (0)
 
-	FREE_LIST(s.locals);
-	FREE_LIST(s.upvalues);
+	FREE_LIST(s->locals);
+	FREE_LIST(s->upvalues);
 
 #undef FREE_LIST
+
+	free(s);
 }
 
 static size_t scope_add_binding(struct scope *s, ssize_t name, int upvalue)
@@ -441,7 +447,7 @@ struct pending_address {
 	size_t label, address;
 };
 
-struct bytecode {
+struct cb_bytecode {
 	cb_instruction *code;
 	size_t size, len;
 
@@ -451,11 +457,11 @@ struct bytecode {
 	struct pending_address *pending_addresses;
 };
 
-struct bytecode *cb_bytecode_new()
+static struct cb_bytecode *cb_bytecode_new()
 {
-	struct bytecode *bc;
+	struct cb_bytecode *bc;
 
-	bc = malloc(sizeof(struct bytecode));
+	bc = malloc(sizeof(struct cb_bytecode));
 
 	bc->code = NULL;
 	bc->size = bc->len = 0;
@@ -466,17 +472,12 @@ struct bytecode *cb_bytecode_new()
 	return bc;
 }
 
-inline cb_instruction cb_bytecode_get(struct bytecode *bc, size_t idx)
-{
-	return bc->code[idx];
-}
-
-inline size_t cb_bytecode_len(struct bytecode *bc)
+static size_t cb_bytecode_len(struct cb_bytecode *bc)
 {
 	return bc->len;
 }
 
-inline void cb_bytecode_free(struct bytecode *bc)
+static void cb_bytecode_free(struct cb_bytecode *bc)
 {
 	struct pending_address *current, *tmp;
 	current = bc->pending_addresses;
@@ -492,7 +493,7 @@ inline void cb_bytecode_free(struct bytecode *bc)
 	free(bc);
 }
 
-static size_t bytecode_label(struct bytecode *bc)
+static size_t bytecode_label(struct cb_bytecode *bc)
 {
 	if (bc->label_addr_size <= bc->label_addr_len) {
 		bc->label_addr_size = bc->label_addr_size == 0
@@ -506,13 +507,13 @@ static size_t bytecode_label(struct bytecode *bc)
 	return bc->label_addr_len - 1;
 }
 
-static void bytecode_update_size_t(struct bytecode *bc, size_t idx,
+static void bytecode_update_size_t(struct cb_bytecode *bc, size_t idx,
 		size_t value)
 {
 	bc->code[idx] = value;
 }
 
-static void bytecode_mark_label(struct bytecode *bc, size_t label)
+static void bytecode_mark_label(struct cb_bytecode *bc, size_t label)
 {
 	struct pending_address *current, *tmp, **prev;
 
@@ -535,7 +536,7 @@ static void bytecode_mark_label(struct bytecode *bc, size_t label)
 	}
 }
 
-static void bytecode_push(struct bytecode *bc, cb_instruction byte)
+static void bytecode_push(struct cb_bytecode *bc, cb_instruction byte)
 {
 	assert(bc != NULL);
 
@@ -549,12 +550,12 @@ static void bytecode_push(struct bytecode *bc, cb_instruction byte)
 	bc->code[bc->len++] = byte;
 }
 
-static void bytecode_push_size_t(struct bytecode *bc, size_t value)
+static void bytecode_push_size_t(struct cb_bytecode *bc, size_t value)
 {
 	bytecode_push(bc, value);
 }
 
-static void bytecode_address_of(struct bytecode *bc, size_t label)
+static void bytecode_address_of(struct cb_bytecode *bc, size_t label)
 {
 	size_t value;
 	struct pending_address *addr;
@@ -576,58 +577,46 @@ static void bytecode_address_of(struct bytecode *bc, size_t label)
 	bytecode_push_size_t(bc, value);
 }
 
-static int bytecode_finalize(struct bytecode *bc)
+static cb_instruction *bytecode_finalize(struct cb_bytecode *bc, size_t *len)
 {
 	if (bc->pending_addresses != NULL) {
 		fprintf(stderr, "Missing label\n");
-		return 1;
+		return NULL;
 	}
 
 	if (bc->label_addresses) {
 		free(bc->label_addresses);
 		bc->label_addresses = NULL;
 	}
-	bc->code = realloc(bc->code, bc->size * sizeof(cb_instruction));
+	*len = bc->len;
+	bc->code = realloc(bc->code, bc->len * sizeof(cb_instruction));
 	bc->label_addr_size = bc->label_addr_len = 0;
 
-	return 0;
+	return bc->code;
 }
 
-struct bytecode_snapshot {
-	size_t len, label_addr_len;
-
-	struct pending_address *pending_addresses;
+struct parse_state {
+	const char *input;
+	int did_peek;
+	struct token peeked;
+	struct lex_state lex_state;
 };
 
-static void bytecode_snapshot(const struct bytecode *bc,
-		struct bytecode_snapshot *snap)
-{
-	snap->len = bc->len;
-	snap->label_addr_len = bc->label_addr_len;
-	snap->pending_addresses = bc->pending_addresses;
-}
-
-static void bytecode_restore(struct bytecode *bc,
-		struct bytecode_snapshot *snap)
-{
-	struct pending_address *tmp;
-
-	bc->len = snap->len;
-	bc->label_addr_len = snap->label_addr_len;
-
-	while (bc->pending_addresses
-			&& bc->pending_addresses != snap->pending_addresses) {
-		tmp = bc->pending_addresses;
-		bc->pending_addresses = tmp->next;
-		free(tmp);
-	}
-}
+struct module_state {
+	cb_modspec *spec;
+	cb_hashmap *imported;
+	LIST_T(size_t) exports;
+};
 
 struct function_state {
-	size_t start_label;
-	size_t end_label;
-	size_t *free_variables;
-	size_t free_var_len, free_var_size;
+	size_t name;
+	struct scope *scope;
+	struct function_state *parent;
+	struct loop_state *loop_state;
+	size_t *free_variables,
+	       free_var_len,
+	       free_var_size;
+	int arity;
 };
 
 void fstate_add_freevar(struct function_state *fstate, size_t free_var)
@@ -642,112 +631,104 @@ void fstate_add_freevar(struct function_state *fstate, size_t free_var)
 	fstate->free_variables[fstate->free_var_len++] = free_var;
 }
 
+struct cstate {
+	struct parse_state *parse_state;
+	struct module_state *module_state;
+	struct function_state *function_state;
+	struct cb_bytecode *bytecode;
+
+	struct cb_const *consts;
+	size_t consts_len, consts_size;
+};
+
 struct loop_state {
 	size_t continue_label;
 	size_t break_label;
 };
 
-struct cstate {
-	struct bytecode *bytecode;
-
-	const char *input;
-	const char *filename;
-
-	int did_peek;
-	struct token peeked;
-	lex_state lex_state;
-
-	cb_modspec *modspec;
-
-	struct scope *scope;
-	int is_global;
-
-	struct function_state *function_state;
-	struct loop_state *loop_state;
-
-	cb_hashmap *imported;
-};
-
-struct cstate_snapshot {
-	struct bytecode_snapshot bytecode;
-	int did_peek;
-	struct token peeked;
-	lex_state lex_state;
-	int is_global;
-};
-
-static void cstate_snapshot(struct cstate *st, struct cstate_snapshot *snap)
+static struct parse_state *parse_state_new(const char *input, size_t name)
 {
-	bytecode_snapshot(st->bytecode, &snap->bytecode);
-	snap->did_peek = st->did_peek;
-	snap->peeked = st->peeked;
-	snap->lex_state = st->lex_state;
-	snap->is_global = st->is_global;
+	struct parse_state *ps;
+
+	ps = malloc(sizeof(struct parse_state));
+	ps->input = input;
+	ps->did_peek = 0;
+	lex_state_init(&ps->lex_state, name);
+
+	return ps;
 }
 
-static void cstate_restore(struct cstate *st, struct cstate_snapshot *snap)
+static void parse_state_free(struct parse_state *ps)
 {
-	bytecode_restore(st->bytecode, &snap->bytecode);
-	st->did_peek = snap->did_peek;
-	st->peeked = snap->peeked;
-	st->lex_state = snap->lex_state;
-	st->is_global = snap->is_global;
+	free(ps);
 }
 
-static struct cstate cstate_default(int with_bytecode)
+static struct module_state *module_state_new(cb_modspec *spec)
 {
-	return (struct cstate) {
-		.bytecode = with_bytecode ? cb_bytecode_new() : NULL,
-		.input = NULL,
-		.filename = "<script>",
-		.did_peek = 0,
-		.lex_state = lex_state_new("<script>"),
-		.modspec = NULL,
-		.is_global = 1,
-		.scope = NULL,
-		.function_state = NULL,
-		.loop_state = NULL,
-		.imported = cb_hashmap_new(),
-	};
+	struct module_state *state;
+
+	state = malloc(sizeof(struct module_state));
+	state->spec = spec;
+	state->imported = cb_hashmap_new();
+	LIST_INIT(&state->exports);
+
+	return state;
 }
 
-/* NOTE: does not free bytecode or input */
-static void cstate_free(struct cstate state)
+static void module_state_free(struct module_state *state)
 {
-	if (state.modspec)
-		cb_modspec_free(state.modspec);
-	cb_hashmap_free(state.imported);
+	cb_hashmap_free(state->imported);
+	free(state);
 }
 
-struct cstate *cb_compile_state_new(const char *name, cb_modspec *modspec,
-		cb_bytecode *bc)
+static void cstate_init(struct cstate *const state, const char *input,
+		size_t name)
 {
-	struct cstate *st;
-
-	st = malloc(sizeof(struct cstate));
-	*st = cstate_default(0);
-	st->bytecode = bc;
-	st->lex_state.filename = name;
-	st->filename = name;
-	st->modspec = modspec;
-
-	return st;
+	state->parse_state = parse_state_new(input, name);
+	state->module_state = NULL;
+	state->function_state = NULL;
+	state->bytecode = cb_bytecode_new();
+	state->consts = NULL;
+	state->consts_len = state->consts_size = 0;
 }
 
-void cb_compile_state_free(struct cstate *st)
+static void cstate_deinit(const struct cstate *state)
 {
-	st->modspec = NULL; /* FIXME: This modspec-freeing mess seems bad */
-	cstate_free(*st);
-	free(st);
+	if (state->parse_state)
+		parse_state_free(state->parse_state);
+	if (state->bytecode)
+		cb_bytecode_free(state->bytecode);
+	if (state->consts)
+		free(state->consts);
 }
 
-void cb_compile_state_reset(struct cstate *st, const char *code,
-		cb_modspec *modspec)
+static void cstate_inherit(struct cstate *dest, const struct cstate *src)
 {
-	st->lex_state = lex_state_new(st->lex_state.filename);
-	st->input = code;
-	st->modspec = modspec;
-	st->did_peek = 0;
+	dest->parse_state = src->parse_state;
+	dest->module_state = src->module_state;
+	dest->function_state = NULL;
+	dest->bytecode = cb_bytecode_new();
+	dest->consts = NULL;
+	dest->consts_len = dest->consts_size = 0;
+}
+
+static size_t cstate_add_const(struct cstate *state, struct cb_const cst)
+{
+	if (state->consts_len >= state->consts_size) {
+		if (state->consts_size == 0)
+			state->consts_size = 4;
+		else
+			state->consts_size <<= 1;
+		state->consts = realloc(state->consts,
+				state->consts_size * sizeof(struct cb_const));
+	}
+	state->consts[state->consts_len] = cst;
+	return state->consts_len++;
+}
+
+static int cstate_is_global(struct cstate *s)
+{
+	return !s->function_state;
 }
 
 static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
@@ -756,16 +737,17 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 	struct function_state *fstate;
 	int i, found;
 
-	if (!s->scope)
+	/* i.e. we're in the global scope */
+	if (s->function_state == NULL)
 		return 0;
-	binding = scope_get_binding(s->scope, name);
+
+	fstate = s->function_state;
+	binding = scope_get_binding(fstate->scope, name);
 	if (binding) {
 		*out = *binding;
 		return 1;
 	}
-	if (scope_parent_has_binding(s->scope, name)) {
-		fstate = s->function_state;
-		assert(fstate != NULL);
+	if (scope_parent_has_binding(fstate->scope, name)) {
 		found = 0;
 		for (i = 0; i < fstate->free_var_len; i += 1) {
 			if (fstate->free_variables[i] == name) {
@@ -780,7 +762,7 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 		} else {
 			out->is_upvalue = 1;
 			out->name = name;
-			out->index = s->scope->num_upvalues
+			out->index = s->function_state->scope->num_upvalues
 				+ s->function_state->free_var_len;
 			fstate_add_freevar(fstate, name);
 		}
@@ -792,7 +774,7 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 
 static inline const char *tok_start(struct cstate *state, struct token *tok)
 {
-	return state->input + tok->start;
+	return state->parse_state->input + tok->start;
 }
 
 static inline size_t intern_ident(struct cstate *state, struct token *tok)
@@ -801,7 +783,7 @@ static inline size_t intern_ident(struct cstate *state, struct token *tok)
 	return cb_agent_intern_string(tok_start(state, tok), tok_len(tok));
 }
 
-static struct token *peek(struct cstate *state, int *ok)
+static struct token *peek(struct parse_state *state, int *ok)
 {
 	if (state->did_peek) {
 		*ok = 1;
@@ -812,7 +794,7 @@ static struct token *peek(struct cstate *state, int *ok)
 	return &state->peeked;
 }
 
-static struct token next(struct cstate *state, int *ok)
+static struct token next(struct parse_state *state, int *ok)
 {
 	struct token tok;
 	if (state->did_peek) {
@@ -830,14 +812,14 @@ static struct token next(struct cstate *state, int *ok)
 #define PEEK() ({ \
 		int _ok; \
 		struct token *_tok; \
-		_tok = peek(state, &_ok); \
+		_tok = peek(state->parse_state, &_ok); \
 		if (!_ok) \
 			return 1; \
 		_tok; \
 	})
 #define NEXT() ({ \
 		int _ok; \
-		struct token _tok = next(state, &_ok); \
+		struct token _tok = next(state->parse_state, &_ok); \
 		if (!_ok) \
 			return 1; \
 		_tok; \
@@ -861,17 +843,22 @@ static struct token next(struct cstate *state, int *ok)
 		NEXT(); \
 	})
 #define ERROR_AT_P(TOK, MSG, ...) ({ \
+		cb_str __name; \
 		if (TOK) { \
 			ERROR_AT(*(TOK), MSG, ##__VA_ARGS__); \
 		} else { \
+			__name = cb_agent_get_string( \
+					state->parse_state->lex_state.name); \
 			fprintf(stderr, "Error in %s at EOF: " MSG "\n", \
-				state->filename, ##__VA_ARGS__); \
+				cb_strptr(&__name), ##__VA_ARGS__); \
 		} \
 	})
 #define ERROR_AT(TOK, MSG, ...) ({ \
+		cb_str __name = cb_agent_get_string( \
+				state->parse_state->lex_state.name); \
 		fprintf(stderr, "Error in %s at %zu:%zu: " MSG "\n", \
-			state->filename, (TOK).line, (TOK).column, \
-			##__VA_ARGS__); \
+				cb_strptr(&__name), (TOK).line, \
+				(TOK).column, ##__VA_ARGS__); \
 	})
 #define APPEND(B) (bytecode_push(state->bytecode, (B)))
 #define APPEND_SIZE_T(S) (bytecode_push_size_t(state->bytecode, (S)))
@@ -900,53 +887,86 @@ static int compile_expression_statement(struct cstate *);
 
 static int compile_expression(struct cstate *);
 
-static int compile(struct cstate *state, size_t name_id, int final)
+static struct cb_code *create_code(struct cstate *state)
+{
+	struct cb_code *code;
+	size_t current, i;
+
+	code = cb_code_new();
+
+	/* Calculate the maximum stack size this code fragment requires, excluding
+	   arguments */
+	code->stack_size = !!state->function_state;
+	if (state->function_state)
+		code->stack_size += state->function_state->scope->num_locals;
+
+	/* NOTE: this assumes that any ops in a loop cannot have positive stack
+	   effect */
+	current = code->stack_size;
+	i = 0;
+	while (i < cb_bytecode_len(state->bytecode)) {
+		cb_instruction *instr = &state->bytecode->code[i];
+		current += cb_opcode_stack_effect(instr);
+		assert(current >= 0);
+		if (current > code->stack_size)
+			code->stack_size = current;
+		i += cb_opcode_arity(instr) + 1;
+	}
+
+	code->bytecode = bytecode_finalize(state->bytecode, &code->bytecode_len);
+	code->nconsts = state->consts_len;
+	code->const_pool = realloc(state->consts,
+			state->consts_len * sizeof(struct cb_const));
+	code->modspec = state->module_state->spec;
+
+	/* ownership taken */
+	state->consts = NULL;
+	state->bytecode = NULL;
+
+	if (!cstate_is_global(state)) {
+		code->nlocals = state->function_state->scope->num_locals;
+		code->nupvalues = state->function_state->free_var_len;
+	} else {
+		/* TODO: use locals for global scope */
+		code->nupvalues = code->nlocals = 0;
+	}
+
+	return code;
+}
+
+static int compile(struct cstate *state, enum token_type end_tok)
 {
 	struct token *tok;
-	struct bytecode_snapshot before;
-	int had_module;
 
-	bytecode_snapshot(state->bytecode, &before);
-
-	if (state->modspec) {
-		had_module = 1;
-		APPEND(OP_ENTER_MODULE);
-		APPEND_SIZE_T(cb_modspec_id(state->modspec));
-	} else {
-		had_module = 0;
-		state->modspec = cb_modspec_new(name_id);
-		APPEND(OP_INIT_MODULE);
-		APPEND_SIZE_T(cb_modspec_id(state->modspec));
-	}
-
-	while ((tok = PEEK()) && tok->type != TOK_EOF) {
+	while ((tok = PEEK()) && tok->type != end_tok) {
 		if (compile_statement(state))
-			goto err;
+			return 1;
 	}
 
-	EXPECT(TOK_EOF);
-
-	assert(state->modspec && "Missing modspec while compiling");
-	if (had_module) {
-		APPEND(OP_EXIT_MODULE);
-	} else {
-		APPEND(OP_END_MODULE);
-		cb_agent_add_modspec(state->modspec);
-	}
-	state->modspec = NULL;
-
-	if (final) {
-		APPEND(OP_HALT);
-		bytecode_finalize(state->bytecode);
-	}
+	EXPECT(end_tok);
 
 	return 0;
+}
 
-err:
-	bytecode_restore(state->bytecode, &before);
-	if (!had_module)
-		cb_agent_unreserve_modspec_id(cb_modspec_id(state->modspec));
-	return 1;
+static struct cb_code *compile_into_module(struct cstate *state,
+		cb_modspec *modspec)
+{
+	struct cb_code *code;
+
+	state->module_state = module_state_new(modspec);
+
+	if (compile(state, TOK_EOF))
+		return NULL;
+
+	APPEND(OP_HALT);
+
+	code = create_code(state);
+	code->modspec = modspec;
+
+	module_state_free(state->module_state);
+	state->module_state = NULL;
+
+	return code;
 }
 
 static int compile_statement(struct cstate *state)
@@ -995,15 +1015,24 @@ static int compile_statement(struct cstate *state)
 
 static void export_name(struct cstate *state, size_t name)
 {
+	size_t export_idx;
+
+	/* Can't export something from inside a function */
+	assert(cstate_is_global(state));
+
+	cb_modspec_add_export(state->module_state->spec, name);
 	APPEND(OP_EXPORT);
-	APPEND_SIZE_T(cb_modspec_add_export(state->modspec, name));
+	export_idx = LIST_LEN(&state->module_state->exports);
+	LIST_PUSH(&state->module_state->exports, name);
+	APPEND_SIZE_T(export_idx);
 }
 
 static int declare_name(struct cstate *state, size_t name_id, int export)
 {
 	size_t binding_id;
 
-	if (state->is_global) {
+	if (cstate_is_global(state)) {
+		/* FIXME: let DECLARE_GLOBAL also assign the value */
 		APPEND(OP_DECLARE_GLOBAL);
 		APPEND_SIZE_T(name_id);
 		APPEND(OP_STORE_GLOBAL);
@@ -1013,8 +1042,8 @@ static int declare_name(struct cstate *state, size_t name_id, int export)
 		else
 			APPEND(OP_POP);
 	} else {
-		assert(state->scope != NULL);
-		binding_id = scope_add_binding(state->scope, name_id, 0);
+		binding_id = scope_add_binding(state->function_state->scope,
+				name_id, 0);
 		APPEND(OP_STORE_LOCAL);
 		APPEND_SIZE_T(binding_id);
 		APPEND(OP_POP);
@@ -1178,165 +1207,212 @@ static int compile_let_statement(struct cstate *state, int export)
 	return 0;
 }
 
-static int compile_function(struct cstate *state, size_t *name_out)
+static int compile_const_function(struct cstate *state, size_t **free_vars_out,
+		struct cb_const_user_function *func_out, size_t *binding_id_out)
 {
-	int first_param, old_is_global;
+	struct cstate inner_state;
+	struct function_state inner_fn_state;
 	struct token name;
 	struct assignment_pattern param_patterns[CB_MAX_PARAMS];
 	size_t bindings[CB_MAX_PARAMS];
-	size_t optarg_addrs[CB_MAX_PARAMS], optarg_count;
-	size_t name_id, binding_id;
-	size_t num_params, local_count_pos;
-	struct scope inner_scope, *old_scope;
-	struct function_state fstate, *old_fstate;
-	size_t free_var;
-	struct binding *binding;
-	int i, j;
-	size_t start_label, end_label;
+	size_t name_id,
+	       binding_id,
+	       num_params,
+	       next_opt_param,
+	       body_addr,
+	       local_count_pos,
+	       num_opt_params;
+	int is_first_param;
+
+#define APPEND_INNER(VAL) bytecode_push(inner_state.bytecode, (VAL))
+#define APPEND_SIZE_T_INNER(S) bytecode_push_size_t(inner_state.bytecode, (S))
+#define LABEL_INNER() (bytecode_label(inner_state.bytecode))
+#define MARK_INNER(L) (bytecode_mark_label(inner_state.bytecode, (L)))
+#define ADDR_OF_INNER(L) (bytecode_address_of(inner_state.bytecode, (L)))
+#define UPDATE_INNER(IDX, VAL) (bytecode_update_size_t(inner_state.bytecode, \
+			(IDX), (VAL)))
+
+	cstate_inherit(&inner_state, state);
+	inner_state.function_state = &inner_fn_state;
+	inner_fn_state.parent = state->function_state;
+	inner_fn_state.loop_state = NULL;
+	inner_fn_state.scope = scope_new();
+	inner_fn_state.free_variables = NULL;
+	inner_fn_state.free_var_len = inner_fn_state.free_var_size = 0;
+	if (state->function_state)
+		inner_fn_state.scope->parent = state->function_state->scope;
 
 	EXPECT(TOK_FUNCTION);
 	if (MATCH_P(TOK_IDENT)) {
 		name = EXPECT(TOK_IDENT);
 		name_id = intern_ident(state, &name);
-		if (name_out)
-			*name_out = name_id;
-		if (!state->is_global) {
+		if (!cstate_is_global(state)) {
 			/* Add the function to the current scope so recursive
 			   calls refer to the right variable */
-			assert(state->scope != NULL);
-			binding_id = scope_add_binding(state->scope, name_id, 0);
+			binding_id = scope_add_binding(
+					state->function_state->scope,
+					name_id, 0);
+			if (binding_id_out)
+				*binding_id_out = binding_id;
 		}
 	} else {
 		name_id = (size_t) -1;
 	}
 
-	start_label = LABEL();
-	end_label = LABEL();
-
-	APPEND(OP_JUMP);
-	ADDR_OF(end_label);
-
-	inner_scope = scope_new();
-	inner_scope.parent = state->scope;
-	old_is_global = state->is_global;
-	state->is_global = 0;
-	old_scope = state->scope;
-	state->scope = &inner_scope;
-
 	num_params = 0;
-	first_param = 1;
-	optarg_count = 0;
+	is_first_param = 1;
+	num_opt_params = 0;
+	next_opt_param = LABEL_INNER();
 
 	EXPECT(TOK_LEFT_PAREN);
 	while (!MATCH_P(TOK_RIGHT_PAREN)) {
-		if (first_param) {
-			first_param = 0;
+		if (is_first_param) {
+			is_first_param = 0;
 		} else {
 			EXPECT(TOK_COMMA);
 			/* support trailing comma */
 			if (MATCH_P(TOK_RIGHT_PAREN))
 				break;
 		}
-		bindings[num_params] = scope_add_binding(&inner_scope, -1, 0);
-		X(parse_assignment_pattern(state, &param_patterns[num_params++], 0));
+		bindings[num_params] = scope_add_binding(inner_fn_state.scope,
+				-1, 0);
+		if (parse_assignment_pattern(&inner_state,
+					&param_patterns[num_params++], 0))
+			return -1;
 
 		if (MAYBE_CONSUME(TOK_EQUAL)) {
-			optarg_addrs[optarg_count++] = cb_bytecode_len(
-					state->bytecode);
+			num_opt_params += 1;
+			MARK_INNER(next_opt_param);
+			next_opt_param = LABEL_INNER();
+			APPEND_INNER(OP_APPLY_DEFAULT_ARG);
+			APPEND_SIZE_T_INNER(num_params - 1);
+			ADDR_OF_INNER(next_opt_param);
 			/* The default value is just left on the stack since
 			   that's where the local variable will be located */
-			X(compile_expression(state));
-		} else if (optarg_count) {
+			if (compile_expression(&inner_state))
+				return -1;
+		} else if (num_opt_params) {
 			EXPECT(TOK_EQUAL);
 		}
 	}
 	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
 
-	MARK(start_label);
-	APPEND(OP_ALLOCATE_LOCALS);
-	local_count_pos = cb_bytecode_len(state->bytecode);
-	APPEND_SIZE_T(0);
+	inner_fn_state.arity = num_params;
 
-	for (i = num_params - 1; i >= 0; i -= 1) {
-		APPEND(OP_LOAD_LOCAL);
-		APPEND_SIZE_T(bindings[i]);
-		X(compile_assignment_pattern(state, &param_patterns[i], 0));
+	MARK_INNER(next_opt_param);
+	/* Address used when all arguments are passed */
+	body_addr = cb_bytecode_len(inner_state.bytecode);
+
+	APPEND_INNER(OP_ALLOCATE_LOCALS);
+	local_count_pos = cb_bytecode_len(inner_state.bytecode);
+	APPEND_SIZE_T_INNER(0);
+
+	/* FIXME: Avoid copying all arguments that aren't patterns */
+	for (ssize_t i = num_params - 1; i >= 0; i -= 1) {
+		APPEND_INNER(OP_LOAD_LOCAL);
+		APPEND_SIZE_T_INNER(bindings[i]);
+		if (compile_assignment_pattern(&inner_state,
+					&param_patterns[i], 0))
+			return -1;
 	}
 
-	fstate = (struct function_state) {
-		.start_label = start_label,
-		.end_label = end_label,
-		.free_variables = NULL,
-		.free_var_len = 0,
-		.free_var_size = 0,
-	};
-	old_fstate = state->function_state;
-	state->function_state = &fstate;
-
-	while (!MATCH_P(TOK_RIGHT_BRACE))
-		X(compile_statement(state));
+	if (compile(&inner_state, TOK_RIGHT_BRACE))
+		return -1;
 
 	/* potentially an extra return, but better safe than sorry */
-	APPEND(OP_CONST_NULL);
-	APPEND(OP_RETURN);
-
-	MARK(end_label);
+	APPEND_INNER(OP_CONST_NULL);
+	APPEND_INNER(OP_RETURN);
 
 	/* Make room on the stack for the local variables. Arguments will
 	 * already be on the stack, so we don't need to allocate more room for
 	 * them. */
-	UPDATE(local_count_pos, inner_scope.num_locals - num_params);
+	UPDATE_INNER(local_count_pos,
+			inner_fn_state.scope->num_locals - num_params);
 
-	scope_free(inner_scope);
-	state->scope = old_scope;
-	state->is_global = old_is_global;
-	state->function_state = old_fstate;
+	func_out->code = create_code(&inner_state);
+	func_out->name = name_id;
+	func_out->arity = num_params;
+	func_out->num_opt_params = num_opt_params;
 
-	APPEND(OP_NEW_FUNCTION);
-	APPEND_SIZE_T(name_id);
-	APPEND_SIZE_T(num_params);
-	ADDR_OF(start_label);
-	APPEND_SIZE_T(optarg_count);
-	for (i = 0; i < optarg_count; i += 1)
-		APPEND_SIZE_T(optarg_addrs[i]);
+	scope_free(inner_fn_state.scope);
 
-	if (state->is_global && name_id != -1) {
-		APPEND(OP_DECLARE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-		APPEND(OP_STORE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-	} else if (name_id != -1) {
+	inner_state.module_state = NULL;
+	inner_state.parse_state = NULL;
+	cstate_deinit(&inner_state);
+
+#undef APPEND_INNER
+#undef APPEND_SIZE_T_INNER
+#undef LABEL_INNER
+#undef MARK_INNER
+#undef ADDR_OF_INNER
+#undef UPDATE_INNER
+
+	if (free_vars_out)
+		*free_vars_out = inner_fn_state.free_variables;
+
+	return inner_fn_state.free_var_len;
+}
+
+static int compile_function(struct cstate *state, size_t *name_out)
+{
+	ssize_t free_var_len;
+	size_t free_var, *free_vars;
+	size_t i, j, const_id, binding_id;
+	struct cb_const_user_function *func;
+	struct cb_const func_const;
+	struct binding *binding;
+
+	func = malloc(sizeof(struct cb_const_user_function));
+	free_var_len = compile_const_function(state, &free_vars, func,
+			&binding_id);
+	if (free_var_len < 0) {
+		free(func);
+		return 1;
+	}
+
+	if (name_out != NULL)
+		*name_out = func->name;
+
+	func_const.type = CB_CONST_FUNCTION;
+	func_const.val.as_function = func;
+	const_id = cstate_add_const(state, func_const);
+	APPEND(OP_LOAD_CONST);
+	APPEND_SIZE_T(const_id);
+
+	if (!cstate_is_global(state) && func->name != -1) {
 		APPEND(OP_STORE_LOCAL);
 		APPEND_SIZE_T(binding_id);
 	}
 
-	EXPECT(TOK_RIGHT_BRACE);
-
-	if (fstate.free_var_len > 0)
-		assert(state->scope != NULL);
-
-	for (j = i = 0; i < fstate.free_var_len; i += 1) {
-		free_var = fstate.free_variables[i];
-		binding = scope_get_binding(state->scope, free_var);
+	for (j = i = 0; i < free_var_len; i += 1) {
+		free_var = free_vars[i];
+		binding = scope_get_binding(state->function_state->scope,
+				free_var);
 		if (binding != NULL) {
 			if (binding->is_upvalue)
 				APPEND(OP_BIND_UPVALUE);
 			else
 				APPEND(OP_BIND_LOCAL);
+			APPEND_SIZE_T(i);
 			APPEND_SIZE_T(binding->index);
 		} else {
-			if (scope_parent_has_binding(state->scope, free_var)) {
+			if (scope_parent_has_binding(state->function_state->scope,
+						free_var)) {
 				assert(state->function_state != NULL);
 				fstate_add_freevar(state->function_state,
 							free_var);
 				APPEND(OP_BIND_UPVALUE);
-				APPEND_SIZE_T(state->scope->num_upvalues + j++);
+				APPEND_SIZE_T(i);
+				APPEND_SIZE_T(state->function_state->scope
+						->num_upvalues + j);
+				j += 1;
 			}
 		}
 	}
 
-	free(fstate.free_variables);
+	if (free_vars != NULL)
+		free(free_vars);
 
 	return 0;
 }
@@ -1346,10 +1422,8 @@ static int compile_function_statement(struct cstate *state, int export)
 	size_t name;
 
 	X(compile_function(state, &name));
-	if (export && state->is_global)
-		export_name(state, name);
-	else
-		APPEND(OP_POP);
+	if (name != -1)
+		declare_name(state, name, export);
 
 	return 0;
 }
@@ -1456,8 +1530,8 @@ static int compile_for_statement(struct cstate *state)
 	ADDR_OF(start_label);
 	MARK(body_label);
 
-	old_lstate = state->loop_state;
-	state->loop_state = &lstate;
+	old_lstate = state->function_state->loop_state;
+	state->function_state->loop_state = &lstate;
 
 	while (!MATCH_P(TOK_RIGHT_BRACE))
 		X(compile_statement(state));
@@ -1467,7 +1541,7 @@ static int compile_for_statement(struct cstate *state)
 	ADDR_OF(increment_label);
 	MARK(end_label);
 
-	state->loop_state = old_lstate;
+	state->function_state->loop_state = old_lstate;
 
 	return 0;
 }
@@ -1491,8 +1565,8 @@ static int compile_while_statement(struct cstate *state)
 	APPEND(OP_JUMP_IF_FALSE);
 	ADDR_OF(end_label);
 
-	old_lstate = state->loop_state;
-	state->loop_state = &lstate;
+	old_lstate = state->function_state->loop_state;
+	state->function_state->loop_state = &lstate;
 
 	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
@@ -1504,7 +1578,7 @@ static int compile_while_statement(struct cstate *state)
 	ADDR_OF(start_label);
 	MARK(end_label);
 
-	state->loop_state = old_lstate;
+	state->function_state->loop_state = old_lstate;
 
 	return 0;
 }
@@ -1514,14 +1588,14 @@ static int compile_break_statement(struct cstate *state)
 	struct token tok;
 
 	tok = EXPECT(TOK_BREAK);
-	if (!state->loop_state) {
+	if (!state->function_state->loop_state) {
 		ERROR_AT(tok, "Break outside of loop");
 		return 1;
 	}
 	EXPECT(TOK_SEMICOLON);
 
 	APPEND(OP_JUMP);
-	ADDR_OF(state->loop_state->break_label);
+	ADDR_OF(state->function_state->loop_state->break_label);
 
 	return 0;
 }
@@ -1531,14 +1605,14 @@ static int compile_continue_statement(struct cstate *state)
 	struct token tok;
 
 	tok = EXPECT(TOK_CONTINUE);
-	if (!state->loop_state) {
+	if (!state->function_state->loop_state) {
 		ERROR_AT(tok, "Continue outside of loop");
 		return 1;
 	}
 	EXPECT(TOK_SEMICOLON);
 
 	APPEND(OP_JUMP);
-	ADDR_OF(state->loop_state->continue_label);
+	ADDR_OF(state->function_state->loop_state->continue_label);
 
 	return 0;
 }
@@ -1569,9 +1643,8 @@ static int compile_export_statement(struct cstate *state)
 	struct token tok;
 
 	tok = EXPECT(TOK_EXPORT);
-	assert(state->modspec && "modspec not present while compiling");
 
-	if (!state->is_global) {
+	if (!cstate_is_global(state)) {
 		ERROR_AT(tok, "Can only export from global scope");
 		return 1;
 	}
@@ -1590,20 +1663,22 @@ static int compile_export_statement(struct cstate *state)
 	return 0;
 }
 
-static int compile_file(struct cstate *state, size_t name, const char *path,
-		FILE *f, int final);
-
 static int compile_import_statement(struct cstate *state)
 {
 	struct token tok, ident;
 	char *filename;
-	cb_str modsrc;
+	cb_str modname_str;
 	size_t modname;
 	const struct cb_builtin_module_spec *builtin;
 	FILE *f;
+	cb_modspec *imported_modspec;
+	struct cb_code *imported_code;
+	struct cb_const_module *const_mod;
+	struct cb_const module_const;
+	size_t const_id;
 
 	tok = EXPECT(TOK_IMPORT);
-	if (!state->is_global) {
+	if (!cstate_is_global(state)) {
 		ERROR_AT(tok, "Import must be at top level");
 		return 1;
 	}
@@ -1612,17 +1687,17 @@ static int compile_import_statement(struct cstate *state)
 	EXPECT(TOK_SEMICOLON);
 
 	modname = intern_ident(state, &ident);
-	modsrc = cb_agent_get_string(modname);
+	modname_str = cb_agent_get_string(modname);
 	builtin = NULL;
 
-	if (cb_hashmap_get(state->imported, modname, NULL))
+	if (cb_hashmap_get(state->module_state->imported, modname, NULL))
 		return 0;
 
 	/* If the import name is one of the names is one of the builtin
 	 * modules, just add that builtin module to state->imported */
 	for (size_t i = 0; i < cb_builtin_module_count; i += 1) {
 		size_t builtin_name_len = strlen(cb_builtin_modules[i].name);
-		if (cb_str_eq_cstr(modsrc, cb_builtin_modules[i].name,
+		if (cb_str_eq_cstr(modname_str, cb_builtin_modules[i].name,
 				builtin_name_len)) {
 			builtin = &cb_builtin_modules[i];
 			break;
@@ -1630,14 +1705,18 @@ static int compile_import_statement(struct cstate *state)
 	}
 
 	if (!builtin) {
+		cb_str _name = cb_agent_get_string(
+				state->parse_state->lex_state.name);
 		/* FIXME: this sucks */
-		if (strlen(state->filename) == sizeof("<script>") - 1
-				&& !strncmp("<script>", state->filename,
+		if (cb_strlen(cb_agent_get_string(
+					state->parse_state->lex_state.name))
+				== sizeof("<script>") - 1
+				&& !strncmp("<script>", cb_strptr(&_name),
 					sizeof("<script>") - 1)) {
 			filename = malloc(1);
 			*filename = 0;
 		} else {
-			char *real_path = realpath(state->filename, NULL);
+			char *real_path = realpath(cb_strptr(&_name), NULL);
 			const char *dir_name = dirname(real_path);
 			size_t len = strlen(dir_name);
 			filename = malloc(len + 1);
@@ -1646,18 +1725,29 @@ static int compile_import_statement(struct cstate *state)
 			free(real_path);
 		}
 
-		APPEND(OP_EXIT_MODULE);
-		f = cb_agent_resolve_import(modsrc, filename, NULL);
+		f = cb_agent_resolve_import(modname_str, filename, NULL);
 		free(filename);
 		if (!f)
 			goto error;
-		X(compile_file(state, modname, cb_strptr(&modsrc), f, 0));
-		assert(state->modspec && "Missing modspec while compiling");
-		APPEND(OP_ENTER_MODULE);
-		APPEND_SIZE_T(cb_modspec_id(state->modspec));
+
+		/* FIXME: Only compile a module once */
+		imported_modspec = cb_modspec_new(modname);
+		cb_agent_add_modspec(imported_modspec);
+		imported_code = cb_compile_file(imported_modspec, f);
+		if (!imported_code)
+			return 1;
+		const_mod = malloc(sizeof(struct cb_const_module));
+		const_mod->spec = imported_modspec;
+		const_mod->code = imported_code;
+		module_const.type = CB_CONST_MODULE;
+		module_const.val.as_module = const_mod;
+		const_id = cstate_add_const(state, module_const);
+
+		APPEND(OP_IMPORT_MODULE);
+		APPEND_SIZE_T(const_id);
 	}
 
-	cb_hashmap_set(state->imported, modname,
+	cb_hashmap_set(state->module_state->imported, modname,
 			(struct cb_value) { .type = CB_VALUE_NULL });
 
 	return 0;
@@ -1708,14 +1798,14 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 
 	UPDATE(nfields_pos, num_fields);
 
-	if (state->is_global && name_id != -1) {
+	if (cstate_is_global(state) && name_id != -1) {
 		APPEND(OP_DECLARE_GLOBAL);
 		APPEND_SIZE_T(name_id);
 		APPEND(OP_STORE_GLOBAL);
 		APPEND_SIZE_T(name_id);
 	} else if (name_id != -1) {
-		assert(state->scope != NULL);
-		binding_id = scope_add_binding(state->scope, name_id, 0);
+		binding_id = scope_add_binding(state->function_state->scope,
+				name_id, 0);
 		APPEND(OP_STORE_LOCAL);
 		APPEND_SIZE_T(binding_id);
 	}
@@ -1729,7 +1819,7 @@ static int compile_struct_statement(struct cstate *state, int export)
 
 	X(compile_struct_decl(state, &name_id));
 
-	if (export && state->is_global)
+	if (export && cstate_is_global(state))
 		export_name(state, name_id);
 	else
 		APPEND(OP_POP);
@@ -1922,7 +2012,8 @@ static int compile_identifier_expression(struct cstate *state)
 			ERROR_AT(tok, "No such module %s\n",
 					cb_strptr(&modname));
 			return 1;
-		} else if (!cb_hashmap_get(state->imported, name, NULL)) {
+		} else if (!cb_hashmap_get(state->module_state->imported, name,
+					NULL)) {
 			modname = cb_agent_get_string(
 					intern_ident(state, &tok));
 			ERROR_AT(tok, "Missing import for module %s\n",
@@ -2090,11 +2181,11 @@ static int compile_array_expression(struct cstate *state)
 {
 	size_t num_elements, i;
 	int first_elem;
-	struct cstate_snapshot snapshot;
+	struct parse_state og_parse_state;
 	struct assignment_pattern pat;
 	struct token tok;
 
-	cstate_snapshot(state, &snapshot);
+	og_parse_state = *state->parse_state;
 
 	if (!parse_assignment_pattern(state, &pat, 1) && MATCH_P(TOK_EQUAL)) {
 		assert(pat.type == PATTERN_ARRAY);
@@ -2110,7 +2201,7 @@ static int compile_array_expression(struct cstate *state)
 			APPEND(OP_POP);
 		}
 	} else {
-		cstate_restore(state, &snapshot);
+		*state->parse_state = og_parse_state;
 		num_elements = 0;
 		first_elem = 1;
 
@@ -2577,72 +2668,43 @@ epilogue:
 	return result;
 }
 
-static int compile_file(struct cstate *state, size_t name, const char *path,
-		FILE *f, int final)
+size_t name_from_path(const char *path)
 {
-	int result;
-	char *input;
-	struct cstate new_state;
+	char *dup = strdup(path);
+	char *fname;
+	size_t i, name;
 
-	assert(state != NULL);
-	if (cb_agent_get_modspec_by_name(name))
-		return 0;
+	fname = basename(dup);
+	for (i = 0; fname[i] && fname[i] != '.'; i += 1);
+	fname[i] = 0;
+
+	name = cb_agent_intern_string(fname, i);
+	free(dup);
+
+	return name;
+}
+
+struct cb_code *cb_compile_string(cb_modspec *module, const char *source)
+{
+	struct cstate state;
+	struct cb_code *code;
+
+	cstate_init(&state, source, cb_modspec_name(module));
+	code = compile_into_module(&state, module);
+
+	return code;
+}
+
+struct cb_code *cb_compile_file(cb_modspec *module, FILE *f)
+{
+	char *input;
+	struct cb_code *code;
 
 	if (read_file(f, &input))
-		return 1;
+		return NULL;
 
-	new_state = cstate_default(0);
-	new_state.bytecode = state->bytecode;
-	new_state.input = input;
-	new_state.lex_state = lex_state_new(path);
-	new_state.filename = path;
-
-	result = compile(&new_state, name, final);
-
+	code = cb_compile_string(module, input);
 	free(input);
-	cstate_free(new_state);
-	return result;
-}
 
-int cb_compile_module(cb_bytecode *bc, cb_str name, FILE *f, const char *path)
-{
-	int result;
-	size_t name_id;
-	struct cstate state = cstate_default(0);
-
-	state.bytecode = bc;
-	name_id = cb_agent_intern_string(cb_strptr(&name), cb_strlen(name));
-	result = compile_file(&state, name_id, path, f, 1);
-
-	cstate_free(state);
-	return result;
-}
-
-int cb_compiler_resume(struct cstate *state)
-{
-	return compile(state, cb_agent_intern_string(state->filename,
-				strlen(state->filename)), 1);
-}
-
-int cb_compile_file(const char *name, const char *path,
-		struct bytecode **bc_out)
-{
-	int result;
-	FILE *f;
-	struct cstate state;
-
-	f = fopen(path, "rb");
-	if (!f) {
-		fprintf(stderr, "File not found: '%s'\n", path);
-		return 1;
-	}
-
-	state = cstate_default(1);
-	result = compile_file(&state,
-			cb_agent_intern_string(name, strlen(name)), path, f, 1);
-	*bc_out = state.bytecode;
-
-	cstate_free(state);
-
-	return result;
+	return code;
 }

@@ -10,6 +10,7 @@ typedef struct modspec cb_modspec;
 struct cb_module {
 	const struct modspec *spec;
 	cb_hashmap *global_scope;
+	int evaluated;
 };
 
 cb_modspec *cb_modspec_new(size_t name);

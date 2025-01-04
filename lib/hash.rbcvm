@@ -14,6 +14,7 @@ export function fnv1a(bytes) {
     let byte = bytes.get(bytes, i);
     hash = hash ^ byte;
     hash = hash * FNV_PRIME_32;
+    hash = hash & 0xffffffff;
   }
 
   return hash;

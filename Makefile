@@ -12,6 +12,10 @@ ifneq ($(TARGET),release)
 	CFLAGS+=-fsanitize=$(SANITIZERS) -fno-omit-frame-pointer
 endif
 
+ifeq ($(TARGET),debug)
+	CFLAGS+=-DCB_DEBUG_VM
+endif
+
 cbcvm: *.c *.h modules/*.c modules/*.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o cbcvm *.c modules/*.c
 

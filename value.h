@@ -57,17 +57,12 @@ enum cb_function_type {
 typedef int (cb_native_function)(size_t argc, struct cb_value *argv,
 		struct cb_value *retval);
 
-struct cb_function_optargs {
-	size_t count;
-	size_t addrs[CB_MAX_PARAMS];
-};
+struct cb_code;
 
 struct cb_user_function {
-	size_t address;
+	struct cb_code *code;
 	struct cb_upvalue **upvalues;
-	size_t upvalues_size, upvalues_len;
-	size_t module_id;
-	struct cb_function_optargs optargs;
+	size_t num_opt_params;
 };
 
 struct cb_function {
@@ -109,23 +104,22 @@ struct cb_array {
 
 int cb_value_eq(struct cb_value *a, struct cb_value *b);
 double cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok);
-cb_str cb_value_to_string(struct cb_value *val);
+cb_str cb_value_to_string(struct cb_value val);
 int cb_value_is_truthy(struct cb_value *val);
-void cb_function_add_upvalue(struct cb_user_function *fn,
+void cb_function_add_upvalue(struct cb_user_function *fn, size_t idx,
 		struct cb_upvalue *uv);
 int cb_value_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		struct cb_value *result);
 
-int cb_value_is_marked(const struct cb_value *val);
-void cb_value_mark(struct cb_value *val);
-void cb_value_incref(struct cb_value *val);
-void cb_value_decref(struct cb_value *val);
+cb_gc_header *cb_value_gc_header(const struct cb_value val);
+void cb_value_mark(struct cb_value val);
+void cb_value_incref(struct cb_value val);
+void cb_value_decref(struct cb_value val);
 struct cb_function *cb_function_new(void);
 struct cb_string *cb_string_new(void);
 struct cb_array *cb_array_new(size_t len);
 struct cb_value cb_cfunc_new(size_t name, size_t arity,
 		cb_native_function *func);
-size_t cb_ufunc_entry(const struct cb_function *func, size_t num_args);
 struct cb_value cb_int(int64_t);
 struct cb_value cb_double(double);
 struct cb_value cb_bool(int);

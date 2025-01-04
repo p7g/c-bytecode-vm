@@ -170,6 +170,11 @@ inline void cb_agent_add_modspec(cb_modspec *spec)
 	agent.modules[cb_modspec_id(spec)] = spec;
 }
 
+inline void cb_agent_clear_modspec(cb_modspec *spec)
+{
+	agent.modules[cb_modspec_id(spec)] = NULL;
+}
+
 inline size_t cb_agent_reserve_modspec_id()
 {
 	size_t id;

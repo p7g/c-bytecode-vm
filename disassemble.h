@@ -4,10 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "code.h"
 #include "compiler.h"
 
-int cb_disassemble(cb_bytecode *bytecode);
-int cb_disassemble_one(cb_bytecode *bytecode, size_t pc);
-int cb_disassemble_range(cb_bytecode *bytecode, size_t start, size_t end);
+int cb_disassemble_recursive(struct cb_code *code);
+int cb_disassemble(struct cb_code *code);
+int cb_disassemble_one(cb_instruction *code, size_t offset);
 
 #endif

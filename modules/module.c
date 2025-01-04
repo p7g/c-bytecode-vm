@@ -1,8 +1,11 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "builtin_modules.h"
+#include "code.h"
+#include "disassemble.h"
 #include "error.h"
 #include "eval.h"
 #include "hashmap.h"
@@ -67,7 +70,7 @@ static int get_export(size_t argc, struct cb_value *argv,
 
 	spec = cb_agent_get_modspec_by_name(modname_id);
 	if (!spec) {
-		cb_error_set(cb_value_from_fmt("exports: No module '%s'",
+		cb_error_set(cb_value_from_fmt("get: No module '%s'",
 				cb_strptr(&modname)));
 		return 1;
 	}
@@ -82,6 +85,7 @@ static int get_export(size_t argc, struct cb_value *argv,
 	}
 
 	mod = &cb_vm_state.modules[cb_modspec_id(spec)];
+	assert(mod->evaluated);
 	if (!cb_hashmap_get(mod->global_scope, export_name_id, result)) {
 		cb_error_set(cb_value_from_fmt(
 				"get: Module '%s' has no export '%s'",
@@ -92,17 +96,17 @@ static int get_export(size_t argc, struct cb_value *argv,
 	return 0;
 }
 
-/* This function is pretty sketchy */
 static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	cb_str import_name;
-	size_t pc;
+	cb_str import_name_str;
+	size_t import_name;
 	FILE *f;
 	char *path = NULL;
 	int retval = 0;
-	struct cb_frame frame;
+	struct cb_code *code;
+	cb_modspec *modspec;
 
-	import_name = CB_EXPECT_STRING(argv[0]);
+	import_name_str = CB_EXPECT_STRING(argv[0]);
 	if (argv[1].type != CB_VALUE_NULL) {
 		path = cb_strdup_cstr(CB_EXPECT_STRING(argv[1]));
 		f = fopen(path, "rb");
@@ -112,23 +116,25 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 		}
 	} else {
 		/* FIXME: Keep track of current file directory so pwd can be set */
-		f = cb_agent_resolve_import(import_name, NULL, &path);
+		f = cb_agent_resolve_import(import_name_str, NULL, &path);
 		if (!f)
 			goto err;
 	}
 
-	pc = cb_bytecode_len(cb_vm_state.bytecode);
-	if (cb_compile_module(cb_vm_state.bytecode, import_name, f, path))
+	import_name = cb_agent_intern_string(cb_strptr(&import_name_str),
+			cb_strlen(import_name_str));
+	modspec = cb_agent_get_modspec_by_name(import_name);
+	if (!modspec) {
+		modspec = cb_modspec_new(import_name);
+		cb_agent_add_modspec(modspec);
+	}
+
+	code = cb_compile_file(modspec, f);
+	if (!code)
 		goto err;
 
-	/* Make room in cb_vm_state for new module */
-	cb_vm_grow_modules_array(cb_agent_modspec_count());
+	retval = cb_run(code);
 
-	frame.is_function = 0;
-	frame.module = NULL;
-	frame.parent = cb_vm_state.frame;
-	frame.bp = cb_vm_state.sp;
-	retval = cb_eval(pc, &frame);
 	goto end;
 
 err:

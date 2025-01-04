@@ -29,24 +29,39 @@ void sigint_handler(int signum)
 }
 #endif
 
+// struct cb_metrics cb_metrics = { { 0 } };
+
 int run_file(const char *filename)
 {
-	cb_bytecode *bytecode;
+	struct cb_code *code;
+	cb_modspec *module;
 	int result;
+	FILE *f;
 
-	result = cb_compile_file("<script>", filename, &bytecode);
-
-	if (cb_options.disasm && !result)
-		result = cb_disassemble(bytecode);
-
-	if (!result) {
-		cb_vm_init(bytecode);
-		cb_instantiate_builtin_modules();
-		result = cb_run();
-		cb_vm_deinit();
+	f = fopen(filename, "rb");
+	if (!f) {
+		perror("fopen");
+		return 1;
 	}
 
-	cb_bytecode_free(bytecode);
+	module = cb_modspec_new(cb_agent_intern_string("<main>", 6));
+	cb_agent_add_modspec(module);
+	code = cb_compile_file(module, f);
+
+	if (!code)
+		return 1;
+
+	if (cb_options.disasm) {
+		if (cb_disassemble_recursive(code))
+			return 1;
+	}
+
+	cb_vm_init();
+	cb_instantiate_builtin_modules();
+	result = cb_run(code);
+	cb_vm_deinit();
+
+	cb_code_free(code);
 
 	return result;
 }
@@ -69,12 +84,13 @@ static const char *help = (
 static int parse_opts(int *argc, char ***argv, char **fname_out)
 {
 	static struct option long_opts[] = {
-		{"debug-vm",        no_argument, &cb_options.debug_vm,  1  },
-		{"debug-gc",        no_argument, &cb_options.debug_gc,  1  },
-		{"debug-disasm",    no_argument, &cb_options.disasm,    1  },
-		{"stress-gc",       no_argument, &cb_options.stress_gc, 1  },
-		{"help",            no_argument, 0,                     'h'},
-		{0,                 0,           0,                     0  },
+		{"debug-vm",        no_argument, &cb_options.debug_vm,      1  },
+		{"debug-gc",        no_argument, &cb_options.debug_gc,      1  },
+		{"debug-hashmap",   no_argument, &cb_options.debug_hashmap, 1  },
+		{"debug-disasm",    no_argument, &cb_options.disasm,        1  },
+		{"stress-gc",       no_argument, &cb_options.stress_gc,     1  },
+		{"help",            no_argument, 0,                         'h'},
+		{0,                 0,           0,                         0  },
 	};
 
 	int c;
@@ -141,5 +157,10 @@ int main(int argc, char **argv) {
 	}
 
 	cb_agent_deinit();
+
+	// puts("nops:");
+	// for (int i = 0; i < OP_MAX; i += 1)
+	// 	printf("\t%24s: %zu\n", cb_opcode_name(i), cb_metrics.nops[i]);
+
 	return result;
 }

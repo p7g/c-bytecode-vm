@@ -19,8 +19,10 @@ void cb_gc_adjust_refcount(cb_gc_header *obj, int amount);
 void cb_gc_collect(void);
 int cb_gc_should_collect(void);
 void cb_gc_register(cb_gc_header *obj, size_t size, cb_deinit_fn *deinit_fn);
+void cb_gc_update_size(struct cb_gc_header *obj, size_t size);
+size_t cb_gc_size(struct cb_gc_header *obj);
 
 struct cb_value;
-void cb_gc_queue_mark(struct cb_value *obj);
+void cb_gc_queue_mark(struct cb_value obj);
 
 #endif
