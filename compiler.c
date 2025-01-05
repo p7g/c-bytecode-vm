@@ -1398,18 +1398,15 @@ static int compile_function(struct cstate *state, size_t *name_out)
 				APPEND(OP_BIND_LOCAL);
 			APPEND_SIZE_T(i);
 			APPEND_SIZE_T(binding->index);
-		} else {
-			if (scope_parent_has_binding(state->function_state->scope,
-						free_var)) {
-				assert(state->function_state != NULL);
-				fstate_add_freevar(state->function_state,
-							free_var);
-				APPEND(OP_BIND_UPVALUE);
-				APPEND_SIZE_T(i);
-				APPEND_SIZE_T(state->function_state->scope
-						->num_upvalues + j);
-				j += 1;
-			}
+		} else if (scope_parent_has_binding(state->function_state->scope,
+					free_var)) {
+			assert(state->function_state != NULL);
+			fstate_add_freevar(state->function_state, free_var);
+			APPEND(OP_BIND_UPVALUE);
+			APPEND_SIZE_T(i);
+			APPEND_SIZE_T(state->function_state->scope
+					->num_upvalues + j);
+			j += 1;
 		}
 	}
 
