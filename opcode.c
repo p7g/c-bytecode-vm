@@ -89,6 +89,10 @@ size_t cb_opcode_arity(const cb_instruction *ops)
 
 	case OP_NEW_STRUCT_SPEC:
 		return 2 + ops[2];
+
+	default:
+		fprintf(stderr, "getting arity of unknown opcode %d\n", op);
+		abort();
 	}
 }
 
@@ -170,6 +174,10 @@ int cb_opcode_stack_effect(const cb_instruction *ops)
 
 	case OP_CALL:
 		return -ops[1];
+
+	default:
+		fprintf(stderr, "getting stack effect of unknown opcode %d\n", op);
+		abort();
 	}
 }
 
