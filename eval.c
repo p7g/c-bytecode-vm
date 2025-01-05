@@ -650,13 +650,14 @@ DO_OP_BIND_LOCAL: {
 
 	uv = NULL;
 	for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
-		if (cb_vm_state.upvalues[i] == NULL
-				|| cb_vm_state.upvalues[i]->call_depth < 0
-				|| (size_t) cb_vm_state.upvalues[i]->call_depth
+		struct cb_upvalue *uv2 = cb_vm_state.upvalues[i];
+		if (uv2 == NULL || uv2->call_depth < 0
+				|| (size_t) uv2->call_depth
 					< cb_vm_state.call_depth)
 			break;
-		if (cb_vm_state.upvalues[i]->v.idx == idx) {
-			uv = cb_vm_state.upvalues[i];
+		assert((size_t) uv2->call_depth == cb_vm_state.call_depth);
+		if (uv2->v.idx == idx) {
+			uv = uv2;
 			break;
 		}
 	}
