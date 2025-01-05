@@ -18,6 +18,7 @@
 #include "modules/structs.h"
 #include "modules/sys.h"
 
+/* TODO: intern module names to make comparison easier later */
 static const struct cb_builtin_module_spec builtins[] = {
 	{"time", cb_time_build_spec, cb_time_instantiate},
 	{"structs", cb_structs_build_spec, cb_structs_instantiate},
