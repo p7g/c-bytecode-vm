@@ -899,8 +899,7 @@ static struct cb_code *create_code(struct cstate *state)
 	if (!cstate_is_global(state))
 		code->stack_size += state->function_state->scope->num_locals;
 
-	/* NOTE: this assumes that any ops in a loop cannot have positive stack
-	   effect */
+	/* NOTE: this assumes that a loop cannot have positive stack effect */
 	current = code->stack_size;
 	i = 0;
 	while (i < cb_bytecode_len(state->bytecode)) {
