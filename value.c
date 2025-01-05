@@ -463,8 +463,8 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		return 1;
 	}
 	case CB_VALUE_STRING:
-		return !strcmp(cb_strptr(&a->val.as_string->string),
-				cb_strptr(&b->val.as_string->string));
+		return !cb_strcmp(a->val.as_string->string,
+				b->val.as_string->string);
 	case CB_VALUE_BYTES: {
 		struct cb_bytes *bytes_a, *bytes_b;
 		bytes_a = a->val.as_bytes;
@@ -539,6 +539,29 @@ double cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok)
 		if (b->type == CB_VALUE_DOUBLE)
 			return OK(a->val.as_double - b->val.as_double);
 		return UNDEFINED();
+	case CB_VALUE_STRING:
+		if (b->type == CB_VALUE_STRING) {
+			return cb_strcmp(a->val.as_string->string,
+					b->val.as_string->string);
+		} else if (b->type == CB_VALUE_INTERNED_STRING) {
+			cb_str bstr = cb_agent_get_string(
+					b->val.as_interned_string);
+			return cb_strcmp(a->val.as_string->string, bstr);
+		} else {
+			return UNDEFINED();
+		}
+	case CB_VALUE_INTERNED_STRING: {
+		cb_str astr = cb_agent_get_string(a->val.as_interned_string);
+		if (b->type == CB_VALUE_STRING) {
+			return cb_strcmp(astr, b->val.as_string->string);
+		} else if (b->type == CB_VALUE_INTERNED_STRING) {
+			cb_str bstr = cb_agent_get_string(
+					b->val.as_interned_string);
+			return cb_strcmp(astr, bstr);
+		} else {
+			return UNDEFINED();
+		}
+	}
 
 	default:
 		return UNDEFINED();

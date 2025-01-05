@@ -28,6 +28,7 @@ char *cb_strdup_cstr(cb_str str);
 cb_str cb_strdup(cb_str str);
 cb_str cb_str_take_cstr(char *str, size_t len);
 void cb_str_init(struct cb_str *str, size_t len);
+int cb_strcmp(cb_str a, cb_str b);
 
 void cb_str_free(cb_str s);
 
