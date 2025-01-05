@@ -737,7 +737,7 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 	int found;
 
 	/* i.e. we're in the global scope */
-	if (s->function_state == NULL)
+	if (cstate_is_global(s))
 		return 0;
 
 	fstate = s->function_state;
@@ -895,8 +895,8 @@ static struct cb_code *create_code(struct cstate *state)
 
 	/* Calculate the maximum stack size this code fragment requires, excluding
 	   arguments */
-	code->stack_size = !!state->function_state;
-	if (state->function_state)
+	code->stack_size = !cstate_is_global(state);
+	if (!cstate_is_global(state))
 		code->stack_size += state->function_state->scope->num_locals;
 
 	/* NOTE: this assumes that any ops in a loop cannot have positive stack
