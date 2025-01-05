@@ -6,10 +6,8 @@
 struct cb_code;
 
 #define CB_CONST_TYPE_LIST(X) \
-	X(CB_CONST_NULL) \
 	X(CB_CONST_INT) \
 	X(CB_CONST_DOUBLE) \
-	X(CB_CONST_BOOL) \
 	X(CB_CONST_CHAR) \
 	X(CB_CONST_STRING) \
 	X(CB_CONST_ARRAY) \
@@ -33,7 +31,6 @@ struct cb_const {
 	union {
 		intptr_t as_int;
 		double as_double;
-		int as_bool;
 		uint32_t as_char;
 		size_t as_string;  /* always interned */
 		struct cb_const_array *as_array;

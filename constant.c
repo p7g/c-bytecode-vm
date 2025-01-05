@@ -19,10 +19,8 @@ const char *cb_const_type_name(enum cb_const_type ty)
 void cb_const_free(struct cb_const *obj)
 {
 	switch (obj->type) {
-	case CB_CONST_NULL:
 	case CB_CONST_INT:
 	case CB_CONST_DOUBLE:
-	case CB_CONST_BOOL:
 	case CB_CONST_CHAR:
 	case CB_CONST_STRING:
 		break;
@@ -61,9 +59,6 @@ struct cb_value cb_const_to_value(const struct cb_const *const_)
 	struct cb_value ret;
 
 	switch (const_->type) {
-	case CB_CONST_NULL:
-		ret.type = CB_VALUE_NULL;
-		break;
 	case CB_CONST_INT:
 		ret.type = CB_VALUE_INT;
 		ret.val.as_int = const_->val.as_int;
@@ -71,10 +66,6 @@ struct cb_value cb_const_to_value(const struct cb_const *const_)
 	case CB_CONST_DOUBLE:
 		ret.type = CB_VALUE_DOUBLE;
 		ret.val.as_double = const_->val.as_double;
-		break;
-	case CB_CONST_BOOL:
-		ret.type = CB_VALUE_BOOL;
-		ret.val.as_bool = const_->val.as_bool;
 		break;
 	case CB_CONST_CHAR:
 		ret.type = CB_VALUE_CHAR;
