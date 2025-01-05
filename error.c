@@ -96,7 +96,7 @@ void cb_traceback_print(FILE *f, struct cb_traceback *tb)
 	} else {
 		const char *buf;
 
-		spec = tb->frame.module->spec;
+		spec = cb_agent_get_modspec(tb->frame.module_id);
 		cb_str modname = cb_agent_get_string(cb_modspec_name(spec));
 		buf = cb_strptr(&modname);
 		fprintf(f, "\tin module %s\n", buf);

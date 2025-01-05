@@ -66,21 +66,6 @@ void cb_vm_grow_modules_array()
 	cb_vm_state.modules = realloc((old_modules_ptr = cb_vm_state.modules),
 			new_size * sizeof(struct cb_module));
 	cb_module_zero(&cb_vm_state.modules[new_size - 1]);
-
-	/* Patch all existing frames to point at the new modules */
-	if (cb_vm_state.modules != old_modules_ptr) {
-		for (struct cb_frame *current = cb_vm_state.frame;
-				current; current = current->parent) {
-CB_IGNORE_USE_AFTER_FREE
-			/* old_modules_ptr has been freed so we can't
-			   dereference it, hence the compiler warning. Here
-			   we're just using it to compute an offset though, so
-			   probably ok. */
-			current->module = cb_vm_state.modules
-					+ (current->module - old_modules_ptr);
-CB_IGNORE_USE_AFTER_FREE_END
-		}
-	}
 }
 
 static void add_upvalue(struct cb_upvalue *uv)
@@ -134,11 +119,13 @@ int cb_eval(struct cb_frame *frame);
 int cb_run(struct cb_code *code)
 {
 	struct cb_frame frame;
+	struct cb_module *module;
 	int result;
 
-	frame.module = &cb_vm_state.modules[cb_modspec_id(code->modspec)];
-	if (cb_module_is_zero(*frame.module))
-		init_module(frame.module, code->modspec);
+	frame.module_id = cb_modspec_id(code->modspec);
+	module = &cb_vm_state.modules[frame.module_id];
+	if (cb_module_is_zero(*module))
+		init_module(module, code->modspec);
 	frame.is_function = 0;
 	frame.num_args = 0;
 	frame.code = code;
@@ -146,7 +133,8 @@ int cb_run(struct cb_code *code)
 	frame.sp = NULL; /* pointer to local variable, assigned in cb_eval */
 
 	result = cb_eval(&frame);
-	frame.module->evaluated = 1;
+	/* don't use the module pointer from before; it might have moved */
+	cb_vm_state.modules[frame.module_id].evaluated = 1;
 	return result;
 }
 
@@ -166,6 +154,8 @@ int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 	}
 
 	if (fn.val.as_function->type == CB_FUNCTION_USER) {
+		struct cb_module *module;
+
 		user_func = &fn.val.as_function->value.as_user;
 
 		stack_size = user_func->code->stack_size + args_len;
@@ -173,10 +163,10 @@ int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		frame.is_function = 1;
 		frame.num_args = args_len;
 		frame.code = user_func->code;
-		frame.module = &cb_vm_state.modules[
-			cb_modspec_id(user_func->code->modspec)];
-		if (cb_module_is_zero(*frame.module))
-			init_module(frame.module, user_func->code->modspec);
+		frame.module_id = cb_modspec_id(user_func->code->modspec);
+		module = &cb_vm_state.modules[frame.module_id];
+		if (cb_module_is_zero(*module))
+			init_module(module, user_func->code->modspec);
 
 		/* FIXME: add some restriction on arguments length */
 		frame.stack = alloca(stack_size * sizeof(struct cb_value));
@@ -203,9 +193,9 @@ static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 	char *modname = "script";
 	char *funcname;
 
-	if (frame->module) {
-		modname_str = cb_agent_get_string(cb_modspec_name(
-					frame->module->spec));
+	if (frame->module_id) {
+		struct cb_module *module = &cb_vm_state.modules[frame->module_id];
+		modname_str = cb_agent_get_string(cb_modspec_name( module->spec));
 		modname = cb_strptr(&modname_str);
 	}
 
@@ -275,7 +265,7 @@ int cb_eval(struct cb_frame *frame)
 		struct cb_value _v = (VAL); \
 		locals[N] = _v; \
 	})
-#define GLOBALS() (frame->module->global_scope)
+#define GLOBALS() (global_scope)
 #define PUSH(V) (*sp++ = (V))
 #define POP() (*--sp)
 #define CACHE() (&frame->code->ic[ip - frame->code->bytecode - 1])
@@ -285,6 +275,7 @@ int cb_eval(struct cb_frame *frame)
 	int retval = 0;
 	struct cb_value *locals = frame->stack + frame->is_function;
 	struct cb_const *consts = frame->code->const_pool;
+	cb_hashmap *global_scope = cb_vm_state.modules[frame->module_id].global_scope;
 
 	frame->sp = &sp;
 	frame->parent = cb_vm_state.frame;
@@ -521,8 +512,7 @@ DO_OP_CALL: {
 		struct cb_frame next_frame;
 		next_frame.is_function = 1;
 		next_frame.num_args = num_args;
-		next_frame.module = &cb_vm_state.modules[
-			cb_modspec_id(code->modspec)];
+		next_frame.module_id = cb_modspec_id(code->modspec);
 		next_frame.code = code;
 		next_frame.stack = stack;
 
@@ -1134,7 +1124,7 @@ DO_OP_IMPORT_MODULE: {
 		struct cb_value stack[code->stack_size];
 
 		struct cb_frame new_frame;
-		new_frame.module = mod;
+		new_frame.module_id = mod_id;
 		new_frame.is_function = 0;
 		new_frame.num_args = 0;
 		new_frame.code = code;

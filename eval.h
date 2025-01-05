@@ -22,7 +22,7 @@ struct cb_upvalue {
 
 struct cb_frame {
 	struct cb_frame *parent;
-	struct cb_module *module;
+	size_t module_id;
 	unsigned is_function, num_args;
 	struct cb_code *code;
 	struct cb_value *stack;
