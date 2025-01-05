@@ -35,8 +35,7 @@ static int get_exports(size_t argc, struct cb_value *argv,
 	modname = CB_EXPECT_STRING(argv[0]);
 	id = cb_agent_get_string_id(cb_strptr(&modname), cb_strlen(modname));
 
-	spec = cb_agent_get_modspec_by_name(id);
-	if (!spec) {
+	if (id == -1 || !(spec = cb_agent_get_modspec_by_name(id))) {
 		cb_error_set(cb_value_from_fmt("exports: No module '%s'",
 				cb_strptr(&modname)));
 		return 1;
