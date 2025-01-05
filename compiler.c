@@ -889,13 +889,15 @@ static int compile_expression(struct cstate *);
 static struct cb_code *create_code(struct cstate *state)
 {
 	struct cb_code *code;
-	size_t current, i;
+	ssize_t current;
+	size_t i;
 
 	code = cb_code_new();
 
 	/* Calculate the maximum stack size this code fragment requires, excluding
 	   arguments */
-	code->stack_size = !cstate_is_global(state);
+	/* FIXME: why is the +1 needed? */
+	code->stack_size = !cstate_is_global(state) + 1;
 	if (!cstate_is_global(state))
 		code->stack_size += state->function_state->scope->num_locals;
 

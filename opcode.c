@@ -21,7 +21,7 @@ size_t cb_opcode_arity(const cb_instruction *ops)
 {
 	enum cb_opcode op;
 
-	assert(*ops >= 0 && *ops < OP_MAX);
+	assert(*ops < OP_MAX);
 	op = *ops;
 
 	switch (op) {
@@ -96,7 +96,7 @@ int cb_opcode_stack_effect(const cb_instruction *ops)
 {
 	enum cb_opcode op;
 
-	assert(*ops >= 0 && *ops < OP_MAX);
+	assert(*ops < OP_MAX);
 	op = *ops;
 
 	switch (op) {
