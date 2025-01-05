@@ -52,8 +52,10 @@ int run_file(const char *filename)
 		return 1;
 
 	if (cb_options.disasm) {
-		if (cb_disassemble_recursive(code))
+		if (cb_disassemble_recursive(code)) {
+			cb_code_free(code);
 			return 1;
+		}
 	}
 
 	cb_vm_init();
