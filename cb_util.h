@@ -13,9 +13,14 @@
 	CB_DIAGNOSTIC_IGNORE(W)
 #define CB_IGNORE_WARNING_END CB_DIAGNOSTIC_POP
 
-#if defined(__has_warning) && __has_warning("-Wuse-after-free")
-# define CB_IGNORE_USE_AFTER_FREE CB_IGNORE_WARNING("-Wuse-after-free")
-# define CB_IGNORE_USE_AFTER_FREE_END CB_IGNORE_WARNING_END
+#if defined(__has_warning)
+# if __has_warning("-Wuse-after-free")
+#  define CB_IGNORE_USE_AFTER_FREE CB_IGNORE_WARNING("-Wuse-after-free")
+#  define CB_IGNORE_USE_AFTER_FREE_END CB_IGNORE_WARNING_END
+# else
+#  define CB_IGNORE_USE_AFTER_FREE
+#  define CB_IGNORE_USE_AFTER_FREE_END
+# endif
 #else
 # define CB_IGNORE_USE_AFTER_FREE
 # define CB_IGNORE_USE_AFTER_FREE_END
