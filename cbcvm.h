@@ -10,10 +10,4 @@ extern struct cb_options {
 	    stress_gc;
 } cb_options;
 
-struct cb_metrics {
-	size_t nops[OP_MAX];
-} cb_metrics;
-
-void record_pattern(enum cb_opcode fst, enum cb_opcode snd);
-
 #endif

@@ -29,8 +29,6 @@ void sigint_handler(int signum)
 }
 #endif
 
-// struct cb_metrics cb_metrics = { { 0 } };
-
 int run_file(const char *filename)
 {
 	struct cb_code *code;
