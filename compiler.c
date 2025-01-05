@@ -960,7 +960,6 @@ static struct cb_code *compile_into_module(struct cstate *state,
 	APPEND(OP_HALT);
 
 	code = create_code(state);
-	code->modspec = modspec;
 
 	module_state_free(state->module_state);
 	state->module_state = NULL;
