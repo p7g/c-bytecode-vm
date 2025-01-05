@@ -102,6 +102,8 @@ struct cb_value cb_const_to_value(const struct cb_const *const_)
 		struct cb_struct_spec *spec = cb_struct_spec_new(
 				cb_agent_intern_string("<anonymous>", 11),
 				strct->nfields);
+
+		/* FIXME: add more efficient way to build struct literal */
 		for (unsigned i = 0; i < strct->nfields; i += 1)
 			cb_struct_spec_set_field_name(spec, i,
 					strct->fields[i].name);
