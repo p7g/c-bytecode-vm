@@ -99,7 +99,6 @@ static struct cb_frame *find_upvalue_frame(struct cb_upvalue *uv)
 	return frame;
 }
 
-// FIXME: expose this so it can be used from intrinsics
 inline struct cb_value cb_load_upvalue(struct cb_upvalue *uv)
 {
 	if (uv->call_depth < 0)
