@@ -1,0 +1,27 @@
+import test;
+
+export function test_string_equality() {
+    test.assert("a" != "b");
+    test.assert("a" == "a");
+}
+
+export function test_string_ordering() {
+    test.assert("a" < "b");
+    test.assert("a" < "aa");
+}
+
+export function test_string_equality_uninterned() {
+    let s = string_concat("a", "a");
+    let s2 = string_concat("a", "a");
+    test.assert(s == "aa");
+    test.assert(s == s2);
+}
+
+export function test_string_ordering_uninterned() {
+    let aa = string_concat("a", "a");
+    let bb = string_concat("b", "b");
+    let aaa = string_concat("a", "a", "a");
+
+    test.assert(aa < bb);
+    test.assert(aa < aaa);
+}
