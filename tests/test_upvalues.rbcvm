@@ -1,0 +1,154 @@
+import test;
+
+export function test_basic() {
+    function make() {
+        let a = 123;
+
+        return function get() { return a; };
+    }
+
+    test.assert(make()() == 123);
+}
+
+export function test_multiple_references() {
+    function make() {
+        let n = 0;
+
+        return struct {
+            get = function get() {
+                return n;
+            },
+            set = function set(n2) {
+                n = n2;
+            },
+        };
+    }
+
+    let { get, set } = make();
+    test.assert(get() == 0);
+    set(123);
+    test.assert(get() == 123);
+}
+
+export function test_multiple_levels() {
+    function make() {
+        let n = 0;
+
+        function makeset() {
+            return function set(n2) {
+                n = n2;
+            };
+        }
+
+        function makeget() {
+            return function get() {
+                return n;
+            };
+        }
+
+        return struct {
+            get = makeget(),
+            set = makeset(),
+        };
+    }
+
+    let { get, set } = make();
+
+    test.assert(get() == 0);
+    set(123);
+    test.assert(get() == 123);
+}
+
+export function test_multiple_levels2() {
+    function make() {
+        let n = 0;
+
+        function makeset() {
+            return function set(n2) {
+                n = n2;
+            };
+        }
+
+        function makeget() {
+            return function get() {
+                return n;
+            };
+        }
+
+        let get = makeget();
+        let set = makeset();
+
+        test.assert(get() == 0);
+        set(123);
+        test.assert(get() == 123);
+    }
+
+    make();
+}
+
+export function test_parallel_upvalues() {
+    function make1() {
+        let n = 0;
+
+        return struct {
+            get = function get1() {
+                return n;
+            },
+            set = function set1(n2) {
+                n = n2;
+            },
+        };
+    }
+
+    function make2() {
+        let n = 0;
+
+        return struct {
+            get = function get2() {
+                return n;
+            },
+            set = function set2(n2) {
+                n = n2;
+            },
+        };
+    }
+
+    let a = make1();
+    let b = make2();
+
+    test.assert(a:get() == 0);
+    test.assert(b:get() == 0);
+    a:set(123);
+    test.assert(a:get() == 123);
+    test.assert(b:get() == 0);
+    b:set(234);
+    test.assert(a:get() == 123);
+    test.assert(b:get() == 234);
+}
+
+export function test_multiple_function_instances() {
+    function make() {
+        let n = 0;
+
+        return struct {
+            get = function get() {
+                return n;
+            },
+            set = function set(n2) {
+                n = n2;
+            },
+        };
+    }
+
+    let a = make();
+    let b = make();
+
+    test.assert(a:get() == 0);
+    test.assert(b:get() == 0);
+    a:set(123);
+    test.assert(a:get() == 123);
+    test.assert(b:get() == 0);
+    b:set(234);
+    test.assert(a:get() == 123);
+    test.assert(b:get() == 234);
+}
