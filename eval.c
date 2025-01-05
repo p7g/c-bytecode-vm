@@ -205,10 +205,8 @@ static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 	if (!frame->is_function) {
 		funcname = "top";
 	} else {
-		if ((_name = frame->stack[0].val.as_function->name) != -1) {
-			funcname_str = cb_agent_get_string(_name);
-			funcname = cb_strptr(&funcname_str);
-		}
+		funcname_str = cb_agent_get_string(_name);
+		funcname = cb_strptr(&funcname_str);
 	}
 
 	printf("%s%s%s\n", modname, !frame->is_function ? " " : ".", funcname);
