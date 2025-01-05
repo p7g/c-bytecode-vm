@@ -13,6 +13,9 @@ const char *cb_const_type_name(enum cb_const_type ty)
 #define CASE(TY) case TY: return #TY;
 		CB_CONST_TYPE_LIST(CASE)
 #undef CASE
+	default:
+		fprintf(stderr, "Unknown const type %d\n", ty);
+		abort();
 	}
 }
 
@@ -51,6 +54,10 @@ void cb_const_free(struct cb_const *obj)
 		cb_modspec_free(obj->val.as_module->spec);
 		free(obj->val.as_module);
 		break;
+
+	default:
+		fprintf(stderr, "Unknown const type %d\n", obj->type);
+		abort();
 	}
 }
 
@@ -136,6 +143,10 @@ struct cb_value cb_const_to_value(const struct cb_const *const_)
 		fprintf(stderr, "Fatal: Converting const module to value\n");
 		exit(1);
 		break;
+
+	default:
+		fprintf(stderr, "Unknown const type %d\n", const_->type);
+		abort();
 	}
 
 	return ret;
