@@ -77,7 +77,6 @@ static const char *help = (
 	"Options:\n"
 	"\t-h, --help      Print this help text.\n"
 	"\t-D              Enable all \"debug-\" features.\n"
-	"\t--debug-vm      Print VM debug information during execution.\n"
 	"\t--debug-gc      Print GC debug information during execution.\n"
 	"\t--debug-disasm  Print a disassembly of the program before execution.\n"
 	"\t--stress-gc     Collect garbage after every allocation.\n"
@@ -86,7 +85,6 @@ static const char *help = (
 static int parse_opts(int *argc, char ***argv, char **fname_out)
 {
 	static struct option long_opts[] = {
-		{"debug-vm",        no_argument, &cb_options.debug_vm,      1  },
 		{"debug-gc",        no_argument, &cb_options.debug_gc,      1  },
 		{"debug-hashmap",   no_argument, &cb_options.debug_hashmap, 1  },
 		{"debug-disasm",    no_argument, &cb_options.disasm,        1  },
@@ -105,9 +103,7 @@ static int parse_opts(int *argc, char ***argv, char **fname_out)
 
 		switch (c) {
 		case 'D':
-			cb_options.debug_gc =
-				cb_options.debug_vm =
-				cb_options.disasm = 1;
+			cb_options.debug_gc = cb_options.disasm = 1;
 			break;
 
 		case 'h':
