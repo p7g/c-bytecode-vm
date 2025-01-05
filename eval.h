@@ -63,7 +63,7 @@ extern struct cb_vm_state cb_vm_state;
 
 void cb_vm_init(void);
 void cb_vm_deinit(void);
-void cb_vm_grow_modules_array(size_t new_size);
+void cb_vm_grow_modules_array();
 
 int cb_eval(struct cb_frame *frame);
 int cb_run(struct cb_code *code);
