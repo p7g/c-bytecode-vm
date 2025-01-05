@@ -1109,6 +1109,7 @@ DO_OP_IMPORT_MODULE: {
 	int result;
 
 	const_id = READ_SIZE_T();
+	assert(consts[const_id].type == CB_CONST_MODULE);
 	const_mod = consts[const_id].val.as_module;
 	code = const_mod->code;
 	mod_id = cb_modspec_id(const_mod->spec);
