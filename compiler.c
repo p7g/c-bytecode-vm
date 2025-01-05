@@ -2241,6 +2241,7 @@ static int compile_anonymous_struct_literal(struct cstate *state)
 	first_field = 1;
 	name = cb_agent_intern_string("<anonymous>", 11);
 
+	/* TODO: Generate a const for the struct literal if possible */
 	EXPECT(TOK_STRUCT);
 	EXPECT(TOK_LEFT_BRACE);
 	while (!MATCH_P(TOK_RIGHT_BRACE)) {
