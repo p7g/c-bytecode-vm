@@ -66,7 +66,6 @@ void cb_instantiate_builtin_modules(void)
 		spec_id = cb_modspec_id(spec);
 		mod = &cb_vm_state.modules[spec_id];
 
-		mod->global_scope = cb_hashmap_new();
 		mod->spec = spec;
 		modules[i] = mod;
 	}

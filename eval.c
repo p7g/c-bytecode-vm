@@ -55,15 +55,13 @@ void cb_vm_deinit(void)
 
 	free(cb_vm_state.upvalues);
 	cb_vm_state.upvalues = NULL;
-	cb_gc_collect();
 }
 
 void cb_vm_grow_modules_array()
 {
 	size_t new_size = cb_agent_modspec_count() + 1;
-	struct cb_module *old_modules_ptr;
 
-	cb_vm_state.modules = realloc((old_modules_ptr = cb_vm_state.modules),
+	cb_vm_state.modules = realloc(cb_vm_state.modules,
 			new_size * sizeof(struct cb_module));
 	cb_module_zero(&cb_vm_state.modules[new_size - 1]);
 }
