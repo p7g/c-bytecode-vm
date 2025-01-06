@@ -10,6 +10,7 @@
 #include "bytes.h"
 #include "cb_util.h"
 #include "cbcvm.h"
+#include "constant.h"
 #include "eval.h"
 #include "module.h"
 #include "str.h"
@@ -665,6 +666,21 @@ inline cb_gc_header *cb_value_gc_header(const struct cb_value val)
 	abort();
 }
 
+static void value_mark_fn(void *obj)
+{
+	cb_value_mark(*(struct cb_value *) obj);
+}
+
+cb_gc_hold_key *cb_value_gc_hold(struct cb_value *val)
+{
+	return cb_gc_hold((void *) val, value_mark_fn);
+}
+
+static void queue_mark(struct cb_value *val)
+{
+	cb_gc_queue_mark((void *) val, value_mark_fn);
+}
+
 void cb_value_mark(struct cb_value val)
 {
 #define GC_LOG(F) ({ \
@@ -707,7 +723,7 @@ void cb_value_mark(struct cb_value val)
 	case CB_VALUE_ARRAY: {
 		GC_LOG(val.val.as_array);
 		for (unsigned i = 0; i < val.val.as_array->len; i += 1)
-			cb_gc_queue_mark(val.val.as_array->values[i]);
+			queue_mark(&val.val.as_array->values[i]);
 		break;
 	}
 
@@ -718,13 +734,16 @@ void cb_value_mark(struct cb_value val)
 		fn = val.val.as_function;
 		GC_LOG(fn);
 		if (fn->type == CB_FUNCTION_USER) {
+			struct cb_user_function *ufunc = &fn->value.as_user;
 			for (unsigned i = 0;
-					i < fn->value.as_user.code->nupvalues;
+					i < ufunc->code->nupvalues;
 					i += 1) {
-				uv = fn->value.as_user.upvalues[i];
+				uv = ufunc->upvalues[i];
 				if (uv->call_depth < 0)
-					cb_gc_queue_mark(uv->v.value);
+					queue_mark(&uv->v.value);
 			}
+
+			cb_code_mark(ufunc->code);
 		}
 		break;
 	}
@@ -734,7 +753,7 @@ void cb_value_mark(struct cb_value val)
 		cb_gc_mark(&val.val.as_struct->spec->gc_header);
 		for (unsigned i = 0; i < val.val.as_struct->spec->nfields;
 				i += 1)
-			cb_gc_queue_mark(val.val.as_struct->fields[i]);
+			queue_mark(&val.val.as_struct->fields[i]);
 		break;
 	}
 

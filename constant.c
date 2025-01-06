@@ -45,12 +45,10 @@ void cb_const_free(struct cb_const *obj)
 	}
 
 	case CB_CONST_FUNCTION:
-		cb_code_free(obj->val.as_function->code);
 		free(obj->val.as_function);
 		break;
 
 	case CB_CONST_MODULE:
-		cb_code_free(obj->val.as_module->code);
 		cb_modspec_free(obj->val.as_module->spec);
 		free(obj->val.as_module);
 		break;
@@ -127,9 +125,11 @@ struct cb_value cb_const_to_value(const struct cb_const *const_)
 		func->name = const_func->name;
 		func->arity = const_func->arity;
 		func->value.as_user.code = const_func->code;
-		func->value.as_user.upvalues = malloc(
-				const_func->code->nupvalues
-				* sizeof(struct cb_upvalue *));
+		if (const_func->code->nupvalues) {
+			func->value.as_user.upvalues = malloc(
+					const_func->code->nupvalues
+					* sizeof(struct cb_upvalue *));
+		}
 		for (int i = 0; i < const_func->code->nupvalues; i += 1)
 			func->value.as_user.upvalues[i] = NULL;
 		func->value.as_user.num_opt_params = const_func->num_opt_params;

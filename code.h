@@ -9,7 +9,6 @@
 #include "module.h"
 
 struct cb_code {
-	/* FIXME: is it GCed or not??? */
 	cb_gc_header gc_header;
 	cb_modspec *modspec;
 	uint16_t nlocals,
@@ -23,6 +22,7 @@ struct cb_code {
 };
 
 struct cb_code *cb_code_new(void);
-void cb_code_free(struct cb_code *code);
+void cb_code_mark(struct cb_code *code);
+cb_gc_hold_key *cb_code_gc_hold(struct cb_code *code);
 
 #endif

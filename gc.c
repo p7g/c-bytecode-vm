@@ -23,6 +23,7 @@ static struct cb_gc_header *allocated = NULL;
 static size_t amount_allocated = 0;
 static size_t next_allocation_threshold = GC_INITIAL_THRESHOLD;
 static size_t hint = 0;
+static int gc_enabled = 0;
 
 inline void cb_gc_register(struct cb_gc_header *obj, size_t size,
 		cb_deinit_fn *deinit_fn)
@@ -54,8 +55,15 @@ size_t cb_gc_size(struct cb_gc_header *obj)
 
 inline int cb_gc_should_collect(void)
 {
+	if (!gc_enabled)
+		return 0;
 	return hint > GC_HINT_THRESHOLD
 		|| amount_allocated > next_allocation_threshold;
+}
+
+void cb_gc_enable()
+{
+	gc_enabled = 1;
 }
 
 inline void cb_gc_mark(struct cb_gc_header *obj)
@@ -69,19 +77,21 @@ inline int cb_gc_is_marked(struct cb_gc_header *obj)
 }
 
 struct mark_queue_node {
-	struct cb_value val;
+	void *obj;
+	void (*mark_fn)(void *obj);
 	struct mark_queue_node *next;
 };
 
 static struct mark_queue_node *mark_queue = NULL;
 
-void cb_gc_queue_mark(struct cb_value obj)
+void cb_gc_queue_mark(void *obj, void (*mark_fn)(void *obj))
 {
 	struct mark_queue_node *node;
 
 	node = malloc(sizeof(struct mark_queue_node));
 	node->next = mark_queue;
-	node->val = obj;
+	node->obj = obj;
+	node->mark_fn = mark_fn;
 
 	mark_queue = node;
 }
@@ -93,24 +103,26 @@ static void evaluate_mark_queue(void)
 	while (mark_queue) {
 		tmp = mark_queue;
 		mark_queue = tmp->next;
-		cb_value_mark(tmp->val);
+		tmp->mark_fn(tmp->obj);
 		free(tmp);
 	}
 }
 
 struct cext_root {
 	struct cext_root *prev, *next;
-	struct cb_value value;
+	void *obj;
+	void (*mark_fn)(void *obj);
 };
 
 static struct cext_root *cext_root = NULL;
 
-struct cext_root *cb_gc_hold(struct cb_value value)
+struct cext_root *cb_gc_hold(void *obj, void (*mark_fn)(void *obj))
 {
 	struct cext_root *node = malloc(sizeof(struct cext_root));
 	node->prev = NULL;
 	node->next = cext_root;
-	node->value = value;
+	node->obj = obj;
+	node->mark_fn = mark_fn;
 	cext_root = node;
 	return node;
 }
@@ -165,7 +177,7 @@ static void mark(void)
 
 	DEBUG_LOG("marking c ext roots");
 	for (struct cext_root *node = cext_root; node; node = node->next)
-		cb_value_mark(node->value);
+		node->mark_fn(node->obj);
 
 	evaluate_mark_queue();
 }

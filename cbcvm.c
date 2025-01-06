@@ -45,23 +45,23 @@ int run_file(const char *filename)
 	module = cb_modspec_new(cb_agent_intern_string("<main>", 6));
 	cb_agent_add_modspec(module);
 	code = cb_compile_file(module, f);
+	cb_gc_hold_key *code_hold = cb_code_gc_hold(code);
 
 	if (!code)
 		return 1;
 
 	if (cb_options.disasm) {
 		if (cb_disassemble_recursive(code)) {
-			cb_code_free(code);
 			return 1;
 		}
 	}
 
 	cb_vm_init();
 	cb_instantiate_builtin_modules();
+	cb_gc_enable();
 	result = cb_run(code);
 	cb_vm_deinit();
-
-	cb_code_free(code);
+	cb_gc_release(code_hold);
 
 	return result;
 }
