@@ -589,10 +589,11 @@ static cb_instruction *bytecode_finalize(struct cb_bytecode *bc, size_t *len)
 		bc->label_addresses = NULL;
 	}
 	*len = bc->len;
-	bc->code = realloc(bc->code, bc->len * sizeof(cb_instruction));
+	cb_instruction *code = realloc(bc->code, bc->len * sizeof(cb_instruction));
+	bc->code = NULL;
 	bc->label_addr_size = bc->label_addr_len = 0;
 
-	return bc->code;
+	return code;
 }
 
 struct parse_state {
@@ -922,6 +923,7 @@ static struct cb_code *create_code(struct cstate *state)
 
 	/* ownership taken */
 	state->consts = NULL;
+	cb_bytecode_free(state->bytecode);
 	state->bytecode = NULL;
 
 	if (!cstate_is_global(state)) {
