@@ -12,6 +12,7 @@ static void code_deinit(void *code_ptr)
 	free(code->bytecode);
 	for (int i = 0; i < code->nconsts; i += 1)
 		cb_const_free(&code->const_pool[i]);
+	free(code->const_pool);
 	free(code->ic);
 }
 
