@@ -182,9 +182,10 @@ static void mark(void)
 	evaluate_mark_queue();
 }
 
-static void sweep(void)
+static size_t sweep(void)
 {
 	struct cb_gc_header *current, *tmp, **prev_ptr;
+	size_t nfreed = 0;
 
 	current = allocated;
 	prev_ptr = &allocated;
@@ -198,23 +199,27 @@ static void sweep(void)
 			/* DEBUG_LOG("freeing object at %p", tmp); */
 			amount_allocated -= tmp->size;
 			free(tmp);
+			nfreed += 1;
 		} else {
 			/* DEBUG_LOG("not freeing object at %p", tmp); */
 			tmp->mark = 0;
 			prev_ptr = &tmp->next;
 		}
 	}
+
+	return nfreed;
 }
 
-void cb_gc_collect(void)
+size_t cb_gc_collect(void)
 {
 	size_t before = amount_allocated;
 	DEBUG_LOG("start; allocated=%zu", amount_allocated);
 	hint = 0;
 	mark();
-	sweep();
+	size_t nfreed = sweep();
 	next_allocation_threshold = amount_allocated * GC_HEAP_GROW_FACTOR;
 	DEBUG_LOG("end; allocated=%zu, collected=%zu, next collection at %zu",
 			amount_allocated, before - amount_allocated,
 			next_allocation_threshold);
+	return nfreed;
 }

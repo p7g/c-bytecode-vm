@@ -18,7 +18,7 @@ void cb_gc_enable(void);
 void cb_gc_mark(cb_gc_header *obj);
 int cb_gc_is_marked(cb_gc_header *obj);
 void cb_gc_adjust_refcount(cb_gc_header *obj, int amount);
-void cb_gc_collect(void);
+size_t cb_gc_collect(void);
 int cb_gc_should_collect(void);
 void cb_gc_register(cb_gc_header *obj, size_t size, cb_deinit_fn *deinit_fn);
 void cb_gc_update_size(struct cb_gc_header *obj, size_t size);

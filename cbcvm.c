@@ -63,6 +63,8 @@ int run_file(const char *filename)
 	cb_vm_deinit();
 	cb_gc_release(code_hold);
 
+	while (cb_gc_collect());
+
 	return result;
 }
 
