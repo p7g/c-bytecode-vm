@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722186391660,
+  "lastUpdate": 1736127251650,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -289,6 +289,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "bench.b",
             "value": 156493,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "515cb437932af4e8b4e86285050ed8ea17b733a1",
+          "message": "Merge pull request #47 from p7g/code-object\n\nCode object",
+          "timestamp": "2025-01-05T20:30:45-05:00",
+          "tree_id": "635062c7fca97f8ff64aff1136c0e9fac82a6e4b",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/515cb437932af4e8b4e86285050ed8ea17b733a1"
+        },
+        "date": 1736127251118,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 180322,
             "unit": "ms"
           }
         ]
