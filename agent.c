@@ -162,13 +162,18 @@ static void maybe_grow_modules()
 				agent.modules_size * sizeof(cb_modspec *));
 	}
 	if (cb_vm_state.modules)
-		cb_vm_grow_modules_array(agent.next_module_id + 1);
+		cb_vm_grow_modules_array();
 }
 
 CB_INLINE void cb_agent_add_modspec(cb_modspec *spec)
 {
 	assert(spec != NULL);
 	agent.modules[cb_modspec_id(spec)] = spec;
+}
+
+inline void cb_agent_clear_modspec(cb_modspec *spec)
+{
+	agent.modules[cb_modspec_id(spec)] = NULL;
 }
 
 inline size_t cb_agent_reserve_modspec_id()

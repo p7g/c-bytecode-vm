@@ -23,6 +23,7 @@ static struct cb_gc_header *allocated = NULL;
 static size_t amount_allocated = 0;
 static size_t next_allocation_threshold = GC_INITIAL_THRESHOLD;
 static size_t hint = 0;
+static int gc_enabled = 0;
 
 inline void cb_gc_register(struct cb_gc_header *obj, size_t size,
 		cb_deinit_fn *deinit_fn)
@@ -35,10 +36,34 @@ inline void cb_gc_register(struct cb_gc_header *obj, size_t size,
 	amount_allocated += size;
 }
 
+void cb_gc_update_size(struct cb_gc_header *obj, size_t size)
+{
+	size_t old_size;
+
+	if (size == obj->size)
+		return;
+
+	old_size = obj->size;
+	obj->size = size;
+	amount_allocated += size - old_size;
+}
+
+size_t cb_gc_size(struct cb_gc_header *obj)
+{
+	return obj->size;
+}
+
 inline int cb_gc_should_collect(void)
 {
+	if (!gc_enabled)
+		return 0;
 	return hint > GC_HINT_THRESHOLD
 		|| amount_allocated > next_allocation_threshold;
+}
+
+void cb_gc_enable()
+{
+	gc_enabled = 1;
 }
 
 inline void cb_gc_mark(struct cb_gc_header *obj)
@@ -52,19 +77,21 @@ inline int cb_gc_is_marked(struct cb_gc_header *obj)
 }
 
 struct mark_queue_node {
-	struct cb_value *val;
+	void *obj;
+	void (*mark_fn)(void *obj);
 	struct mark_queue_node *next;
 };
 
 static struct mark_queue_node *mark_queue = NULL;
 
-void cb_gc_queue_mark(struct cb_value *obj)
+void cb_gc_queue_mark(void *obj, void (*mark_fn)(void *obj))
 {
 	struct mark_queue_node *node;
 
 	node = malloc(sizeof(struct mark_queue_node));
 	node->next = mark_queue;
-	node->val = obj;
+	node->obj = obj;
+	node->mark_fn = mark_fn;
 
 	mark_queue = node;
 }
@@ -76,25 +103,26 @@ static void evaluate_mark_queue(void)
 	while (mark_queue) {
 		tmp = mark_queue;
 		mark_queue = tmp->next;
-		if (!cb_value_is_marked(tmp->val))
-			cb_value_mark(tmp->val);
+		tmp->mark_fn(tmp->obj);
 		free(tmp);
 	}
 }
 
 struct cext_root {
 	struct cext_root *prev, *next;
-	struct cb_value value;
+	void *obj;
+	void (*mark_fn)(void *obj);
 };
 
 static struct cext_root *cext_root = NULL;
 
-struct cext_root *cb_gc_hold(struct cb_value value)
+struct cext_root *cb_gc_hold(void *obj, void (*mark_fn)(void *obj))
 {
 	struct cext_root *node = malloc(sizeof(struct cext_root));
 	node->prev = NULL;
 	node->next = cext_root;
-	node->value = value;
+	node->obj = obj;
+	node->mark_fn = mark_fn;
 	cext_root = node;
 	return node;
 }
@@ -113,6 +141,9 @@ void cb_gc_release(struct cext_root *node)
 static void mark(void)
 {
 	struct cb_module *mod;
+	struct cb_frame *frame;
+	struct cb_value *sp;
+	const struct cb_value *frame_sp;
 
 	/* Roots:
 	 * - stack
@@ -122,9 +153,11 @@ static void mark(void)
 	 */
 
 	DEBUG_LOG("marking stack values");
-	for (struct cb_value *val = cb_vm_state.stack;
-			val < cb_vm_state.stack_top; val += 1)
-		cb_value_mark(val);
+	for (frame = cb_vm_state.frame; frame; frame = frame->parent) {
+		frame_sp = *frame->sp;
+		for (sp = frame->stack; sp < frame_sp; sp += 1)
+			cb_value_mark(*sp);
+	}
 
 	DEBUG_LOG("marking module global scopes");
 	if (cb_vm_state.modules) {
@@ -142,22 +175,17 @@ static void mark(void)
 	DEBUG_LOG("marking error");
 	cb_error_mark();
 
-	DEBUG_LOG("marking frame functions");
-	for (struct cb_frame *f = cb_vm_state.frame; f; f = f->parent) {
-		if (CB_VALUE_IS_USER_FN(&f->func))
-			cb_value_mark(&f->func);
-	}
-
 	DEBUG_LOG("marking c ext roots");
 	for (struct cext_root *node = cext_root; node; node = node->next)
-		cb_value_mark(&node->value);
+		node->mark_fn(node->obj);
 
 	evaluate_mark_queue();
 }
 
-static void sweep(void)
+static size_t sweep(void)
 {
 	struct cb_gc_header *current, *tmp, **prev_ptr;
+	size_t nfreed = 0;
 
 	current = allocated;
 	prev_ptr = &allocated;
@@ -168,26 +196,30 @@ static void sweep(void)
 			*prev_ptr = tmp->next;
 			if (tmp->deinit)
 				tmp->deinit(tmp);
-			DEBUG_LOG("freeing object at %p", tmp);
+			/* DEBUG_LOG("freeing object at %p", tmp); */
 			amount_allocated -= tmp->size;
 			free(tmp);
+			nfreed += 1;
 		} else {
-			DEBUG_LOG("not freeing object at %p", tmp);
+			/* DEBUG_LOG("not freeing object at %p", tmp); */
 			tmp->mark = 0;
 			prev_ptr = &tmp->next;
 		}
 	}
+
+	return nfreed;
 }
 
-void cb_gc_collect(void)
+size_t cb_gc_collect(void)
 {
 	size_t before = amount_allocated;
 	DEBUG_LOG("start; allocated=%zu", amount_allocated);
 	hint = 0;
 	mark();
-	sweep();
+	size_t nfreed = sweep();
 	next_allocation_threshold = amount_allocated * GC_HEAP_GROW_FACTOR;
 	DEBUG_LOG("end; allocated=%zu, collected=%zu, next collection at %zu",
 			amount_allocated, before - amount_allocated,
 			next_allocation_threshold);
+	return nfreed;
 }

@@ -7,6 +7,7 @@
 
 #include "agent.h"
 #include "bytes.h"
+#include "disassemble.h"
 #include "error.h"
 #include "eval.h"
 #include "gc.h"
@@ -42,13 +43,14 @@
 	X("tofloat", tofloat, 1) \
 	X("read_file", read_file, 1) \
 	X("argv", argv, 0) \
-	X("upvalues", upvalues, 0) \
+	X("__upvalues", upvalues, 1) \
 	X("apply", apply, 2) \
 	X("now", now, 0) \
 	X("read_file_bytes", read_file_bytes, 1) \
 	X("toint", toint, 1) \
 	X("__gc_collect", __gc_collect, 0) \
-	X("pcall", pcall, 1)
+	X("pcall", pcall, 1) \
+	X("__dis", __dis, 1)
 
 INTRINSIC_LIST(DECL);
 
@@ -64,7 +66,7 @@ static int print(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 	first = 1;
 	for (unsigned i = 0; i < argc; i += 1) {
-		as_string = cb_value_to_string(&argv[i]);
+		as_string = cb_value_to_string(argv[i]);
 		printf("%s%s", first ? "" : " ", cb_strptr(&as_string));
 		if (first)
 			first = 0;
@@ -94,7 +96,7 @@ static int tostring(size_t argc, struct cb_value *argv,
 {
 	cb_str as_string;
 
-	as_string = cb_value_to_string(&argv[0]);
+	as_string = cb_value_to_string(argv[0]);
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
@@ -381,16 +383,26 @@ static int argv(size_t argc, struct cb_value *argv_, struct cb_value *result)
 
 static int upvalues(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	struct cb_user_function *caller;
+	struct cb_user_function *func;
+	int i;
 
-	caller = cb_caller();
+	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
+
+	if (argv[0].val.as_function->type != CB_FUNCTION_USER) {
+		cb_error_set(cb_value_from_string(
+				"__upvalues: Cannot get upvalues of native function"));
+		return 1;
+	}
+
+	func = &argv[0].val.as_function->value.as_user;
 	result->type = CB_VALUE_ARRAY;
-	result->val.as_array = cb_array_new(caller->upvalues_len);
-	result->val.as_array->len = caller->upvalues_len;
+	result->val.as_array = cb_array_new(func->code->nupvalues);
 
-	for (unsigned i = 0; i < caller->upvalues_len; i += 1)
-		result->val.as_array->values[i] = cb_get_upvalue(
-				caller->upvalues[i]);
+	for (i = 0; i < func->code->nupvalues; i += 1) {
+		struct cb_upvalue *uv = func->upvalues[i];
+		struct cb_value v = cb_load_upvalue(uv);
+		result->val.as_array->values[i] = v;
+	}
 
 	return 0;
 }
@@ -452,24 +464,37 @@ static int __gc_collect(size_t argc, struct cb_value *argv,
 static int pcall(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	int failed;
-	ptrdiff_t sp;
 	struct cb_array *arr;
 
 	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
 	result->type = CB_VALUE_ARRAY;
 	arr = result->val.as_array = cb_array_new(2);
-	arr->len = 2;
 
-	sp = cb_vm_state.stack_top - cb_vm_state.stack;
 	failed = cb_value_call(argv[0], argv + 1, argc - 1, &arr->values[1]);
-	cb_vm_state.stack_top = cb_vm_state.stack + sp;
 
 	arr->values[0].type = CB_VALUE_BOOL;
 	arr->values[0].val.as_bool = !failed;
 	if (failed) {
 		assert(cb_error_p());
-		arr->values[1] = *cb_error_value();
+		arr->values[1] = cb_error_value();
 		cb_error_recover();
 	}
 	return 0;
+}
+
+static int __dis(size_t argc, struct cb_value *argv, struct cb_value *result)
+{
+	struct cb_user_function *func;
+
+	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
+	if (argv[0].val.as_function->type != CB_FUNCTION_USER) {
+		cb_error_set(cb_value_from_string(
+				"__dis: Cannot disassemble native function"));
+		return 1;
+	}
+
+	func = &argv[0].val.as_function->value.as_user;
+
+	result->type = CB_VALUE_NULL;
+	return cb_disassemble_recursive(func->code);
 }

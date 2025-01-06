@@ -14,7 +14,7 @@ struct cb_traceback {
 int cb_error_p(void);
 void cb_error_set(struct cb_value value);
 void cb_error_recover(void);
-struct cb_value *cb_error_value(void);
+struct cb_value cb_error_value(void);
 void cb_traceback_add_frame(struct cb_frame *frame);
 struct cb_traceback *cb_error_tb(void);
 void cb_traceback_print(FILE *f, struct cb_traceback *tb);

@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 
+#include "code.h"
 #include "compiler.h"
 #include "gc.h"
 #include "hashmap.h"
@@ -10,7 +11,9 @@
 
 struct cb_upvalue {
 	size_t refcount;
-	int is_open;
+	/* If positive, the call_depth of the frame where the upvalue came
+	 * from. A negative value indicates that the upvalue is closed. */
+	ssize_t call_depth;
 	union {
 		size_t idx;
 		struct cb_value value;
@@ -19,9 +22,12 @@ struct cb_upvalue {
 
 struct cb_frame {
 	struct cb_frame *parent;
-	size_t bp;
-	struct cb_module *module;
-	struct cb_value func;
+	size_t module_id;
+	unsigned is_function, num_args;
+	struct cb_code *code;
+	struct cb_value *stack;
+	/* A pointer to the sp variable for the GC */
+	struct cb_value *const *sp;
 };
 
 union cb_inline_cache {
@@ -39,18 +45,13 @@ union cb_inline_cache {
 	} load_from_module;
 };
 
+
 struct cb_vm_state {
-	cb_bytecode *bytecode;
-	union cb_inline_cache *ic;
-
-	struct cb_value *stack;
-	struct cb_value *stack_top;
-	size_t stack_size;
-
 	struct cb_frame *frame;
 
 	struct cb_upvalue **upvalues;
 	size_t upvalues_idx, upvalues_size;
+	size_t call_depth;
 
 	/* size of this array is based on number of modspecs in agent */
 	struct cb_module *modules;
@@ -60,15 +61,14 @@ struct cb_vm_state {
 
 extern struct cb_vm_state cb_vm_state;
 
-void cb_vm_init(cb_bytecode *bytecode);
+void cb_vm_init(void);
 void cb_vm_deinit(void);
-void cb_vm_grow_modules_array(size_t new_size);
+void cb_vm_grow_modules_array();
 
-int cb_eval(struct cb_vm_state *state, size_t pc, struct cb_frame *frame);
-int cb_run(void);
-struct cb_user_function *cb_caller(void);
-int cb_vm_call_user_func(struct cb_value fn, struct cb_value *args,
-		size_t args_len, struct cb_value *result);
-struct cb_value cb_get_upvalue(struct cb_upvalue *uv);
+int cb_eval(struct cb_frame *frame);
+int cb_run(struct cb_code *code);
+int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
+		struct cb_value *result);
+struct cb_value cb_load_upvalue(struct cb_upvalue *uv);
 
 #endif

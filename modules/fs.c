@@ -107,8 +107,8 @@ static int wrapped_readdir(size_t argc, struct cb_value *argv,
 }
 
 /* Files */
-static size_t ident_stat, ident_fopen, ident_fclose, ident_fread, ident_fgetc,
-	ident_fgets, ident_feof, ident_ferror;
+static size_t ident_stat, ident_statbuf, ident_fopen, ident_fclose, ident_fread,
+    ident_fgetc, ident_fgets, ident_feof, ident_ferror;
 
 struct cb_struct_spec *get_stat_struct_spec(void)
 {
@@ -133,10 +133,6 @@ struct cb_struct_spec *get_stat_struct_spec(void)
 	F("mtime");
 	F("ctime");
 
-	struct cb_value spec_value;
-	spec_value.type = CB_VALUE_STRUCT_SPEC;
-	spec_value.val.as_struct_spec = spec;
-	cb_gc_hold(spec_value); /* Never collect it */
 	return spec;
 #undef F
 }
@@ -449,6 +445,7 @@ void cb_fs_build_spec(cb_modspec *spec)
 	CB_DEFINE_EXPORT(spec, "closedir", ident_closedir);
 	CB_DEFINE_EXPORT(spec, "readdir", ident_readdir);
 	CB_DEFINE_EXPORT(spec, "stat", ident_stat);
+	CB_DEFINE_EXPORT(spec, "statbuf", ident_statbuf);
 	CB_DEFINE_EXPORT(spec, "fopen", ident_fopen);
 	CB_DEFINE_EXPORT(spec, "fclose", ident_fclose);
 	CB_DEFINE_EXPORT(spec, "fread", ident_fread);
@@ -486,6 +483,11 @@ void cb_fs_instantiate(struct cb_module *mod)
 			cb_cfunc_new(ident_feof, 1, wrapped_feof));
 	CB_SET_EXPORT(mod, ident_ferror,
 			cb_cfunc_new(ident_ferror, 1, wrapped_ferror));
+
+	struct cb_value spec_value;
+	spec_value.type = CB_VALUE_STRUCT_SPEC;
+	spec_value.val.as_struct_spec = get_stat_struct_spec();
+	CB_SET_EXPORT(mod, ident_statbuf, spec_value);
 
 #define SET_CONST(C) CB_SET_EXPORT(mod, ident_ ## C, cb_int(C));
 	CONSTS(SET_CONST);

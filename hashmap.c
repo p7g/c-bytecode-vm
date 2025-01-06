@@ -149,7 +149,7 @@ void cb_hashmap_mark_contents(cb_hashmap *m)
 	for (i = 0; i < m->size; i += 1) {
 		entry = &m->entries[i];
 		if (entry->in_use)
-			cb_value_mark(&entry->value);
+			cb_value_mark(entry->value);
 	}
 }
 

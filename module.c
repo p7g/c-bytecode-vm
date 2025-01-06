@@ -30,6 +30,7 @@ struct modspec *cb_modspec_new(size_t name)
 
 void cb_modspec_free(struct modspec *spec)
 {
+	cb_agent_clear_modspec(spec);
 	if (spec->exports)
 		free(spec->exports);
 	free(spec);
@@ -91,13 +92,14 @@ inline size_t cb_modspec_n_exports(const cb_modspec *spec)
 
 int cb_module_is_zero(struct cb_module m)
 {
-	return m.global_scope == 0 && m.spec == 0;
+	return m.global_scope == 0 && m.spec == 0 && m.evaluated == 0;
 }
 
 void cb_module_zero(struct cb_module *m)
 {
 	m->global_scope = 0;
 	m->spec = 0;
+	m->evaluated = 0;
 }
 
 void cb_module_free(struct cb_module *module)

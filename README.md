@@ -36,10 +36,8 @@ The primitive types are the following:
 
 ### Integer
 
-A signed, 64-bit integer. The semantics are those in C. There are no safeguards
-to prevent overflow (which is undefined behaviour for signed integers). All this
-to say: There are no guarantees beyond those you get when writing C. This is
-something I plan to address some day.
+A signed, 64-bit integer. The semantics are those in C, except that an error is
+raised in the event of an overflow.
 
 Examples:
 ```js
@@ -50,7 +48,7 @@ Examples:
 
 ### Double
 
-A double-precision floating point value. Same disclaimer as for integers.
+A double-precision floating point value.
 
 Examples:
 ```js
@@ -344,7 +342,7 @@ least for now:
 - `ord`: Convert a character to an integer.
 - `chr`: Convert an integer to a character.
 - `tofloat`: Convert an integer to a double. This should be renamed.
-- `upvalues`: Returns the values of the current function's closure as an array.
+- `__upvalues`: Returns the values of the current function's closure as an array.
 - `apply`: Passes an array of values to a function as individual arguments.
 - `toint`: Converts a double to an integer, or does what `ord` does to a char.
 - `__gc_collect`: Have the garbage collector run immediately. It has a scary

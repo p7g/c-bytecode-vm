@@ -11,12 +11,12 @@ import string;
 
 let tests_by_file = hashmap.new();
 
-iter.foreach(fs.directory_entries("tests"), function (path) {
+iter.foreach(fs.directory_entries("tests"), function collect_test_modules(path) {
     path = path.join("tests", path);
     if (fs.isfile(path) && path.ext(path) == "rbcvm") {
         let tests = arraylist.new();
         module.import_(path, path);
-        iter.foreach(module.exports(path), function (export_) {
+        iter.foreach(module.exports(path), function collect_tests(export_) {
             if (string.startswith(export_, "test")) {
                 arraylist.push(tests, export_);
             }
@@ -26,14 +26,14 @@ iter.foreach(fs.directory_entries("tests"), function (path) {
 });
 
 let ntests = 0;
-iter.foreach(hashmap.values(tests_by_file), function (tests) {
+iter.foreach(hashmap.values(tests_by_file), function count_tests(tests) {
     ntests = ntests + array.length(tests);
 });
 println("Collected", ntests, "tests");
 
 let failed = arraylist.new();
 
-iter.foreach(hashmap.entries(tests_by_file), function ([filename, tests]) {
+iter.foreach(hashmap.entries(tests_by_file), function run_tests([filename, tests]) {
     print(filename, "");
     iter.foreach(tests, function run_test(test) {
         test = module.get(filename, test);
@@ -51,7 +51,7 @@ iter.foreach(hashmap.entries(tests_by_file), function ([filename, tests]) {
 if (arraylist.length(failed) == 0) {
     println("All tests passed");
 } else {
-    arraylist.foreach(failed, function ([test, error]) {
+    arraylist.foreach(failed, function print_failed_tests([test, error]) {
         println(string.concat(tostring(test), ": ", tostring(error)));
     });
 }

@@ -5,6 +5,7 @@
 
 #define CB_OPCODE_LIST(X) \
 	X(OP_HALT) \
+	X(OP_LOAD_CONST) \
 	X(OP_CONST_INT) \
 	X(OP_CONST_DOUBLE) \
 	X(OP_CONST_STRING) \
@@ -29,7 +30,6 @@
 	X(OP_LOAD_GLOBAL) \
 	X(OP_DECLARE_GLOBAL) \
 	X(OP_STORE_GLOBAL) \
-	X(OP_NEW_FUNCTION) \
 	X(OP_BIND_LOCAL) \
 	X(OP_BIND_UPVALUE) \
 	X(OP_LOAD_UPVALUE) \
@@ -50,17 +50,16 @@
 	X(OP_BITWISE_NOT) \
 	X(OP_NOT) \
 	X(OP_NEG) \
-	X(OP_INIT_MODULE) \
-	X(OP_END_MODULE) \
 	X(OP_DUP) \
-	X(OP_ENTER_MODULE) \
-	X(OP_EXIT_MODULE) \
+	X(OP_ALLOCATE_LOCALS) \
 	X(OP_NEW_STRUCT) \
 	X(OP_LOAD_STRUCT) \
 	X(OP_STORE_STRUCT) \
 	X(OP_ADD_STRUCT_FIELD) \
 	X(OP_NEW_STRUCT_SPEC) \
 	X(OP_ROT_2) \
+	X(OP_IMPORT_MODULE) \
+	X(OP_APPLY_DEFAULT_ARG) \
 	X(OP_MAX)
 
 enum cb_opcode {
@@ -70,8 +69,8 @@ enum cb_opcode {
 };
 
 const char *cb_opcode_name(enum cb_opcode);
-int cb_opcode_stack_effect(enum cb_opcode, cb_instruction *);
-unsigned cb_opcode_nargs(enum cb_opcode, cb_instruction *);
+size_t cb_opcode_arity(const cb_instruction *);
+int cb_opcode_stack_effect(const cb_instruction *);
 enum cb_opcode cb_opcode_assert(size_t);
 
 #endif

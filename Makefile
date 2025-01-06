@@ -16,6 +16,10 @@ endif
 	CFLAGS+=-fno-omit-frame-pointer
 endif
 
+ifeq ($(TARGET),debug)
+	CFLAGS+=-DCB_DEBUG_VM
+endif
+
 cbcvm: *.c *.h modules/*.c modules/*.h
 	$(CC) $(CFLAGS) -o cbcvm *.c modules/*.c $(LDFLAGS)
 

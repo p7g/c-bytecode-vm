@@ -65,6 +65,15 @@ cb_str cb_str_take_cstr(char *str, size_t len)
 	return s;
 }
 
+int cb_strcmp(cb_str a, cb_str b)
+{
+	if (cb_strlen(a) < cb_strlen(b))
+		return -1;
+	else if (cb_strlen(a) > cb_strlen(b))
+		return 1;
+	return strncmp(cb_strptr(&a), cb_strptr(&b), cb_strlen(a));
+}
+
 int cb_str_eq_cstr(cb_str s, const char *cstr, size_t len)
 {
 	if (len != cb_strlen(s))

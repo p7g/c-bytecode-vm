@@ -18,6 +18,7 @@
 #include "modules/structs.h"
 #include "modules/sys.h"
 
+/* TODO: intern module names to make comparison easier later */
 static const struct cb_builtin_module_spec builtins[] = {
 	{"time", cb_time_build_spec, cb_time_instantiate},
 	{"structs", cb_structs_build_spec, cb_structs_instantiate},
@@ -37,11 +38,12 @@ const size_t cb_builtin_module_count = sizeof(builtins) / sizeof(builtins[0]);
 void cb_initialize_builtin_modules(void)
 {
 	cb_modspec *modspec;
+	size_t name;
 
 	for (size_t i = 0; i < cb_builtin_module_count; i += 1) {
-		modspec = cb_modspec_new(cb_agent_intern_string(
-					builtins[i].name,
-					strlen(builtins[i].name)));
+		name = cb_agent_intern_string(builtins[i].name,
+					strlen(builtins[i].name));
+		modspec = cb_modspec_new(name);
 
 		builtins[i].build_spec(modspec);
 		cb_agent_add_modspec(modspec);
@@ -64,7 +66,6 @@ void cb_instantiate_builtin_modules(void)
 		spec_id = cb_modspec_id(spec);
 		mod = &cb_vm_state.modules[spec_id];
 
-		mod->global_scope = cb_hashmap_new();
 		mod->spec = spec;
 		modules[i] = mod;
 	}
