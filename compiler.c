@@ -2699,6 +2699,7 @@ struct cb_code *cb_compile_string(cb_modspec *module, const char *source)
 
 	cstate_init(&state, source, cb_modspec_name(module));
 	code = compile_into_module(&state, module);
+	cstate_deinit(&state);
 
 	return code;
 }
