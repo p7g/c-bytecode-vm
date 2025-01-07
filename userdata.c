@@ -1,9 +1,10 @@
 #include <stddef.h>
 
 #include "alloc.h"
+#include "cb_util.h"
 #include "userdata.h"
 
-inline void **cb_userdata_ptr(struct cb_userdata *data)
+CB_INLINE void **cb_userdata_ptr(struct cb_userdata *data)
 {
 	return (void **) &data->userdata;
 }

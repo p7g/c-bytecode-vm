@@ -77,7 +77,7 @@ static void add_upvalue(struct cb_upvalue *uv)
 	cb_vm_state.upvalues[cb_vm_state.upvalues_idx++] = uv;
 }
 
-static struct cb_frame *find_upvalue_frame(struct cb_upvalue *uv)
+static CB_INLINE struct cb_frame *find_upvalue_frame(struct cb_upvalue *uv)
 {
 	assert(uv->call_depth >= 0);
 	assert((size_t) uv->call_depth <= cb_vm_state.call_depth);
@@ -89,7 +89,7 @@ static struct cb_frame *find_upvalue_frame(struct cb_upvalue *uv)
 	return frame;
 }
 
-inline struct cb_value cb_load_upvalue(struct cb_upvalue *uv)
+CB_INLINE struct cb_value cb_load_upvalue(struct cb_upvalue *uv)
 {
 	if (uv->call_depth < 0)
 		return uv->v.value;
@@ -454,8 +454,7 @@ DO_OP_JUMP_IF_TRUE: {
 	struct cb_value pred;
 	size_t next = READ_SIZE_T();
 	pred = POP();
-	if ((pred.type == CB_VALUE_BOOL && pred.val.as_bool)
-			|| cb_value_is_truthy(&pred))
+	if (cb_value_is_truthy(&pred))
 		ip = frame->code->bytecode + next;
 	DISPATCH();
 }
@@ -464,8 +463,7 @@ DO_OP_JUMP_IF_FALSE: {
 	struct cb_value pred;
 	size_t next = READ_SIZE_T();
 	pred = POP();
-	if ((pred.type == CB_VALUE_BOOL && !pred.val.as_bool)
-			|| !cb_value_is_truthy(&pred))
+	if (!cb_value_is_truthy(&pred))
 		ip = frame->code->bytecode + next;
 	DISPATCH();
 }
@@ -930,10 +928,7 @@ DO_OP_NOT: {
 	struct cb_value a, result;
 	a = POP();
 	result.type = CB_VALUE_BOOL;
-	if (a.type == CB_VALUE_BOOL)
-		result.val.as_bool = !a.val.as_bool;
-	else
-		result.val.as_bool = !cb_value_is_truthy(&a);
+	result.val.as_bool = !cb_value_is_truthy(&a);
 	PUSH(result);
 	DISPATCH();
 }

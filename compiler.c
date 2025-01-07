@@ -437,7 +437,7 @@ static int scope_parent_has_binding(struct scope *s, size_t name)
 		|| scope_parent_has_binding(s->parent, name);
 }
 
-static inline size_t tok_len(struct token *tok)
+static CB_INLINE size_t tok_len(struct token *tok)
 {
 	return tok->end - tok->start;
 }
@@ -772,12 +772,12 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 	return 0;
 }
 
-static inline const char *tok_start(struct cstate *state, struct token *tok)
+static CB_INLINE const char *tok_start(struct cstate *state, struct token *tok)
 {
 	return state->parse_state->input + tok->start;
 }
 
-static inline size_t intern_ident(struct cstate *state, struct token *tok)
+static CB_INLINE size_t intern_ident(struct cstate *state, struct token *tok)
 {
 	assert(tok->type == TOK_IDENT);
 	return cb_agent_intern_string(tok_start(state, tok), tok_len(tok));

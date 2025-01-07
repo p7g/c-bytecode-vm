@@ -36,10 +36,9 @@ void cb_modspec_free(struct modspec *spec)
 	free(spec);
 }
 
-inline size_t cb_modspec_id(const struct modspec *spec)
+CB_INLINE size_t cb_modspec_id(const struct modspec *spec)
 {
-	if (!spec)
-		abort();
+	assert(spec);
 	return spec->id;
 }
 
@@ -61,7 +60,7 @@ size_t cb_modspec_add_export(struct modspec *spec, size_t name)
 	return id;
 }
 
-inline size_t cb_modspec_get_export_name(const struct modspec *spec, size_t id)
+CB_INLINE size_t cb_modspec_get_export_name(const struct modspec *spec, size_t id)
 {
 	assert(id < spec->exports_len);
 	return spec->exports[id];
@@ -80,12 +79,12 @@ size_t cb_modspec_get_export_id(const struct modspec *spec, size_t name,
 	return (*ok = 0);
 }
 
-inline size_t cb_modspec_name(const struct modspec *spec)
+CB_INLINE size_t cb_modspec_name(const struct modspec *spec)
 {
 	return spec->name;
 }
 
-inline size_t cb_modspec_n_exports(const cb_modspec *spec)
+CB_INLINE size_t cb_modspec_n_exports(const cb_modspec *spec)
 {
 	return spec->exports_len;
 }
