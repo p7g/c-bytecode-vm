@@ -590,6 +590,8 @@ DO_OP_LOAD_GLOBAL: {
 			ERROR("Unbound global '%s'", cb_strptr(&s));
 		}
 		value = cb_hashmap_get_index(GLOBALS(), idx);
+		ic->version = cb_hashmap_version(GLOBALS());
+		ic->index = idx;
 	}
 
 	PUSH(value);
