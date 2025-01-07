@@ -89,7 +89,7 @@ static CB_INLINE struct cb_frame *find_upvalue_frame(struct cb_upvalue *uv)
 	return frame;
 }
 
-CB_INLINE struct cb_value cb_load_upvalue(struct cb_upvalue *uv)
+struct cb_value cb_load_upvalue(struct cb_upvalue *uv)
 {
 	if (uv->call_depth < 0)
 		return uv->v.value;
@@ -99,7 +99,7 @@ CB_INLINE struct cb_value cb_load_upvalue(struct cb_upvalue *uv)
 	return frame->stack[uv->v.idx];
 }
 
-static CB_INLINE void store_upvalue(struct cb_upvalue *uv, struct cb_value val)
+void cb_store_upvalue(struct cb_upvalue *uv, struct cb_value val)
 {
 	if (uv->call_depth < 0) {
 		uv->v.value = val;
@@ -694,12 +694,30 @@ DO_OP_LOAD_UPVALUE: {
 	struct cb_value *self, result;
 	struct cb_upvalue *uv;
 	size_t idx = READ_SIZE_T();
+	struct cb_frame *uv_frame;
+	struct cb_load_upvalue_cache *ic = &CACHE().load_upvalue;
 
 	self = &frame->stack[0];
 	assert(CB_VALUE_IS_USER_FN(self));
 
 	uv = self->val.as_function->value.as_user.upvalues[idx];
-	result = cb_load_upvalue(uv);
+	if (uv->call_depth < 0) {
+		PUSH(uv->v.value);
+		DISPATCH();
+	}
+
+	if (ic->frame && ic->call_depth == uv->call_depth) {
+		assert(uv->call_depth >= 0);
+		uv_frame = ic->frame;
+		cb_inline_cache_stats.load_upvalue.hits += 1;
+	} else {
+		uv_frame = find_upvalue_frame(uv);
+		ic->frame = uv_frame;
+		ic->call_depth = uv->call_depth;
+		cb_inline_cache_stats.load_upvalue.misses += 1;
+	}
+	assert(uv_frame);
+	result = uv_frame->stack[uv->v.idx];
 	PUSH(result);
 
 	DISPATCH();
@@ -713,9 +731,27 @@ DO_OP_STORE_UPVALUE: {
 	self = &frame->stack[0];
 	assert(CB_VALUE_IS_USER_FN(self));
 
-	/* FIXME: Store cb_user_function in local */
 	uv = self->val.as_function->value.as_user.upvalues[idx];
-	store_upvalue(uv, TOP());
+
+	if (uv->call_depth < 0) {
+		uv->v.value = TOP();
+		DISPATCH();
+	}
+
+	struct cb_load_upvalue_cache *ic = &CACHE().load_upvalue;
+	struct cb_frame *uv_frame;
+	if (ic->frame && ic->call_depth == uv->call_depth) {
+		assert(uv->call_depth >= 0);
+		uv_frame = ic->frame;
+		cb_inline_cache_stats.load_upvalue.hits += 1;
+	} else {
+		uv_frame = find_upvalue_frame(uv);
+		ic->frame = uv_frame;
+		ic->call_depth = uv->call_depth;
+		cb_inline_cache_stats.load_upvalue.misses += 1;
+	}
+	assert(uv_frame);
+	uv_frame->stack[uv->v.idx] = TOP();
 
 	DISPATCH();
 }
