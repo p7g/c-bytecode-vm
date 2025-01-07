@@ -26,7 +26,7 @@ struct cb_hashmap {
 /* Hash functions courtesy of:
  * https://stackoverflow.com/a/12996028
  */
-static inline size_t hash_size_t(size_t x) {
+static CB_INLINE size_t hash_size_t(size_t x) {
 	if (sizeof(size_t) == 8) {
 		x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
 		x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);

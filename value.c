@@ -51,7 +51,7 @@ static void cb_function_deinit(void *ptr)
 	}
 }
 
-inline struct cb_function *cb_function_new(void)
+CB_INLINE struct cb_function *cb_function_new(void)
 {
 	return cb_malloc(sizeof(struct cb_function), cb_function_deinit);
 }
@@ -73,7 +73,7 @@ struct cb_value cb_cfunc_new(size_t name, size_t arity,
 	return func_val;
 }
 
-inline struct cb_array *cb_array_new(size_t len)
+CB_INLINE struct cb_array *cb_array_new(size_t len)
 {
 	struct cb_array *mem = cb_malloc(sizeof(struct cb_array)
 			+ sizeof(struct cb_value) * len, NULL);
@@ -88,12 +88,12 @@ static void deinit_string(void *s_ptr)
 	cb_str_free(s->string);
 }
 
-inline struct cb_string *cb_string_new(void)
+CB_INLINE struct cb_string *cb_string_new(void)
 {
 	return cb_malloc(sizeof(struct cb_string), deinit_string);
 }
 
-int cb_value_is_truthy(struct cb_value *val)
+CB_INLINE int cb_value_is_truthy(struct cb_value *val)
 {
 	switch (val->type) {
 	case CB_VALUE_INT:
@@ -612,7 +612,7 @@ const char *cb_value_type_friendly_name(enum cb_value_type typ)
 	return "";
 }
 
-inline const char *cb_value_type_of(struct cb_value *val)
+CB_INLINE const char *cb_value_type_of(struct cb_value *val)
 {
 	return cb_value_type_friendly_name(val->type);
 }
@@ -629,7 +629,7 @@ int cb_value_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 	return cb_vm_call(fn, args, args_len, result);
 }
 
-inline cb_gc_header *cb_value_gc_header(const struct cb_value val)
+CB_INLINE cb_gc_header *cb_value_gc_header(const struct cb_value val)
 {
 	switch (val.type) {
 	case CB_VALUE_INT:
@@ -763,7 +763,7 @@ void cb_value_mark(struct cb_value val)
 	}
 }
 
-inline struct cb_value cb_int(int64_t v)
+CB_INLINE struct cb_value cb_int(int64_t v)
 {
 	struct cb_value out;
 	out.type = CB_VALUE_INT;
@@ -771,7 +771,7 @@ inline struct cb_value cb_int(int64_t v)
 	return out;
 }
 
-inline struct cb_value cb_double(double v)
+CB_INLINE struct cb_value cb_double(double v)
 {
 	struct cb_value out;
 	out.type = CB_VALUE_DOUBLE;
@@ -779,7 +779,7 @@ inline struct cb_value cb_double(double v)
 	return out;
 }
 
-inline struct cb_value cb_bool(int v)
+CB_INLINE struct cb_value cb_bool(int v)
 {
 	struct cb_value out;
 	out.type = CB_VALUE_BOOL;
@@ -787,7 +787,7 @@ inline struct cb_value cb_bool(int v)
 	return out;
 }
 
-inline struct cb_value cb_char(uint32_t v)
+CB_INLINE struct cb_value cb_char(uint32_t v)
 {
 	struct cb_value out;
 	out.type = CB_VALUE_CHAR;

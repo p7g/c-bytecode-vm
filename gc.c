@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "agent.h"
+#include "cb_util.h"
 #include "cbcvm.h"
 #include "error.h"
 #include "eval.h"
@@ -25,7 +26,7 @@ static size_t next_allocation_threshold = GC_INITIAL_THRESHOLD;
 static size_t hint = 0;
 static int gc_enabled = 0;
 
-inline void cb_gc_register(struct cb_gc_header *obj, size_t size,
+CB_INLINE void cb_gc_register(struct cb_gc_header *obj, size_t size,
 		cb_deinit_fn *deinit_fn)
 {
 	obj->deinit = deinit_fn;
@@ -53,7 +54,7 @@ size_t cb_gc_size(struct cb_gc_header *obj)
 	return obj->size;
 }
 
-inline int cb_gc_should_collect(void)
+CB_INLINE int cb_gc_should_collect(void)
 {
 	if (!gc_enabled)
 		return 0;
@@ -66,12 +67,12 @@ void cb_gc_enable()
 	gc_enabled = 1;
 }
 
-inline void cb_gc_mark(struct cb_gc_header *obj)
+CB_INLINE void cb_gc_mark(struct cb_gc_header *obj)
 {
 	obj->mark = 1;
 }
 
-inline int cb_gc_is_marked(struct cb_gc_header *obj)
+CB_INLINE int cb_gc_is_marked(struct cb_gc_header *obj)
 {
 	return obj->mark;
 }
