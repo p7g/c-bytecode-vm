@@ -128,7 +128,6 @@ int cb_run(struct cb_code *code)
 	frame.num_args = 0;
 	frame.code = code;
 	frame.stack = alloca(sizeof(struct cb_value) * code->stack_size);
-	frame.sp = NULL; /* pointer to local variable, assigned in cb_eval */
 
 	result = cb_eval(&frame);
 	/* don't use the module pointer from before; it might have moved */
@@ -515,7 +514,6 @@ DO_OP_CALL: {
 		   the next frame */
 		memcpy(next_frame.stack, sp - num_args - 1,
 				(num_args + 1) * sizeof(struct cb_value));
-		next_frame.sp = NULL;
 		if (cb_eval(&next_frame)) {
 			retval = 1;
 			RET_WITH_TRACE();
@@ -1121,7 +1119,6 @@ DO_OP_IMPORT_MODULE: {
 		new_frame.num_args = 0;
 		new_frame.code = code;
 		new_frame.stack = stack;
-		new_frame.sp = NULL; /* pointer to local variable, assigned in cb_eval */
 
 		result = cb_eval(&new_frame);
 	}
