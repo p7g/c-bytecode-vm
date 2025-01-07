@@ -268,7 +268,8 @@ int cb_eval(struct cb_frame *frame)
 #define CACHE() (&frame->code->ic[ip - frame->code->bytecode - 1])
 
 	struct cb_value *sp = frame->stack + frame->is_function + frame->num_args;
-	cb_instruction *ip = frame->code->bytecode;
+	cb_instruction *bytecode = frame->code->bytecode;
+	cb_instruction *ip = bytecode;
 	int retval = 0;
 	struct cb_value *locals = frame->stack + frame->is_function;
 	struct cb_const *consts = frame->code->const_pool;
@@ -446,7 +447,7 @@ DO_OP_EXP: {
 DO_OP_JUMP: {
 	size_t dest = READ_SIZE_T();
 	/* XXX: JUMP macro */
-	ip = frame->code->bytecode + dest;
+	ip = bytecode + dest;
 	DISPATCH();
 }
 
@@ -455,7 +456,7 @@ DO_OP_JUMP_IF_TRUE: {
 	size_t next = READ_SIZE_T();
 	pred = POP();
 	if (cb_value_is_truthy(&pred))
-		ip = frame->code->bytecode + next;
+		ip = bytecode + next;
 	DISPATCH();
 }
 
@@ -464,7 +465,7 @@ DO_OP_JUMP_IF_FALSE: {
 	size_t next = READ_SIZE_T();
 	pred = POP();
 	if (!cb_value_is_truthy(&pred))
-		ip = frame->code->bytecode + next;
+		ip = bytecode + next;
 	DISPATCH();
 }
 
@@ -1137,7 +1138,7 @@ DO_OP_APPLY_DEFAULT_ARG: {
 	param_num = READ_SIZE_T();
 	next_param_addr = READ_SIZE_T();
 	if (frame->num_args > param_num)
-		ip = frame->code->bytecode + next_param_addr;
+		ip = bytecode + next_param_addr;
 	DISPATCH();
 }
 
