@@ -265,7 +265,7 @@ int cb_eval(struct cb_frame *frame)
 #define GLOBALS() (global_scope)
 #define PUSH(V) (*sp++ = (V))
 #define POP() (*--sp)
-#define CACHE() (&frame->code->ic[ip - frame->code->bytecode - 1])
+#define CACHE() (inline_cache[ip - bytecode - 1])
 
 	struct cb_value *sp = frame->stack + frame->is_function + frame->num_args;
 	cb_instruction *bytecode = frame->code->bytecode;
@@ -274,6 +274,7 @@ int cb_eval(struct cb_frame *frame)
 	struct cb_value *locals = frame->stack + frame->is_function;
 	struct cb_const *consts = frame->code->const_pool;
 	cb_hashmap *global_scope = cb_vm_state.modules[frame->module_id].global_scope;
+	union cb_inline_cache *inline_cache = frame->code->ic;
 
 	frame->sp = &sp;
 	frame->parent = cb_vm_state.frame;
@@ -577,7 +578,7 @@ DO_OP_LOAD_GLOBAL: {
 
 	id = READ_SIZE_T();
 
-	struct cb_load_global_cache *ic = &CACHE()->load_global;
+	struct cb_load_global_cache *ic = &CACHE().load_global;
 	/* non-zero version means that there is a cache. */
 	if (ic->version != 0 && ic->version == cb_hashmap_version(GLOBALS())) {
 		value = cb_hashmap_get_index(GLOBALS(), ic->index);
@@ -611,7 +612,7 @@ DO_OP_STORE_GLOBAL: {
 
 	id = READ_SIZE_T();
 
-	struct cb_load_global_cache *ic = &CACHE()->load_global;
+	struct cb_load_global_cache *ic = &CACHE().load_global;
 	if (ic->version != 0 && ic->version == cb_hashmap_version(GLOBALS())) {
 		cb_hashmap_set_index(GLOBALS(), ic->index, TOP());
 	} else {
@@ -727,7 +728,7 @@ DO_OP_LOAD_FROM_MODULE: {
 	export_id = READ_SIZE_T();
 	mod = &cb_vm_state.modules[mod_id];
 
-	struct cb_load_from_module_cache *ic = &CACHE()->load_from_module;
+	struct cb_load_from_module_cache *ic = &CACHE().load_from_module;
 
 	if (ic->version == 0) {
 		int empty;
@@ -969,7 +970,7 @@ DO_OP_LOAD_STRUCT: {
 				cb_value_type_friendly_name(recv.type));
 	struct cb_struct *s = recv.val.as_struct;
 
-	struct cb_load_struct_cache *ic = &CACHE()->load_struct;
+	struct cb_load_struct_cache *ic = &CACHE().load_struct;
 
 	struct cb_value *val;
 	if (ic->spec != NULL) {
@@ -1009,7 +1010,7 @@ DO_OP_LOAD_STRUCT: {
 		ERROR("Cannot set field of non-struct type %s", \
 				cb_value_type_friendly_name(recv.type)); \
 	struct cb_struct *s = recv.val.as_struct; \
-	struct cb_load_struct_cache *ic = &CACHE()->load_struct; \
+	struct cb_load_struct_cache *ic = &CACHE().load_struct; \
 	if (ic->spec != NULL) { \
 		if (ic->spec == s->spec) { \
 			s->fields[ic->index] = val; \
