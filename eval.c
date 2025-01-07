@@ -469,7 +469,7 @@ DO_OP_JUMP_IF_FALSE: {
 }
 
 DO_OP_CALL: {
-	size_t num_args, name;
+	size_t num_args;
 	struct cb_value func_val, result;
 	struct cb_function *func;
 	int failed;
@@ -483,12 +483,11 @@ DO_OP_CALL: {
 				cb_value_type_friendly_name(func_val.type));
 
 	func = func_val.val.as_function;
-	name = func->name;
 	num_opt_params = func->type == CB_FUNCTION_USER
 		? func->value.as_user.num_opt_params
 		: 0;
 	if (func->arity - num_opt_params > num_args) {
-		cb_str s = cb_agent_get_string(name);
+		cb_str s = cb_agent_get_string(func->name);
 		ERROR("Too few arguments to function '%s'\n", cb_strptr(&s));
 	}
 	if (func->type == CB_FUNCTION_NATIVE) {
