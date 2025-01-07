@@ -311,6 +311,7 @@ DO_OP_CONST_INT: {
 	val.val.as_int = (intptr_t) as_size_t;
 	PUSH(val);
 	DISPATCH();
+}
 
 DO_OP_CONST_DOUBLE: {
 	struct cb_value val;
@@ -1138,7 +1139,6 @@ DO_OP_APPLY_DEFAULT_ARG: {
 	if (frame->num_args > param_num)
 		ip = frame->code->bytecode + next_param_addr;
 	DISPATCH();
-}
 }
 
 #undef CACHE
