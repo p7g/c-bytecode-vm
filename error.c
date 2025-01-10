@@ -66,7 +66,7 @@ void cb_traceback_add_frame(struct cb_frame *frame)
 	tb = malloc(sizeof(struct cb_traceback));
 	tb->frame = *frame;
 	if (frame->is_function)
-		tb->func = frame->stack[0];
+		tb->func = cb_vm_state.stack[frame->bp];
 	tb->next = cb_vm_state.error->tb;
 	cb_vm_state.error->tb = tb;
 }

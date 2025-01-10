@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -142,9 +143,7 @@ void cb_gc_release(struct cext_root *node)
 static void mark(void)
 {
 	struct cb_module *mod;
-	struct cb_frame *frame;
 	struct cb_value *sp;
-	const struct cb_value *frame_sp;
 
 	/* Roots:
 	 * - stack
@@ -154,9 +153,9 @@ static void mark(void)
 	 */
 
 	DEBUG_LOG("marking stack values");
-	for (frame = cb_vm_state.frame; frame; frame = frame->parent) {
-		frame_sp = *frame->sp;
-		for (sp = frame->stack; sp < frame_sp; sp += 1)
+	if (cb_vm_state.frame && cb_vm_state.frame->sp) {
+		for (sp = cb_vm_state.stack; sp < *cb_vm_state.frame->sp;
+				sp += 1)
 			cb_value_mark(*sp);
 	}
 

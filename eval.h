@@ -11,9 +11,7 @@
 
 struct cb_upvalue {
 	size_t refcount;
-	/* If positive, the call_depth of the frame where the upvalue came
-	 * from. A negative value indicates that the upvalue is closed. */
-	ssize_t call_depth;
+	int is_closed;
 	union {
 		size_t idx;
 		struct cb_value value;
@@ -25,7 +23,7 @@ struct cb_frame {
 	size_t module_id;
 	unsigned is_function, num_args;
 	struct cb_code *code;
-	struct cb_value *stack;
+	size_t bp;
 	/* A pointer to the sp variable for the GC */
 	struct cb_value *const *sp;
 };
@@ -48,10 +46,11 @@ union cb_inline_cache {
 
 struct cb_vm_state {
 	struct cb_frame *frame;
+	struct cb_value *stack;
+	size_t stack_size;
 
 	struct cb_upvalue **upvalues;
 	size_t upvalues_idx, upvalues_size;
-	size_t call_depth;
 
 	/* size of this array is based on number of modspecs in agent */
 	struct cb_module *modules;
@@ -65,7 +64,6 @@ void cb_vm_init(void);
 void cb_vm_deinit(void);
 void cb_vm_grow_modules_array();
 
-int cb_eval(struct cb_frame *frame);
 int cb_run(struct cb_code *code);
 int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		struct cb_value *result);

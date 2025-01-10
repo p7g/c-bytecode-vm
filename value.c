@@ -330,7 +330,7 @@ cb_str cb_value_to_string(struct cb_value val)
 		char *ptr;
 		struct cb_struct *s = val.val.as_struct;
 		size_t struct_len = s->spec->nfields;
-		cb_str elements[struct_len];
+		cb_str *elements = alloca(struct_len * sizeof(cb_str));
 		const char *name;
 		size_t name_len;
 		cb_str n = cb_agent_get_string(s->spec->name);
@@ -739,7 +739,7 @@ void cb_value_mark(struct cb_value val)
 					i < ufunc->code->nupvalues;
 					i += 1) {
 				uv = ufunc->upvalues[i];
-				if (uv->call_depth < 0)
+				if (uv->is_closed)
 					queue_mark(&uv->v.value);
 			}
 

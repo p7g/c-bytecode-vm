@@ -34,7 +34,8 @@ void cb_vm_init(void)
 	cb_vm_state.upvalues = calloc(32, sizeof(struct cb_upvalue *));
 	cb_vm_state.upvalues_idx = 0;
 	cb_vm_state.upvalues_size = 32;
-	cb_vm_state.call_depth = 0;
+	cb_vm_state.stack = NULL;
+	cb_vm_state.stack_size = 0;
 
 	cb_vm_state.modules = calloc(cb_agent_modspec_count(),
 			sizeof(struct cb_module));
@@ -55,6 +56,9 @@ void cb_vm_deinit(void)
 
 	free(cb_vm_state.upvalues);
 	cb_vm_state.upvalues = NULL;
+
+	if (cb_vm_state.stack)
+		free(cb_vm_state.stack);
 }
 
 void cb_vm_grow_modules_array()
@@ -77,42 +81,34 @@ static void add_upvalue(struct cb_upvalue *uv)
 	cb_vm_state.upvalues[cb_vm_state.upvalues_idx++] = uv;
 }
 
-static CB_INLINE struct cb_frame *find_upvalue_frame(struct cb_upvalue *uv)
-{
-	assert(uv->call_depth >= 0);
-	assert((size_t) uv->call_depth <= cb_vm_state.call_depth);
-
-	struct cb_frame *frame = cb_vm_state.frame;
-	for (int i = cb_vm_state.call_depth; i > uv->call_depth; i -= 1)
-		frame = frame->parent;
-
-	return frame;
-}
-
 CB_INLINE struct cb_value cb_load_upvalue(struct cb_upvalue *uv)
 {
-	if (uv->call_depth < 0)
+	if (uv->is_closed)
 		return uv->v.value;
 
-	struct cb_frame *frame = find_upvalue_frame(uv);
-	assert(frame);
-	return frame->stack[uv->v.idx];
+	return cb_vm_state.stack[uv->v.idx];
 }
 
 static CB_INLINE void store_upvalue(struct cb_upvalue *uv, struct cb_value val)
 {
-	if (uv->call_depth < 0) {
+	if (uv->is_closed) {
 		uv->v.value = val;
 		return;
 	}
 
-	struct cb_frame *frame = find_upvalue_frame(uv);
-	assert(frame);
-
-	frame->stack[uv->v.idx] = val;
+	cb_vm_state.stack[uv->v.idx] = val;
 }
 
-int cb_eval(struct cb_frame *frame);
+static int cb_eval(struct cb_frame *frame);
+
+void ensure_stack(size_t needed_size, size_t sp)
+{
+	if (cb_vm_state.stack_size < sp + needed_size) {
+		cb_vm_state.stack_size = sp + needed_size;
+		cb_vm_state.stack = realloc(cb_vm_state.stack,
+				cb_vm_state.stack_size * sizeof(struct cb_value));
+	}
+}
 
 int cb_run(struct cb_code *code)
 {
@@ -127,8 +123,12 @@ int cb_run(struct cb_code *code)
 	frame.is_function = 0;
 	frame.num_args = 0;
 	frame.code = code;
-	frame.stack = alloca(sizeof(struct cb_value) * code->stack_size);
 
+	size_t sp = cb_vm_state.frame && cb_vm_state.frame->sp
+		? *cb_vm_state.frame->sp - cb_vm_state.stack : 0;
+	frame.bp = sp;
+
+	ensure_stack(code->stack_size, sp);
 	result = cb_eval(&frame);
 	/* don't use the module pointer from before; it might have moved */
 	cb_vm_state.modules[frame.module_id].evaluated = 1;
@@ -155,26 +155,28 @@ int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 
 		user_func = &fn.val.as_function->value.as_user;
 
-		stack_size = user_func->code->stack_size + args_len;
+		/* +1 for the function itself */
+		stack_size = user_func->code->stack_size + args_len + 1;
+		size_t bp = cb_vm_state.frame ?
+			*cb_vm_state.frame->sp - cb_vm_state.stack : 0;
+		ensure_stack(stack_size, bp);
+
+		cb_vm_state.stack[bp] = fn;
+		memcpy(&cb_vm_state.stack[bp + 1], args,
+				args_len * sizeof(struct cb_value));
 
 		frame.is_function = 1;
 		frame.num_args = args_len;
 		frame.code = user_func->code;
 		frame.module_id = cb_modspec_id(user_func->code->modspec);
+		frame.bp = bp;
 		module = &cb_vm_state.modules[frame.module_id];
 		if (cb_module_is_zero(*module))
 			init_module(module, user_func->code->modspec);
 
-		/* FIXME: add some restriction on arguments length */
-		frame.stack = alloca(stack_size * sizeof(struct cb_value));
-		frame.stack[0] = fn;
-
-		memcpy(&frame.stack[1], args,
-				args_len * sizeof(struct cb_value));
-
 		ret = cb_eval(&frame);
 		/* the result replaces the function on the stack */
-		*result = frame.stack[0];
+		*result = cb_vm_state.stack[bp];
 	} else {
 		native_func = fn.val.as_function->value.as_native;
 		ret = native_func(args_len, args, result);
@@ -185,7 +187,6 @@ int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 #ifdef CB_DEBUG_VM
 static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 {
-	size_t _name;
 	cb_str modname_str, funcname_str;
 	char *modname = "script";
 	char *funcname;
@@ -199,7 +200,10 @@ static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 	if (!frame->is_function) {
 		funcname = "top";
 	} else {
-		funcname_str = cb_agent_get_string(_name);
+		struct cb_value func = cb_vm_state.stack[frame->bp];
+		assert(CB_VALUE_IS_USER_FN(&func));
+		size_t name = func.val.as_function->name;
+		funcname_str = cb_agent_get_string(name);
 		funcname = cb_strptr(&funcname_str);
 	}
 
@@ -214,7 +218,7 @@ static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 			_first = 0;
 		else
 			printf(", ");
-		cb_str _str = cb_value_to_string(frame->stack[_idx]);
+		cb_str _str = cb_value_to_string(cb_vm_state.stack[_idx]);
 		printf("%s", cb_strptr(&_str));
 		cb_str_free(_str);
 	}
@@ -222,7 +226,7 @@ static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 }
 #endif
 
-int cb_eval(struct cb_frame *frame)
+static int cb_eval(struct cb_frame *frame)
 {
 #define TABLE_ENTRY(OP) &&DO_##OP,
 	static const void *dispatch_table[] = {
@@ -232,7 +236,7 @@ int cb_eval(struct cb_frame *frame)
 
 #ifdef CB_DEBUG_VM
 # define DEBUG_STATE() \
-	debug_state(sp - frame->stack, ip - frame->code->bytecode, frame)
+	debug_state(sp - stack, ip - frame->code->bytecode, frame)
 #else
 # define DEBUG_STATE()
 #endif
@@ -256,22 +260,23 @@ int cb_eval(struct cb_frame *frame)
 	})
 #define READ_SIZE_T() (NEXT())
 #define TOP() (sp[-1])
-#define LOCAL_IDX(N) ((N) + 1)
-#define LOCAL(N) (locals[N])
+#define LOCAL_IDX(N) (bp - stack + 1 + (N))
+#define LOCAL(N) (bp[N + 1])
 #define REPLACE_LOCAL(N, VAL) ({ \
 		struct cb_value _v = (VAL); \
-		locals[N] = _v; \
+		bp[N + 1] = _v; \
 	})
 #define GLOBALS() (global_scope)
 #define PUSH(V) (*sp++ = (V))
 #define POP() (*--sp)
 #define CACHE() (inline_cache[ip - bytecode - 1])
 
-	struct cb_value *sp = frame->stack + frame->is_function + frame->num_args;
+	struct cb_value *stack = cb_vm_state.stack;
+	struct cb_value *bp = stack + frame->bp;
+	struct cb_value *sp = bp + frame->is_function + frame->num_args;
 	cb_instruction *bytecode = frame->code->bytecode;
 	cb_instruction *ip = bytecode;
 	int retval = 0;
-	struct cb_value *locals = frame->stack + frame->is_function;
 	struct cb_const *consts = frame->code->const_pool;
 	cb_hashmap *global_scope = cb_vm_state.modules[frame->module_id].global_scope;
 	union cb_inline_cache *inline_cache = frame->code->ic;
@@ -279,14 +284,12 @@ int cb_eval(struct cb_frame *frame)
 	frame->sp = &sp;
 	frame->parent = cb_vm_state.frame;
 	cb_vm_state.frame = frame;
-	cb_vm_state.call_depth += 1;
 	DISPATCH();
 
 DO_OP_MAX:
 DO_OP_HALT:
 end:
 	cb_vm_state.frame = cb_vm_state.frame->parent;
-	cb_vm_state.call_depth -= 1;
 	if (retval && !cb_vm_state.frame) {
 		fprintf(stderr, "Traceback (most recent call last):\n");
 		struct cb_traceback *tb;
@@ -491,37 +494,33 @@ DO_OP_CALL: {
 		cb_str s = cb_agent_get_string(func->name);
 		ERROR("Too few arguments to function '%s'\n", cb_strptr(&s));
 	}
+	size_t old_sp = sp - stack;
 	if (func->type == CB_FUNCTION_NATIVE) {
+		size_t dest = sp - stack - num_args - 1;
 		failed = func->value.as_native(num_args, sp - num_args,
 				&result);
-		assert(sp - frame->stack > (ssize_t) num_args);
-		sp -= (num_args + 1);
-		PUSH(result);
-		if (failed) {
-			retval = 1;
-			RET_WITH_TRACE();
-		}
+		cb_vm_state.stack[dest] = result;
 	} else {
 		struct cb_code *code = func->value.as_user.code;
-		struct cb_value stack[code->stack_size + num_args];
 
 		struct cb_frame next_frame;
 		next_frame.is_function = 1;
 		next_frame.num_args = num_args;
 		next_frame.module_id = cb_modspec_id(code->modspec);
 		next_frame.code = code;
-		next_frame.stack = stack;
+		next_frame.bp = sp - stack - num_args - 1;
 
-		/* Copy the called function and arguments into the locals of
-		   the next frame */
-		memcpy(next_frame.stack, sp - num_args - 1,
-				(num_args + 1) * sizeof(struct cb_value));
-		if (cb_eval(&next_frame)) {
-			retval = 1;
-			RET_WITH_TRACE();
-		}
-		sp -= num_args;
-		sp[-1] = next_frame.stack[0];
+		ensure_stack(code->stack_size, sp - stack);
+		failed = cb_eval(&next_frame);
+	}
+
+	stack = cb_vm_state.stack;
+	bp = stack + frame->bp;
+	sp = stack + old_sp - num_args;
+
+	if (failed) {
+		retval = 1;
+		RET_WITH_TRACE();
 	}
 
 	DISPATCH();
@@ -535,20 +534,18 @@ DO_OP_RETURN: {
 	retval = POP();
 
 	/* close upvalues */
-	if (cb_vm_state.upvalues_idx != 0) {
-		for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
-			uv = cb_vm_state.upvalues[i];
-			/* XXX: is the <0 check actually needed? */
-			if (!uv || uv->call_depth < 0 ||
-					(size_t) uv->call_depth < cb_vm_state.call_depth)
-				break;
-			uv->call_depth = -1;
-			uv->v.value = frame->stack[uv->v.idx];
-		}
-		cb_vm_state.upvalues_idx = i + 1;
+	for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
+		uv = cb_vm_state.upvalues[i];
+		assert(uv);
+		assert(!uv->is_closed);
+		if (uv->v.idx < frame->bp)
+			break;
+		uv->is_closed = 1;
+		uv->v.value = stack[uv->v.idx];
 	}
+	cb_vm_state.upvalues_idx = i + 1;
 
-	sp = frame->stack;
+	sp = bp;
 	PUSH(retval);
 	goto end;
 }
@@ -645,12 +642,11 @@ DO_OP_BIND_LOCAL: {
 	uv = NULL;
 	for (i = cb_vm_state.upvalues_idx - 1; i >= 0; i -= 1) {
 		struct cb_upvalue *uv2 = cb_vm_state.upvalues[i];
-		if (uv2 == NULL || uv2->call_depth < 0
-				|| (size_t) uv2->call_depth
-					< cb_vm_state.call_depth)
+		assert(uv2);
+		assert(!uv2->is_closed);
+		if (uv2->v.idx < idx)
 			break;
-		assert((size_t) uv2->call_depth == cb_vm_state.call_depth);
-		if (uv2->v.idx == idx) {
+		else if (uv2->v.idx == idx) {
 			uv = uv2;
 			break;
 		}
@@ -659,7 +655,7 @@ DO_OP_BIND_LOCAL: {
 	if (!uv) {
 		uv = malloc(sizeof(struct cb_upvalue));
 		uv->refcount = 0;
-		uv->call_depth = cb_vm_state.call_depth;
+		uv->is_closed = 0;
 		uv->v.idx = idx;
 
 		add_upvalue(uv);
@@ -677,7 +673,7 @@ DO_OP_BIND_UPVALUE: {
 	size_t dest_idx = READ_SIZE_T();
 	size_t upvalue_idx = READ_SIZE_T();
 
-	self = &frame->stack[0];
+	self = bp;
 	assert(CB_VALUE_IS_USER_FN(self));
 	func = &TOP();
 	if (!CB_VALUE_IS_USER_FN(func))
@@ -694,7 +690,7 @@ DO_OP_LOAD_UPVALUE: {
 	struct cb_upvalue *uv;
 	size_t idx = READ_SIZE_T();
 
-	self = &frame->stack[0];
+	self = bp;
 	assert(CB_VALUE_IS_USER_FN(self));
 
 	uv = self->val.as_function->value.as_user.upvalues[idx];
@@ -709,10 +705,10 @@ DO_OP_STORE_UPVALUE: {
 	struct cb_upvalue *uv;
 	size_t idx = READ_SIZE_T();
 
-	self = &frame->stack[0];
+	self = bp;
 	assert(CB_VALUE_IS_USER_FN(self));
 
-	/* FIXME: Store cb_user_function in local */
+	/* FIXME: Store self cb_user_function in local */
 	uv = self->val.as_function->value.as_user.upvalues[idx];
 	store_upvalue(uv, TOP());
 
@@ -1097,7 +1093,7 @@ DO_OP_IMPORT_MODULE: {
 	struct cb_const_module *const_mod;
 	struct cb_module *mod;
 	struct cb_code *code;
-	int result;
+	int failed;
 
 	const_id = READ_SIZE_T();
 	assert(consts[const_id].type == CB_CONST_MODULE);
@@ -1114,20 +1110,21 @@ DO_OP_IMPORT_MODULE: {
 	if (cb_module_is_zero(*mod))
 		init_module(mod, const_mod->spec);
 
-	{
-		struct cb_value stack[code->stack_size];
+	struct cb_frame new_frame;
+	new_frame.module_id = mod_id;
+	new_frame.is_function = 0;
+	new_frame.num_args = 0;
+	new_frame.code = code;
+	new_frame.bp = sp - stack;
 
-		struct cb_frame new_frame;
-		new_frame.module_id = mod_id;
-		new_frame.is_function = 0;
-		new_frame.num_args = 0;
-		new_frame.code = code;
-		new_frame.stack = stack;
+	ensure_stack(code->stack_size, sp - stack);
+	failed = cb_eval(&new_frame);
+	stack = cb_vm_state.stack;
+	bp = stack + frame->bp;
+	sp = stack + new_frame.bp;
 
-		result = cb_eval(&new_frame);
-	}
 	mod->evaluated = 1;
-	if (result) {
+	if (failed) {
 		retval = 1;
 		RET_WITH_TRACE();
 	}
