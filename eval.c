@@ -373,7 +373,6 @@ DO_OP_CONST_NULL: {
 		a = POP(); \
 		if (a.type == CB_VALUE_INT && b.type == CB_VALUE_INT) { \
 			result.type = CB_VALUE_INT; \
-			result.val.as_int = a.val.as_int OP b.val.as_int; \
 			if (INT_OP(a.val.as_int, b.val.as_int, \
 						&result.val.as_int)) { \
 				ERROR("Integer overflow in %s\n", #OP); \
