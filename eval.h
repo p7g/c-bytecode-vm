@@ -43,10 +43,6 @@ union cb_inline_cache {
 		size_t version;
 		size_t index;
 	} load_from_module;
-	struct cb_load_upvalue_cache {
-		struct cb_frame *frame;
-		ssize_t call_depth;
-	} load_upvalue;
 };
 
 
@@ -74,6 +70,5 @@ int cb_run(struct cb_code *code);
 int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		struct cb_value *result);
 struct cb_value cb_load_upvalue(struct cb_upvalue *uv);
-void cb_store_upvalue(struct cb_upvalue *uv, struct cb_value);
 
 #endif
