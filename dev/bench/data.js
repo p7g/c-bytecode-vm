@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736259562835,
+  "lastUpdate": 1736475657907,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -347,6 +347,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "bench.b",
             "value": 172902,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "430ad9af841a0c261887f7d27cd2a98a5de72fe7",
+          "message": "remove redundant work",
+          "timestamp": "2025-01-09T21:17:36-05:00",
+          "tree_id": "c9352657caf2ad36703a52abf09191ec227d15fb",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/430ad9af841a0c261887f7d27cd2a98a5de72fe7"
+        },
+        "date": 1736475656788,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 169191,
             "unit": "ms"
           }
         ]
