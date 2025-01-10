@@ -1034,8 +1034,7 @@ static int declare_name(struct cstate *state, size_t name_id, int export)
 		APPEND_SIZE_T(name_id);
 		if (export)
 			export_name(state, name_id);
-		else
-			APPEND(OP_POP);
+		APPEND(OP_POP);
 	} else {
 		binding_id = scope_add_binding(state->function_state->scope,
 				name_id, 0);
@@ -1830,8 +1829,7 @@ static int compile_struct_statement(struct cstate *state, int export)
 
 	if (export && cstate_is_global(state))
 		export_name(state, name_id);
-	else
-		APPEND(OP_POP);
+	APPEND(OP_POP);
 
 	return 0;
 }
