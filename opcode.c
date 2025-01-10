@@ -170,7 +170,7 @@ int cb_opcode_stack_effect(const cb_instruction *ops)
 		return ops[1];
 
 	case OP_NEW_ARRAY_WITH_VALUES:
-		return -ops[1];
+		return -ops[1] + 1;
 
 	case OP_CALL:
 		return -ops[1];

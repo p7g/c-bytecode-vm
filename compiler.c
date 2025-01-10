@@ -897,8 +897,7 @@ static struct cb_code *create_code(struct cstate *state)
 
 	/* Calculate the maximum stack size this code fragment requires, excluding
 	   arguments */
-	/* FIXME: why is the +1 needed? */
-	code->stack_size = !cstate_is_global(state) + 1;
+	code->stack_size = 0;
 	if (!cstate_is_global(state))
 		code->stack_size += state->function_state->scope->num_locals;
 
