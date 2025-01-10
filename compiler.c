@@ -612,7 +612,6 @@ struct function_state {
 	size_t name;
 	struct scope *scope;
 	struct function_state *parent;
-	struct loop_state *loop_state;
 	size_t *free_variables,
 	       free_var_len,
 	       free_var_size;
@@ -635,6 +634,7 @@ struct cstate {
 	struct parse_state *parse_state;
 	struct module_state *module_state;
 	struct function_state *function_state;
+	struct loop_state *loop_state;
 	struct cb_bytecode *bytecode;
 
 	struct cb_const *consts;
@@ -686,6 +686,7 @@ static void cstate_init(struct cstate *const state, const char *input,
 	state->parse_state = parse_state_new(input, name);
 	state->module_state = NULL;
 	state->function_state = NULL;
+	state->loop_state = NULL;
 	state->bytecode = cb_bytecode_new();
 	state->consts = NULL;
 	state->consts_len = state->consts_size = 0;
@@ -706,6 +707,7 @@ static void cstate_inherit(struct cstate *dest, const struct cstate *src)
 	dest->parse_state = src->parse_state;
 	dest->module_state = src->module_state;
 	dest->function_state = NULL;
+	dest->loop_state = NULL;
 	dest->bytecode = cb_bytecode_new();
 	dest->consts = NULL;
 	dest->consts_len = dest->consts_size = 0;
@@ -1228,7 +1230,6 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	cstate_inherit(&inner_state, state);
 	inner_state.function_state = &inner_fn_state;
 	inner_fn_state.parent = state->function_state;
-	inner_fn_state.loop_state = NULL;
 	inner_fn_state.scope = scope_new();
 	inner_fn_state.free_variables = NULL;
 	inner_fn_state.free_var_len = inner_fn_state.free_var_size = 0;
@@ -1533,8 +1534,8 @@ static int compile_for_statement(struct cstate *state)
 	ADDR_OF(start_label);
 	MARK(body_label);
 
-	old_lstate = state->function_state->loop_state;
-	state->function_state->loop_state = &lstate;
+	old_lstate = state->loop_state;
+	state->loop_state = &lstate;
 
 	while (!MATCH_P(TOK_RIGHT_BRACE))
 		X(compile_statement(state));
@@ -1544,7 +1545,7 @@ static int compile_for_statement(struct cstate *state)
 	ADDR_OF(increment_label);
 	MARK(end_label);
 
-	state->function_state->loop_state = old_lstate;
+	state->loop_state = old_lstate;
 
 	return 0;
 }
@@ -1568,8 +1569,8 @@ static int compile_while_statement(struct cstate *state)
 	APPEND(OP_JUMP_IF_FALSE);
 	ADDR_OF(end_label);
 
-	old_lstate = state->function_state->loop_state;
-	state->function_state->loop_state = &lstate;
+	old_lstate = state->loop_state;
+	state->loop_state = &lstate;
 
 	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
@@ -1581,7 +1582,7 @@ static int compile_while_statement(struct cstate *state)
 	ADDR_OF(start_label);
 	MARK(end_label);
 
-	state->function_state->loop_state = old_lstate;
+	state->loop_state = old_lstate;
 
 	return 0;
 }
@@ -1591,14 +1592,14 @@ static int compile_break_statement(struct cstate *state)
 	struct token tok;
 
 	tok = EXPECT(TOK_BREAK);
-	if (!state->function_state->loop_state) {
+	if (!state->loop_state) {
 		ERROR_AT(tok, "Break outside of loop");
 		return 1;
 	}
 	EXPECT(TOK_SEMICOLON);
 
 	APPEND(OP_JUMP);
-	ADDR_OF(state->function_state->loop_state->break_label);
+	ADDR_OF(state->loop_state->break_label);
 
 	return 0;
 }
@@ -1608,14 +1609,14 @@ static int compile_continue_statement(struct cstate *state)
 	struct token tok;
 
 	tok = EXPECT(TOK_CONTINUE);
-	if (!state->function_state->loop_state) {
+	if (!state->loop_state) {
 		ERROR_AT(tok, "Continue outside of loop");
 		return 1;
 	}
 	EXPECT(TOK_SEMICOLON);
 
 	APPEND(OP_JUMP);
-	ADDR_OF(state->function_state->loop_state->continue_label);
+	ADDR_OF(state->loop_state->continue_label);
 
 	return 0;
 }

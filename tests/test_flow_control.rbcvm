@@ -1,4 +1,5 @@
 import array;
+import module;
 import test;
 
 export function test_if() {
@@ -50,4 +51,8 @@ export function test_return() {
         return 123;
         return 234;
     }() == 123);
+}
+
+export function test_loop_in_global_scope() {
+    module.import_("global_loop", "tests/global_loop.rbcvm");
 }
