@@ -542,23 +542,23 @@ double cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok)
 		return UNDEFINED();
 	case CB_VALUE_STRING:
 		if (b->type == CB_VALUE_STRING) {
-			return cb_strcmp(a->val.as_string->string,
-					b->val.as_string->string);
+			return OK(cb_strcmp(a->val.as_string->string,
+					b->val.as_string->string));
 		} else if (b->type == CB_VALUE_INTERNED_STRING) {
 			cb_str bstr = cb_agent_get_string(
 					b->val.as_interned_string);
-			return cb_strcmp(a->val.as_string->string, bstr);
+			return OK(cb_strcmp(a->val.as_string->string, bstr));
 		} else {
 			return UNDEFINED();
 		}
 	case CB_VALUE_INTERNED_STRING: {
 		cb_str astr = cb_agent_get_string(a->val.as_interned_string);
 		if (b->type == CB_VALUE_STRING) {
-			return cb_strcmp(astr, b->val.as_string->string);
+			return OK(cb_strcmp(astr, b->val.as_string->string));
 		} else if (b->type == CB_VALUE_INTERNED_STRING) {
 			cb_str bstr = cb_agent_get_string(
 					b->val.as_interned_string);
-			return cb_strcmp(astr, bstr);
+			return OK(cb_strcmp(astr, bstr));
 		} else {
 			return UNDEFINED();
 		}
