@@ -8,6 +8,7 @@ import iter;
 import module;
 import path;
 import string;
+import sys;
 
 let tests_by_file = hashmap.new();
 
@@ -48,10 +49,14 @@ iter.foreach(hashmap.entries(tests_by_file), function run_tests([filename, tests
     print('\n');
 });
 
-if (arraylist.length(failed) == 0) {
+println();
+let num_failed = arraylist.length(failed);
+if (num_failed == 0) {
     println("All tests passed");
 } else {
+    println(num_failed, "failing tests:");
     arraylist.foreach(failed, function print_failed_tests([test, error]) {
-        println(string.concat(tostring(test), ": ", tostring(error)));
+        println(string.concat("\t", tostring(test), ": ", tostring(error)));
     });
+    sys.exit(1);
 }
