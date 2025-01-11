@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736566029383,
+  "lastUpdate": 1736606457101,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -492,6 +492,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "bench.b",
             "value": 130997,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "6c8148ba90125793ee0416c71a801b0e43aff45d",
+          "message": "build struct specs at compile time",
+          "timestamp": "2025-01-11T09:38:10-05:00",
+          "tree_id": "3a579b051e7e071bdace8f4d8d813f4fc8312b5c",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/6c8148ba90125793ee0416c71a801b0e43aff45d"
+        },
+        "date": 1736606456616,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 138399,
             "unit": "ms"
           }
         ]
