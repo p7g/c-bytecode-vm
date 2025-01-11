@@ -210,7 +210,7 @@ static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 
 	printf("%s%s%s\n", modname, !frame->is_function ? " " : ".", funcname);
 	printf("pc: %zu, sp: %zu, stack_size: %hu\n", pc, sp, frame->code->stack_size);
-	cb_disassemble_one(frame->code->bytecode + pc, pc);
+	cb_disassemble_one(frame->code->bytecode[pc], pc);
 	printf("> %s", sp ? (sp > 10 ? "... " : "") : "(empty)");
 	int _first = 1;
 	for (int _i = (10 < sp ? 10 : sp); _i > 0; _i -= 1) {
