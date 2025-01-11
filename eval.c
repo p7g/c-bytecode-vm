@@ -34,8 +34,9 @@ void cb_vm_init(void)
 	cb_vm_state.upvalues = calloc(32, sizeof(struct cb_upvalue *));
 	cb_vm_state.upvalues_idx = 0;
 	cb_vm_state.upvalues_size = 32;
-	cb_vm_state.stack = NULL;
-	cb_vm_state.stack_size = 0;
+	/* Start with stack size 1 to avoid UB from applying offset to NULL */
+	cb_vm_state.stack = malloc(sizeof(struct cb_value));
+	cb_vm_state.stack_size = 1;
 
 	cb_vm_state.modules = calloc(cb_agent_modspec_count(),
 			sizeof(struct cb_module));
@@ -271,6 +272,7 @@ static int cb_eval(struct cb_frame *frame)
 #define POP() (*--sp)
 #define CACHE() (inline_cache[ip - bytecode - 1])
 
+	assert(cb_vm_state.stack);
 	struct cb_value *stack = cb_vm_state.stack;
 	struct cb_value *bp = stack + frame->bp;
 	struct cb_value *sp = bp + frame->is_function + frame->num_args;
