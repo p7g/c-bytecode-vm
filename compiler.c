@@ -909,7 +909,15 @@ static struct cb_code *create_code(struct cstate *state)
 	while (i < cb_bytecode_len(state->bytecode)) {
 		cb_instruction *instr = &state->bytecode->code[i];
 		current += cb_opcode_stack_effect(instr);
-		assert(current >= 0);
+#ifndef NDEBUG
+		if (current < 0) {
+			for (size_t i = 0; i < cb_bytecode_len(state->bytecode);) {
+				assert(!cb_disassemble_one(&state->bytecode->code[i], i));
+				i += 1 + cb_opcode_arity(&state->bytecode->code[i]);
+			}
+			abort();
+		}
+#endif
 		if (current > code->stack_size)
 			code->stack_size = current;
 		i += cb_opcode_arity(instr) + 1;
