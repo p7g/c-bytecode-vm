@@ -189,21 +189,6 @@ int cb_disassemble_one(cb_instruction *bytecode, size_t offset)
 		return 0;
 	}
 
-	case OP_NEW_STRUCT_SPEC: {
-		size_t name_id, nfields, field_name, i;
-		name_id = NEXT_USIZE();
-		nfields = NEXT_USIZE();
-		tmp_str = cb_agent_get_string(name_id);
-		printf("%s(\"%s\"", cb_opcode_name(op), cb_strptr(&tmp_str));
-		for (i = 0; i < nfields; i += 1) {
-			field_name = NEXT_USIZE();
-			tmp_str = cb_agent_get_string(field_name);
-			printf(", \"%s\"", cb_strptr(&tmp_str));
-		}
-		puts(")");
-		return 0;
-	}
-
 	case OP_MAX:
 		break;
 	}

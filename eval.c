@@ -1065,22 +1065,6 @@ DO_OP_NEW_STRUCT: {
 	DISPATCH();
 }
 
-DO_OP_NEW_STRUCT_SPEC: {
-	size_t name_id, nfields;
-	struct cb_value val;
-	name_id = READ_SIZE_T();
-	nfields = READ_SIZE_T();
-	val.type = CB_VALUE_STRUCT_SPEC;
-	val.val.as_struct_spec = cb_struct_spec_new(name_id, nfields);
-	for (size_t i = 0; i < nfields; i += 1) {
-		size_t field_id = READ_SIZE_T();
-		cb_struct_spec_set_field_name(val.val.as_struct_spec, i,
-				field_id);
-	}
-	PUSH(val);
-	DISPATCH();
-}
-
 DO_OP_ROT_2: {
 	struct cb_value a, b;
 	a = POP();

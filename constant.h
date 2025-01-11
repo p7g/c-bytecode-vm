@@ -2,6 +2,7 @@
 #define cb_constant_h
 
 #include "module.h"
+#include "value.h"
 
 struct cb_code;
 
@@ -12,6 +13,7 @@ struct cb_code;
 	X(CB_CONST_STRING) \
 	X(CB_CONST_ARRAY) \
 	X(CB_CONST_STRUCT) \
+	X(CB_CONST_STRUCT_SPEC) \
 	X(CB_CONST_FUNCTION) \
 	X(CB_CONST_MODULE)
 
@@ -35,6 +37,7 @@ struct cb_const {
 		size_t as_string;  /* always interned */
 		struct cb_const_array *as_array;
 		struct cb_const_struct *as_struct;
+		struct cb_struct_spec *as_struct_spec;
 		struct cb_const_user_function *as_function;
 		struct cb_const_module *as_module;
 	} val;

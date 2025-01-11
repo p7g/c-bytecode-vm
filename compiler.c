@@ -27,6 +27,7 @@
 #define INITIAL_BYTECODE_SIZE 32
 #define LENGTH(ARR) (sizeof(ARR) / sizeof(ARR[0]))
 #define VALID_ESCAPES "nrt\"'"
+#define STRUCT_MAX_FIELDS 64
 
 #define TOKEN_TYPE_LIST(X) \
 	X(TOK_IDENT) \
@@ -1768,12 +1769,14 @@ error:
 	return 1;
 }
 
-static int compile_struct_decl(struct cstate *state, size_t *name_out)
+static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
+		int has_values_inline, struct cb_struct_spec **spec_out)
 {
 	struct token name, field;
-	size_t name_id, num_fields, binding_id, field_id, nfields_pos;
+	size_t name_id, num_fields, binding_id;
 	int first_field;
 	int is_named;
+	size_t fields[STRUCT_MAX_FIELDS];
 
 	EXPECT(TOK_STRUCT);
 	if (MATCH_P(TOK_IDENT)) {
@@ -1789,10 +1792,6 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 
 	num_fields = 0;
 	first_field = 1;
-	APPEND(OP_NEW_STRUCT_SPEC);
-	APPEND_SIZE_T(name_id);
-	nfields_pos = cb_bytecode_len(state->bytecode);
-	APPEND_SIZE_T(0);
 
 	EXPECT(TOK_LEFT_BRACE);
 	while (!MATCH_P(TOK_RIGHT_BRACE)) {
@@ -1804,16 +1803,34 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 			if (MATCH_P(TOK_RIGHT_BRACE))
 				break;
 		}
-		num_fields += 1;
 		field = EXPECT(TOK_IDENT);
-		field_id = intern_ident(state, &field);
-		APPEND_SIZE_T(field_id);
+		fields[num_fields++] = intern_ident(state, &field);
+		if (num_fields == STRUCT_MAX_FIELDS) {
+			ERROR_AT(field, "Too many struct fields");
+			return -1;
+		}
+		if (has_values_inline) {
+			EXPECT(TOK_EQUAL);
+			if (compile_expression(state))
+				return -1;
+		}
 	}
 	EXPECT(TOK_RIGHT_BRACE);
 
-	UPDATE(nfields_pos, num_fields);
+	struct cb_struct_spec *spec = cb_struct_spec_new(name_id, num_fields);
+	if (spec_out)
+		*spec_out = spec;
+	for (unsigned i = 0; i < num_fields; i++) {
+		cb_struct_spec_set_field_name(spec, i, fields[i]);
+	}
+	struct cb_const const_spec;
+	const_spec.type = CB_CONST_STRUCT_SPEC;
+	const_spec.val.as_struct_spec = spec;
+	size_t const_id = cstate_add_const(state, const_spec);
 
 	if (is_named) {
+		APPEND(OP_LOAD_CONST);
+		APPEND_SIZE_T(const_id);
 		if (cstate_is_global(state)) {
 			APPEND(OP_DECLARE_GLOBAL);
 			APPEND_SIZE_T(name_id);
@@ -1827,14 +1844,15 @@ static int compile_struct_decl(struct cstate *state, size_t *name_out)
 		}
 	}
 
-	return 0;
+	return const_id;
 }
 
 static int compile_struct_statement(struct cstate *state, int export)
 {
 	size_t name_id;
 
-	X(compile_struct_decl(state, &name_id));
+	if (compile_struct_decl(state, &name_id, 0, NULL) < 0)
+		return 1;
 
 	if (export && cstate_is_global(state))
 		export_name(state, name_id);
@@ -2242,54 +2260,22 @@ static int compile_array_expression(struct cstate *state)
 
 static int compile_anonymous_struct_literal(struct cstate *state)
 {
-#define MAX_FIELDS 64
-	struct token field;
-	size_t fields[MAX_FIELDS], num_fields, name;
-	int first_field;
+	struct cb_struct_spec *spec;
+	ssize_t const_id = compile_struct_decl(state, NULL, 1, &spec);
+	if (const_id < 0)
+		return 1;
 
-	num_fields = 0;
-	first_field = 1;
-	name = cb_agent_intern_string("<anonymous>", 11);
-
-	/* TODO: Generate a const for the struct literal if possible */
-	EXPECT(TOK_STRUCT);
-	EXPECT(TOK_LEFT_BRACE);
-	while (!MATCH_P(TOK_RIGHT_BRACE)) {
-		if (first_field) {
-			first_field = 0;
-		} else {
-			EXPECT(TOK_COMMA);
-			/* support trailing comma */
-			if (MATCH_P(TOK_RIGHT_BRACE))
-				break;
-		}
-		field = EXPECT(TOK_IDENT);
-		fields[num_fields++] = intern_ident(state, &field);
-		if (num_fields == MAX_FIELDS) {
-			ERROR_AT(field, "Too many struct fields");
-			return 1;
-		}
-		EXPECT(TOK_EQUAL);
-		X(compile_expression(state));
-	}
-	EXPECT(TOK_RIGHT_BRACE);
-
-	APPEND(OP_NEW_STRUCT_SPEC);
-	APPEND_SIZE_T(name);
-	APPEND_SIZE_T(num_fields);
-
-	for (unsigned i = 0; i < num_fields; i += 1)
-		APPEND_SIZE_T(fields[i]);
-
+	/* FIXME: add a new instruction like OP_ARRAY_FROM_VALUES */
+	APPEND(OP_LOAD_CONST);
+	APPEND_SIZE_T(const_id);
 	APPEND(OP_NEW_STRUCT);
-	for (int i = num_fields - 1; i >= 0; i -= 1) {
+	for (int i = spec->nfields - 1; i >= 0; i -= 1) {
 		APPEND(OP_ROT_2);
 		APPEND(OP_ADD_STRUCT_FIELD);
-		APPEND_SIZE_T(fields[i]);
+		APPEND_SIZE_T(spec->fields[i]);
 	}
 
 	return 0;
-#undef MAX_FIELDS
 }
 
 static int compile_expression_inner(struct cstate *, int rbp);

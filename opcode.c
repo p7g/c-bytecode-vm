@@ -87,9 +87,6 @@ size_t cb_opcode_arity(const cb_instruction *ops)
 	case OP_APPLY_DEFAULT_ARG:
 		return 2;
 
-	case OP_NEW_STRUCT_SPEC:
-		return 2 + ops[2];
-
 	default:
 		fprintf(stderr, "getting arity of unknown opcode %d\n", op);
 		abort();
@@ -119,7 +116,6 @@ int cb_opcode_stack_effect(const cb_instruction *ops)
 	case OP_LOAD_GLOBAL:
 	case OP_LOAD_STRUCT:
 	case OP_LOAD_FROM_MODULE:
-	case OP_NEW_STRUCT_SPEC:
 		return 1;
 
 	case OP_ADD:

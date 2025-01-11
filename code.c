@@ -5,6 +5,7 @@
 #include "constant.h"
 #include "gc.h"
 #include "module.h"
+#include "struct.h"
 
 static void code_deinit(void *code_ptr)
 {
@@ -45,6 +46,10 @@ static void mark_const(struct cb_const c)
 
 	case CB_CONST_FUNCTION:
 		queue_mark(c.val.as_function->code);
+		break;
+
+	case CB_CONST_STRUCT_SPEC:
+		cb_gc_mark(&c.val.as_struct_spec->gc_header);
 		break;
 
 	default:

@@ -26,6 +26,7 @@ void cb_const_free(struct cb_const *obj)
 	case CB_CONST_DOUBLE:
 	case CB_CONST_CHAR:
 	case CB_CONST_STRING:
+	case CB_CONST_STRUCT_SPEC: /* struct spec is GCed */
 		break;
 
 	case CB_CONST_ARRAY: {
@@ -79,6 +80,10 @@ struct cb_value cb_const_to_value(const struct cb_const *const_)
 	case CB_CONST_STRING:
 		ret.type = CB_VALUE_INTERNED_STRING;
 		ret.val.as_interned_string = const_->val.as_string;
+		break;
+	case CB_CONST_STRUCT_SPEC:
+		ret.type = CB_VALUE_STRUCT_SPEC;
+		ret.val.as_struct_spec = const_->val.as_struct_spec;
 		break;
 
 	case CB_CONST_ARRAY: {
