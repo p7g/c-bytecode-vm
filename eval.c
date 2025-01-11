@@ -245,10 +245,13 @@ static int cb_eval(struct cb_frame *frame)
 #define NEXT() (*ip++)
 #define DISPATCH() ({ \
 		DEBUG_STATE(); \
-		size_t _next = NEXT(); \
-		assert(_next < OP_MAX); \
-		goto *dispatch_table[_next]; \
+		op.as_size_t = NEXT(); \
+		assert(op.unary.op < OP_MAX); \
+		goto *dispatch_table[op.unary.op]; \
 	})
+#define ARG (op.unary.arg)
+#define ARG1 (op.binary.arg1)
+#define ARG2 (op.binary.arg2)
 
 #define RET_WITH_TRACE() ({ \
 		cb_traceback_add_frame(frame); \
@@ -259,7 +262,6 @@ static int cb_eval(struct cb_frame *frame)
 		retval = 1; \
 		RET_WITH_TRACE(); \
 	})
-#define READ_SIZE_T() (NEXT())
 #define TOP() (sp[-1])
 #define LOCAL_IDX(N) (bp - stack + 1 + (N))
 #define LOCAL(N) (bp[N + 1])
@@ -283,6 +285,8 @@ static int cb_eval(struct cb_frame *frame)
 	cb_hashmap *global_scope = cb_vm_state.modules[frame->module_id].global_scope;
 	union cb_inline_cache *inline_cache = frame->code->ic;
 
+	union cb_op_encoding op;
+
 	frame->sp = &sp;
 	frame->parent = cb_vm_state.frame;
 	cb_vm_state.frame = frame;
@@ -305,38 +309,16 @@ end:
 	return retval;
 
 DO_OP_LOAD_CONST: {
-	struct cb_const cst = consts[READ_SIZE_T()];
+	struct cb_const cst = consts[ARG];
 	struct cb_value as_value = cb_const_to_value(&cst);
 	PUSH(as_value);
-	DISPATCH();
-}
-
-DO_OP_CONST_INT: {
-	size_t as_size_t = READ_SIZE_T();
-	struct cb_value val;
-	val.type = CB_VALUE_INT;
-	val.val.as_int = (intptr_t) as_size_t;
-	PUSH(val);
-	DISPATCH();
-}
-
-DO_OP_CONST_DOUBLE: {
-	struct cb_value val;
-	union {
-		double as_double;
-		size_t as_size_t;
-	} doubleval;
-	doubleval.as_size_t = READ_SIZE_T();
-	val.type = CB_VALUE_DOUBLE;
-	val.val.as_double = doubleval.as_double;
-	PUSH(val);
 	DISPATCH();
 }
 
 DO_OP_CONST_STRING: {
 	struct cb_value val;
 	val.type = CB_VALUE_INTERNED_STRING;
-	val.val.as_interned_string = READ_SIZE_T();
+	val.val.as_interned_string = ARG;
 	PUSH(val);
 	DISPATCH();
 }
@@ -344,7 +326,7 @@ DO_OP_CONST_STRING: {
 DO_OP_CONST_CHAR: {
 	struct cb_value val;
 	val.type = CB_VALUE_CHAR;
-	val.val.as_char = (uint32_t) READ_SIZE_T();
+	val.val.as_char = (uint32_t) ARG;
 	PUSH(val);
 	DISPATCH();
 }
@@ -450,7 +432,7 @@ DO_OP_EXP: {
 }
 
 DO_OP_JUMP: {
-	size_t dest = READ_SIZE_T();
+	size_t dest = ARG;
 	/* XXX: JUMP macro */
 	ip = bytecode + dest;
 	DISPATCH();
@@ -458,7 +440,7 @@ DO_OP_JUMP: {
 
 DO_OP_JUMP_IF_TRUE: {
 	struct cb_value pred;
-	size_t next = READ_SIZE_T();
+	size_t next = ARG;
 	pred = POP();
 	if (cb_value_is_truthy(&pred))
 		ip = bytecode + next;
@@ -467,7 +449,7 @@ DO_OP_JUMP_IF_TRUE: {
 
 DO_OP_JUMP_IF_FALSE: {
 	struct cb_value pred;
-	size_t next = READ_SIZE_T();
+	size_t next = ARG;
 	pred = POP();
 	if (!cb_value_is_truthy(&pred))
 		ip = bytecode + next;
@@ -481,7 +463,7 @@ DO_OP_CALL: {
 	int failed;
 	int num_opt_params;
 
-	num_args = READ_SIZE_T();
+	num_args = ARG;
 	func_val = *(sp - num_args - 1);
 
 	if (func_val.type != CB_VALUE_FUNCTION)
@@ -557,14 +539,14 @@ DO_OP_POP:
 	DISPATCH();
 
 DO_OP_LOAD_LOCAL: {
-	size_t idx = READ_SIZE_T();
+	size_t idx = ARG;
 	struct cb_value loc = LOCAL(idx);
 	PUSH(loc);
 	DISPATCH();
 }
 
 DO_OP_STORE_LOCAL: {
-	size_t idx = READ_SIZE_T();
+	size_t idx = ARG;
 	struct cb_value val = TOP();
 	REPLACE_LOCAL(idx, val);
 	DISPATCH();
@@ -574,7 +556,7 @@ DO_OP_LOAD_GLOBAL: {
 	size_t id;
 	struct cb_value value;
 
-	id = READ_SIZE_T();
+	id = ARG;
 
 	struct cb_load_global_cache *ic = &CACHE().load_global;
 	/* non-zero version means that there is a cache. */
@@ -600,7 +582,7 @@ DO_OP_DECLARE_GLOBAL: {
 	size_t id;
 	struct cb_value null_value;
 
-	id = READ_SIZE_T();
+	id = ARG;
 	null_value.type = CB_VALUE_NULL;
 
 	cb_hashmap_set(GLOBALS(), id, null_value);
@@ -610,7 +592,7 @@ DO_OP_DECLARE_GLOBAL: {
 DO_OP_STORE_GLOBAL: {
 	size_t id;
 
-	id = READ_SIZE_T();
+	id = ARG;
 
 	struct cb_load_global_cache *ic = &CACHE().load_global;
 	if (ic->version != 0 && ic->version == cb_hashmap_version(GLOBALS())) {
@@ -633,8 +615,8 @@ DO_OP_BIND_LOCAL: {
 	int i;
 	struct cb_value func;
 	struct cb_upvalue *uv;
-	size_t dest_idx = READ_SIZE_T();
-	size_t idx = LOCAL_IDX(READ_SIZE_T());
+	size_t dest_idx = ARG1;
+	size_t idx = LOCAL_IDX(ARG2);
 
 	func = POP();
 	if (func.type != CB_VALUE_FUNCTION
@@ -672,8 +654,8 @@ DO_OP_BIND_LOCAL: {
 
 DO_OP_BIND_UPVALUE: {
 	struct cb_value *self, *func;
-	size_t dest_idx = READ_SIZE_T();
-	size_t upvalue_idx = READ_SIZE_T();
+	size_t dest_idx = ARG1;
+	size_t upvalue_idx = ARG2;
 
 	self = bp;
 	assert(CB_VALUE_IS_USER_FN(self));
@@ -690,7 +672,7 @@ DO_OP_BIND_UPVALUE: {
 DO_OP_LOAD_UPVALUE: {
 	struct cb_value *self, result;
 	struct cb_upvalue *uv;
-	size_t idx = READ_SIZE_T();
+	size_t idx = ARG;
 
 	self = bp;
 	assert(CB_VALUE_IS_USER_FN(self));
@@ -705,7 +687,7 @@ DO_OP_LOAD_UPVALUE: {
 DO_OP_STORE_UPVALUE: {
 	struct cb_value *self;
 	struct cb_upvalue *uv;
-	size_t idx = READ_SIZE_T();
+	size_t idx = ARG;
 
 	self = bp;
 	assert(CB_VALUE_IS_USER_FN(self));
@@ -723,8 +705,8 @@ DO_OP_LOAD_FROM_MODULE: {
 	struct cb_value val;
 	size_t idx;
 	
-	mod_id = READ_SIZE_T();
-	export_id = READ_SIZE_T();
+	mod_id = ARG1;
+	export_id = ARG2;
 	mod = &cb_vm_state.modules[mod_id];
 
 	struct cb_load_from_module_cache *ic = &CACHE().load_from_module;
@@ -749,7 +731,7 @@ DO_OP_LOAD_FROM_MODULE: {
 
 DO_OP_NEW_ARRAY_WITH_VALUES: {
 	struct cb_value arrayval;
-	size_t size = READ_SIZE_T();
+	size_t size = ARG;
 	struct cb_array *array = cb_array_new(size);
 	array->len = size;
 
@@ -954,7 +936,7 @@ DO_OP_DUP: {
 }
 
 DO_OP_ALLOCATE_LOCALS: {
-	size_t nlocals = READ_SIZE_T();
+	size_t nlocals = ARG;
 	/* CB_VALUE_NULL is 0, so we can just set the whole thing to 0 */
 	memset(sp, 0, nlocals * sizeof(struct cb_value));
 	sp += nlocals;
@@ -962,7 +944,7 @@ DO_OP_ALLOCATE_LOCALS: {
 }
 
 DO_OP_LOAD_STRUCT: {
-	size_t fname = READ_SIZE_T();
+	size_t fname = ARG;
 	struct cb_value recv = POP();
 	if (recv.type != CB_VALUE_STRUCT)
 		ERROR("Cannot get field of non-struct type %s",
@@ -1002,7 +984,7 @@ DO_OP_LOAD_STRUCT: {
 }
 
 #define DO_STORE_STRUCT_FIELD(RET) ({ \
-	size_t fname = READ_SIZE_T(); \
+	size_t fname = ARG; \
 	struct cb_value val = POP(); \
 	struct cb_value recv = POP(); \
 	if (recv.type != CB_VALUE_STRUCT) \
@@ -1081,7 +1063,7 @@ DO_OP_IMPORT_MODULE: {
 	struct cb_code *code;
 	int failed;
 
-	const_id = READ_SIZE_T();
+	const_id = ARG;
 	assert(consts[const_id].type == CB_CONST_MODULE);
 	const_mod = consts[const_id].val.as_module;
 	code = const_mod->code;
@@ -1120,8 +1102,8 @@ DO_OP_IMPORT_MODULE: {
 
 DO_OP_APPLY_DEFAULT_ARG: {
 	size_t param_num, next_param_addr;
-	param_num = READ_SIZE_T();
-	next_param_addr = READ_SIZE_T();
+	param_num = ARG1;
+	next_param_addr = ARG2;
 	if (frame->num_args > param_num)
 		ip = bytecode + next_param_addr;
 	DISPATCH();
@@ -1135,8 +1117,10 @@ DO_OP_APPLY_DEFAULT_ARG: {
 #undef REPLACE_LOCAL
 #undef GLOBALS
 #undef NEXT
-#undef READ_SIZE_T
 #undef TOP
+#undef ARG
+#undef ARG1
+#undef ARG2
 }
 
 #undef PUSH

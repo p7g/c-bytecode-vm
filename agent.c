@@ -48,6 +48,7 @@ static char *get_stdlib_dir()
 	char buf[PATH_MAX];
 	uint32_t bufsize = PATH_MAX;
 	assert(!_NSGetExecutablePath(buf, &bufsize));
+	(void) bufsize;
 	realpath(buf, exe_path);
 #else
 	/* Linux */

@@ -6,8 +6,6 @@
 #define CB_OPCODE_LIST(X) \
 	X(OP_HALT) \
 	X(OP_LOAD_CONST) \
-	X(OP_CONST_INT) \
-	X(OP_CONST_DOUBLE) \
 	X(OP_CONST_STRING) \
 	X(OP_CONST_CHAR) \
 	X(OP_CONST_TRUE) \
@@ -67,9 +65,21 @@ enum cb_opcode {
 #undef COMMA
 };
 
+union cb_op_encoding {
+	size_t as_size_t;
+	struct __attribute__((packed)) {
+		enum cb_opcode op : 8;
+		size_t arg : 56;
+	} unary;
+	struct __attribute__((packed)) {
+		enum cb_opcode op : 8;
+		size_t arg1 : 28;
+		size_t arg2 : 28;
+	} binary;
+};
+
 const char *cb_opcode_name(enum cb_opcode);
-size_t cb_opcode_arity(const cb_instruction *);
-int cb_opcode_stack_effect(const cb_instruction *);
+int cb_opcode_stack_effect(const cb_instruction);
 enum cb_opcode cb_opcode_assert(size_t);
 
 #endif

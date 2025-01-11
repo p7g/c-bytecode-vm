@@ -446,6 +446,7 @@ static CB_INLINE size_t tok_len(struct token *tok)
 struct pending_address {
 	struct pending_address *next;
 	size_t label, address;
+	unsigned arity, argno;
 };
 
 struct cb_bytecode {
@@ -527,7 +528,17 @@ static void bytecode_mark_label(struct cb_bytecode *bc, size_t label)
 		tmp = current;
 		current = current->next;
 		if (tmp->label == label) {
-			bytecode_update_size_t(bc, tmp->address, bc->len);
+			union cb_op_encoding op;
+			op.as_size_t = bc->code[tmp->address];
+			if (tmp->arity == 1) {
+				op.unary.arg = bc->len;
+			} else  {
+				if (tmp->argno == 0)
+					op.binary.arg1 = bc->len;
+				else
+					op.binary.arg2 = bc->len;
+			}
+			bytecode_update_size_t(bc, tmp->address, op.as_size_t);
 
 			*prev = current;
 			free(tmp);
@@ -551,12 +562,8 @@ static void bytecode_push(struct cb_bytecode *bc, cb_instruction byte)
 	bc->code[bc->len++] = byte;
 }
 
-static void bytecode_push_size_t(struct cb_bytecode *bc, size_t value)
-{
-	bytecode_push(bc, value);
-}
-
-static void bytecode_address_of(struct cb_bytecode *bc, size_t label)
+static size_t bytecode_address_of(struct cb_bytecode *bc, size_t label,
+		unsigned arity, unsigned argno)
 {
 	size_t value;
 	struct pending_address *addr;
@@ -570,12 +577,14 @@ static void bytecode_address_of(struct cb_bytecode *bc, size_t label)
 		addr->label = label;
 		addr->address = bc->len;
 		addr->next = bc->pending_addresses;
+		addr->arity = arity;
+		addr->argno = argno;
 		bc->pending_addresses = addr;
 	} else {
 		value = bc->label_addresses[label];
 	}
 
-	bytecode_push_size_t(bc, value);
+	return value;
 }
 
 static cb_instruction *bytecode_finalize(struct cb_bytecode *bc, size_t *len)
@@ -863,13 +872,33 @@ static struct token next(struct parse_state *state, int *ok)
 				cb_strptr(&__name), (TOK).line, \
 				(TOK).column, ##__VA_ARGS__); \
 	})
-#define APPEND(B) (bytecode_push(state->bytecode, (B)))
-#define APPEND_SIZE_T(S) (bytecode_push_size_t(state->bytecode, (S)))
+
+#define OP(X) ({ \
+		union cb_op_encoding _op; \
+		_op.unary.op = (X); \
+		_op.as_size_t; \
+	})
+#define OP1(X, ARG) ({ \
+		union cb_op_encoding _op; \
+		_op.unary.op = (X); \
+		_op.unary.arg = (ARG); \
+		_op.as_size_t; \
+	})
+#define OP2(X, ARG1, ARG2) ({ \
+		union cb_op_encoding _op; \
+		_op.binary.op = (X); \
+		_op.binary.arg1 = (ARG1); \
+		_op.binary.arg2 = (ARG2); \
+		_op.as_size_t; \
+	})
+
+#define APPEND(B) (bytecode_push(state->bytecode, OP(B)))
+#define APPEND1(A, B) (bytecode_push(state->bytecode, OP1(A, B)))
+#define APPEND2(A, B, C) (bytecode_push(state->bytecode, OP2(A, B, C)))
 #define LABEL() (bytecode_label(state->bytecode))
 #define MARK(L) (bytecode_mark_label(state->bytecode, (L)))
-#define ADDR_OF(L) (bytecode_address_of(state->bytecode, (L)))
-#define UPDATE(IDX, VAL) (bytecode_update_size_t(state->bytecode, (IDX), \
-			(VAL)))
+#define ADDR_OF(L, ARITY, ARGNO) \
+	(bytecode_address_of(state->bytecode, (L), (ARITY), (ARGNO)))
 
 /* Propagate errors */
 #define X(V) ({ if (V) return 1; })
@@ -907,21 +936,19 @@ static struct cb_code *create_code(struct cstate *state)
 	/* NOTE: this assumes that a loop cannot have positive stack effect */
 	current = code->stack_size;
 	i = 0;
-	while (i < cb_bytecode_len(state->bytecode)) {
-		cb_instruction *instr = &state->bytecode->code[i];
+	for (i = 0; i < cb_bytecode_len(state->bytecode); i++) {
+		cb_instruction instr = state->bytecode->code[i];
 		current += cb_opcode_stack_effect(instr);
 #ifndef NDEBUG
 		if (current < 0) {
-			for (size_t i = 0; i < cb_bytecode_len(state->bytecode);) {
-				assert(!cb_disassemble_one(&state->bytecode->code[i], i));
-				i += 1 + cb_opcode_arity(&state->bytecode->code[i]);
+			for (size_t j = 0; j < cb_bytecode_len(state->bytecode); j++) {
+				assert(!cb_disassemble_one(state->bytecode->code[j], j));
 			}
 			abort();
 		}
 #endif
 		if (current > code->stack_size)
 			code->stack_size = current;
-		i += cb_opcode_arity(instr) + 1;
 	}
 
 	code->bytecode = bytecode_finalize(state->bytecode, &code->bytecode_len);
@@ -1039,22 +1066,35 @@ static int declare_name(struct cstate *state, size_t name_id, int export)
 
 	if (cstate_is_global(state)) {
 		/* FIXME: let DECLARE_GLOBAL also assign the value */
-		APPEND(OP_DECLARE_GLOBAL);
-		APPEND_SIZE_T(name_id);
-		APPEND(OP_STORE_GLOBAL);
-		APPEND_SIZE_T(name_id);
+		APPEND1(OP_DECLARE_GLOBAL, name_id);
+		APPEND1(OP_STORE_GLOBAL, name_id);
 		if (export)
 			export_name(state, name_id);
 		APPEND(OP_POP);
 	} else {
 		binding_id = scope_add_binding(state->function_state->scope,
 				name_id, 0);
-		APPEND(OP_STORE_LOCAL);
-		APPEND_SIZE_T(binding_id);
+		APPEND1(OP_STORE_LOCAL, binding_id);
 		APPEND(OP_POP);
 	}
 
 	return 0;
+}
+
+static size_t const_int(struct cstate *state, int64_t value)
+{
+	struct cb_const c;
+	c.type = CB_CONST_INT;
+	c.val.as_int = value;
+	return cstate_add_const(state, c);
+}
+
+static size_t const_double(struct cstate *state, double value)
+{
+	struct cb_const c;
+	c.type = CB_CONST_DOUBLE;
+	c.val.as_double = value;
+	return cstate_add_const(state, c);
 }
 
 #define MAX_DESTRUCTURE_ASSIGN 32
@@ -1161,8 +1201,8 @@ static int compile_assignment_pattern(struct cstate *state,
 	case PATTERN_ARRAY:
 		for (i = 0; i < pat->p.array.nassigns; i += 1) {
 			APPEND(OP_DUP);
-			APPEND(OP_CONST_INT);
-			APPEND_SIZE_T(i);
+			size_t const_id = const_int(state, i);
+			APPEND1(OP_LOAD_CONST, const_id);
 			APPEND(OP_ARRAY_GET);
 			X(declare_name(state, pat->p.array.name_ids[i], export));
 		}
@@ -1171,8 +1211,7 @@ static int compile_assignment_pattern(struct cstate *state,
 	case PATTERN_STRUCT:
 		for (i = 0; i < pat->p.struct_.nassigns; i += 1) {
 			APPEND(OP_DUP);
-			APPEND(OP_LOAD_STRUCT);
-			APPEND_SIZE_T(pat->p.struct_.name_ids[i]);
+			APPEND1(OP_LOAD_STRUCT, pat->p.struct_.name_ids[i]);
 			X(declare_name(state,
 				pat->p.struct_.aliases[i] < 0
 					? pat->p.struct_.name_ids[i]
@@ -1224,15 +1263,17 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	       binding_id,
 	       num_params,
 	       next_opt_param,
-	       local_count_pos,
+	       allocate_locals_pos,
 	       num_opt_params;
 	int is_first_param;
 
-#define APPEND_INNER(VAL) bytecode_push(inner_state.bytecode, (VAL))
-#define APPEND_SIZE_T_INNER(S) bytecode_push_size_t(inner_state.bytecode, (S))
+#define APPEND_INNER(B) (bytecode_push(inner_state.bytecode, OP(B)))
+#define APPEND1_INNER(A, B) (bytecode_push(inner_state.bytecode, OP1(A, B)))
+#define APPEND2_INNER(A, B, C) (bytecode_push(inner_state.bytecode, OP2(A, B, C)))
 #define LABEL_INNER() (bytecode_label(inner_state.bytecode))
 #define MARK_INNER(L) (bytecode_mark_label(inner_state.bytecode, (L)))
-#define ADDR_OF_INNER(L) (bytecode_address_of(inner_state.bytecode, (L)))
+#define ADDR_OF_INNER(L, ARITY, ARGNO) \
+	(bytecode_address_of(inner_state.bytecode, (L), (ARITY), (ARGNO)))
 #define UPDATE_INNER(IDX, VAL) (bytecode_update_size_t(inner_state.bytecode, \
 			(IDX), (VAL)))
 
@@ -1289,9 +1330,8 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 			num_opt_params += 1;
 			MARK_INNER(next_opt_param);
 			next_opt_param = LABEL_INNER();
-			APPEND_INNER(OP_APPLY_DEFAULT_ARG);
-			APPEND_SIZE_T_INNER(num_params - 1);
-			ADDR_OF_INNER(next_opt_param);
+			APPEND2_INNER(OP_APPLY_DEFAULT_ARG, num_params - 1,
+					ADDR_OF_INNER(next_opt_param, 2, 1));
 			/* The default value is just left on the stack since
 			   that's where the local variable will be located */
 			if (compile_expression(&inner_state))
@@ -1307,9 +1347,8 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 
 	MARK_INNER(next_opt_param);
 
-	APPEND_INNER(OP_ALLOCATE_LOCALS);
-	local_count_pos = cb_bytecode_len(inner_state.bytecode);
-	APPEND_SIZE_T_INNER(0);
+	allocate_locals_pos = cb_bytecode_len(inner_state.bytecode);
+	APPEND1_INNER(OP_ALLOCATE_LOCALS, 0);
 
 	for (ssize_t i = num_params - 1; i >= 0; i -= 1) {
 		/* Avoid copying all arguments that aren't patterns */
@@ -1324,8 +1363,7 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 			}
 			continue;
 		}
-		APPEND_INNER(OP_LOAD_LOCAL);
-		APPEND_SIZE_T_INNER(bindings[i]);
+		APPEND1_INNER(OP_LOAD_LOCAL, bindings[i]);
 		if (compile_assignment_pattern(&inner_state,
 					&param_patterns[i], 0))
 			return -1;
@@ -1341,8 +1379,8 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	/* Make room on the stack for the local variables. Arguments will
 	 * already be on the stack, so we don't need to allocate more room for
 	 * them. */
-	UPDATE_INNER(local_count_pos,
-			inner_fn_state.scope->num_locals - num_params);
+	UPDATE_INNER(allocate_locals_pos, OP1(OP_ALLOCATE_LOCALS,
+				inner_fn_state.scope->num_locals - num_params));
 
 	func_out->code = create_code(&inner_state);
 	func_out->name = name_id;
@@ -1356,7 +1394,8 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	cstate_deinit(&inner_state);
 
 #undef APPEND_INNER
-#undef APPEND_SIZE_T_INNER
+#undef APPEND1_INNER
+#undef APPEND2_INNER
 #undef LABEL_INNER
 #undef MARK_INNER
 #undef ADDR_OF_INNER
@@ -1391,12 +1430,10 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	func_const.type = CB_CONST_FUNCTION;
 	func_const.val.as_function = func;
 	const_id = cstate_add_const(state, func_const);
-	APPEND(OP_LOAD_CONST);
-	APPEND_SIZE_T(const_id);
+	APPEND1(OP_LOAD_CONST, const_id);
 
 	if (!cstate_is_global(state) && binding_id != (size_t) -1) {
-		APPEND(OP_STORE_LOCAL);
-		APPEND_SIZE_T(binding_id);
+		APPEND1(OP_STORE_LOCAL, binding_id);
 	}
 
 	for (j = i = 0; i < (size_t) free_var_len; i += 1) {
@@ -1405,19 +1442,15 @@ static int compile_function(struct cstate *state, size_t *name_out)
 				free_var);
 		if (binding != NULL) {
 			if (binding->is_upvalue)
-				APPEND(OP_BIND_UPVALUE);
+				APPEND2(OP_BIND_UPVALUE, i, binding->index);
 			else
-				APPEND(OP_BIND_LOCAL);
-			APPEND_SIZE_T(i);
-			APPEND_SIZE_T(binding->index);
+				APPEND2(OP_BIND_LOCAL, i, binding->index);
 		} else if (scope_parent_has_binding(state->function_state->scope,
 					free_var)) {
 			assert(state->function_state != NULL);
 			fstate_add_freevar(state->function_state, free_var);
-			APPEND(OP_BIND_UPVALUE);
-			APPEND_SIZE_T(i);
-			APPEND_SIZE_T(state->function_state->scope
-					->num_upvalues + j);
+			APPEND2(OP_BIND_UPVALUE, i,
+					state->function_state->scope->num_upvalues + j);
 			j += 1;
 		}
 	}
@@ -1454,8 +1487,7 @@ static int compile_if_statement(struct cstate *state)
 	/* predicate */
 	X(compile_expression(state));
 
-	APPEND(OP_JUMP_IF_FALSE);
-	ADDR_OF(else_label);
+	APPEND1(OP_JUMP_IF_FALSE, ADDR_OF(else_label, 1, 0));
 
 	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
@@ -1465,8 +1497,7 @@ static int compile_if_statement(struct cstate *state)
 
 	EXPECT(TOK_RIGHT_BRACE);
 
-	APPEND(OP_JUMP);
-	ADDR_OF(end_label);
+	APPEND1(OP_JUMP, ADDR_OF(end_label, 1, 0));
 	MARK(else_label);
 
 	if (MATCH_P(TOK_ELSE)) {
@@ -1521,13 +1552,11 @@ static int compile_for_statement(struct cstate *state)
 	/* if there is a predicate */
 	if (!MATCH_P(TOK_SEMICOLON)) {
 		X(compile_expression(state));
-		APPEND(OP_JUMP_IF_FALSE);
-		ADDR_OF(end_label);
+		APPEND1(OP_JUMP_IF_FALSE, ADDR_OF(end_label, 1, 0));
 	}
 	EXPECT(TOK_SEMICOLON);
 
-	APPEND(OP_JUMP);
-	ADDR_OF(body_label);
+	APPEND1(OP_JUMP, ADDR_OF(body_label, 1, 0));
 
 	MARK(increment_label);
 
@@ -1539,8 +1568,7 @@ static int compile_for_statement(struct cstate *state)
 	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
 
-	APPEND(OP_JUMP);
-	ADDR_OF(start_label);
+	APPEND1(OP_JUMP, ADDR_OF(start_label, 1, 0));
 	MARK(body_label);
 
 	old_lstate = state->loop_state;
@@ -1550,8 +1578,7 @@ static int compile_for_statement(struct cstate *state)
 		X(compile_statement(state));
 
 	EXPECT(TOK_RIGHT_BRACE);
-	APPEND(OP_JUMP);
-	ADDR_OF(increment_label);
+	APPEND1(OP_JUMP, ADDR_OF(increment_label, 1, 0));
 	MARK(end_label);
 
 	state->loop_state = old_lstate;
@@ -1575,8 +1602,7 @@ static int compile_while_statement(struct cstate *state)
 
 	MARK(start_label);
 	X(compile_expression(state));
-	APPEND(OP_JUMP_IF_FALSE);
-	ADDR_OF(end_label);
+	APPEND1(OP_JUMP_IF_FALSE, ADDR_OF(end_label, 1, 0));
 
 	old_lstate = state->loop_state;
 	state->loop_state = &lstate;
@@ -1587,8 +1613,7 @@ static int compile_while_statement(struct cstate *state)
 		X(compile_statement(state));
 	EXPECT(TOK_RIGHT_BRACE);
 
-	APPEND(OP_JUMP);
-	ADDR_OF(start_label);
+	APPEND1(OP_JUMP, ADDR_OF(start_label, 1, 0));
 	MARK(end_label);
 
 	state->loop_state = old_lstate;
@@ -1607,8 +1632,7 @@ static int compile_break_statement(struct cstate *state)
 	}
 	EXPECT(TOK_SEMICOLON);
 
-	APPEND(OP_JUMP);
-	ADDR_OF(state->loop_state->break_label);
+	APPEND1(OP_JUMP, ADDR_OF(state->loop_state->break_label, 1, 0));
 
 	return 0;
 }
@@ -1624,8 +1648,7 @@ static int compile_continue_statement(struct cstate *state)
 	}
 	EXPECT(TOK_SEMICOLON);
 
-	APPEND(OP_JUMP);
-	ADDR_OF(state->loop_state->continue_label);
+	APPEND1(OP_JUMP, ADDR_OF(state->loop_state->continue_label, 1, 0));
 
 	return 0;
 }
@@ -1756,8 +1779,7 @@ static int compile_import_statement(struct cstate *state)
 		module_const.val.as_module = const_mod;
 		const_id = cstate_add_const(state, module_const);
 
-		APPEND(OP_IMPORT_MODULE);
-		APPEND_SIZE_T(const_id);
+		APPEND1(OP_IMPORT_MODULE, const_id);
 	}
 
 	cb_hashmap_set(state->module_state->imported, modname,
@@ -1829,18 +1851,14 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 	size_t const_id = cstate_add_const(state, const_spec);
 
 	if (is_named) {
-		APPEND(OP_LOAD_CONST);
-		APPEND_SIZE_T(const_id);
+		APPEND1(OP_LOAD_CONST, const_id);
 		if (cstate_is_global(state)) {
-			APPEND(OP_DECLARE_GLOBAL);
-			APPEND_SIZE_T(name_id);
-			APPEND(OP_STORE_GLOBAL);
-			APPEND_SIZE_T(name_id);
+			APPEND1(OP_DECLARE_GLOBAL, name_id);
+			APPEND1(OP_STORE_GLOBAL, name_id);
 		} else {
 			binding_id = scope_add_binding(state->function_state->scope,
 					name_id, 0);
-			APPEND(OP_STORE_LOCAL);
-			APPEND_SIZE_T(binding_id);
+			APPEND1(OP_STORE_LOCAL, binding_id);
 		}
 	}
 
@@ -1974,8 +1992,8 @@ static int compile_int_expression(struct cstate *state)
 		scanned = sscanf(buf, "%zd%c", &num, &c);
 	free(buf);
 	if (scanned == 1) {
-		APPEND(OP_CONST_INT);
-		APPEND_SIZE_T((size_t) num);
+		size_t const_id = const_int(state, num);
+		APPEND1(OP_LOAD_CONST, const_id);
 	} else {
 		ERROR_AT(tok, "Invalid integer literal");
 		return 1;
@@ -1989,16 +2007,14 @@ static int store_name(struct cstate *state, size_t name)
 	struct binding binding;
 
 	if (!resolve_binding(state, name, &binding)) {
-		APPEND(OP_STORE_GLOBAL);
-		APPEND_SIZE_T(name);
+		APPEND1(OP_STORE_GLOBAL, name);
 	} else {
 		if (binding.is_upvalue) {
 			assert(state->function_state != NULL);
-			APPEND(OP_STORE_UPVALUE);
+			APPEND1(OP_STORE_UPVALUE, binding.index);
 		} else {
-			APPEND(OP_STORE_LOCAL);
+			APPEND1(OP_STORE_LOCAL, binding.index);
 		}
-		APPEND_SIZE_T(binding.index);
 	}
 
 	return 0;
@@ -2011,14 +2027,12 @@ static int load_name(struct cstate *state, size_t name)
 	if (resolve_binding(state, name, &binding)) {
 		if (binding.is_upvalue) {
 			assert(state->function_state != NULL);
-			APPEND(OP_LOAD_UPVALUE);
+			APPEND1(OP_LOAD_UPVALUE, binding.index);
 		} else {
-			APPEND(OP_LOAD_LOCAL);
+			APPEND1(OP_LOAD_LOCAL, binding.index);
 		}
-		APPEND_SIZE_T(binding.index);
 	} else {
-		APPEND(OP_LOAD_GLOBAL);
-		APPEND_SIZE_T(name);
+		APPEND1(OP_LOAD_GLOBAL, name);
 	}
 
 	return 0;
@@ -2038,7 +2052,6 @@ static int compile_identifier_expression(struct cstate *state)
 	if (MATCH_P(TOK_DOT)) {
 		NEXT();
 		export = EXPECT(TOK_IDENT);
-		APPEND(OP_LOAD_FROM_MODULE);
 		module = cb_agent_get_modspec_by_name(name);
 		if (!module) {
 			modname = cb_agent_get_string(
@@ -2054,8 +2067,8 @@ static int compile_identifier_expression(struct cstate *state)
 					cb_strptr(&modname));
 			return 1;
 		}
-		APPEND_SIZE_T(cb_modspec_id(module));
-		APPEND_SIZE_T(cb_modspec_get_export_id(module,
+		APPEND2(OP_LOAD_FROM_MODULE, cb_modspec_id(module),
+				cb_modspec_get_export_id(module,
 					intern_ident(state, &export), &ok));
 		if (!ok) {
 			modname = cb_agent_get_string(cb_modspec_name(module));
@@ -2085,10 +2098,7 @@ static int compile_double_expression(struct cstate *state)
 	struct token tok;
 	char *buf;
 	size_t len;
-	union {
-		double as_double;
-		size_t as_size_t;
-	} val;
+	double val;
 
 	tok = EXPECT(TOK_DOUBLE);
 
@@ -2099,11 +2109,11 @@ static int compile_double_expression(struct cstate *state)
 	memcpy(buf, tok_start(state, &tok), len);
 	buf[len] = 0;
 
-	val.as_double = strtod(buf, NULL);
+	val = strtod(buf, NULL);
 	free(buf);
 
-	APPEND(OP_CONST_DOUBLE);
-	APPEND_SIZE_T(val.as_size_t);
+	size_t const_id = const_double(state, val);
+	APPEND1(OP_LOAD_CONST, const_id);
 
 	return 0;
 }
@@ -2154,8 +2164,7 @@ static int compile_string_expression(struct cstate *state)
 	id = cb_agent_intern_string(str, len);
 	free(str);
 
-	APPEND(OP_CONST_STRING);
-	APPEND_SIZE_T(id);
+	APPEND1(OP_CONST_STRING, id);
 
 	return 0;
 }
@@ -2171,8 +2180,7 @@ static int compile_char_expression(struct cstate *state)
 	if (c == '\\')
 		c = TRANSLATE_ESCAPE(tok_start(state, &tok)[2]);
 
-	APPEND(OP_CONST_CHAR);
-	APPEND_SIZE_T(c);
+	APPEND1(OP_CONST_CHAR, c);
 
 	return 0;
 }
@@ -2199,8 +2207,7 @@ static int compile_struct_destructuring_assignment(struct cstate *state)
 
 	for (i = 0; i < pat.p.struct_.nassigns; i += 1) {
 		APPEND(OP_DUP);
-		APPEND(OP_LOAD_STRUCT);
-		APPEND_SIZE_T(pat.p.struct_.name_ids[i]);
+		APPEND1(OP_LOAD_STRUCT, pat.p.struct_.name_ids[i]);
 		dest_name = pat.p.struct_.aliases[i] < 0
 			? pat.p.struct_.name_ids[i]
 			: (size_t) pat.p.struct_.aliases[i];
@@ -2227,8 +2234,8 @@ static int compile_array_expression(struct cstate *state)
 		X(compile_expression(state));
 		for (i = 0; i < pat.p.array.nassigns; i += 1) {
 			APPEND(OP_DUP);
-			APPEND(OP_CONST_INT);
-			APPEND_SIZE_T(i);
+			size_t const_id = const_int(state, i);
+			APPEND1(OP_LOAD_CONST, const_id);
 			APPEND(OP_ARRAY_GET);
 			X(store_name(state, pat.p.array.name_ids[i]));
 			APPEND(OP_POP);
@@ -2251,8 +2258,7 @@ static int compile_array_expression(struct cstate *state)
 			X(compile_expression(state));
 		}
 		EXPECT(TOK_RIGHT_BRACKET);
-		APPEND(OP_NEW_ARRAY_WITH_VALUES);
-		APPEND_SIZE_T(num_elements);
+		APPEND1(OP_NEW_ARRAY_WITH_VALUES, num_elements);
 	}
 
 	return 0;
@@ -2266,13 +2272,11 @@ static int compile_anonymous_struct_literal(struct cstate *state)
 		return 1;
 
 	/* FIXME: add a new instruction like OP_ARRAY_FROM_VALUES */
-	APPEND(OP_LOAD_CONST);
-	APPEND_SIZE_T(const_id);
+	APPEND1(OP_LOAD_CONST, const_id);
 	APPEND(OP_NEW_STRUCT);
 	for (int i = spec->nfields - 1; i >= 0; i -= 1) {
 		APPEND(OP_ROT_2);
-		APPEND(OP_ADD_STRUCT_FIELD);
-		APPEND_SIZE_T(spec->fields[i]);
+		APPEND1(OP_ADD_STRUCT_FIELD, spec->fields[i]);
 	}
 
 	return 0;
@@ -2459,8 +2463,7 @@ static int compile_call_expression(struct cstate *state)
 	}
 	EXPECT(TOK_RIGHT_PAREN);
 
-	APPEND(OP_CALL);
-	APPEND_SIZE_T(num_args);
+	APPEND1(OP_CALL, num_args);
 
 	return 0;
 }
@@ -2494,12 +2497,11 @@ static int compile_struct_field_expression(struct cstate *state)
 	if (MATCH_P(TOK_EQUAL)) {
 		EXPECT(TOK_EQUAL);
 		X(compile_expression(state));
-		APPEND(OP_STORE_STRUCT);
+		APPEND1(OP_STORE_STRUCT, name);
 	} else {
-		APPEND(OP_LOAD_STRUCT);
+		APPEND1(OP_LOAD_STRUCT, name);
 	}
 
-	APPEND_SIZE_T(name);
 	return 0;
 }
 
@@ -2525,8 +2527,7 @@ static int compile_struct_expression(struct cstate *state)
 		name = intern_ident(state, &name_tok);
 		EXPECT(TOK_EQUAL);
 		X(compile_expression(state));
-		APPEND(OP_ADD_STRUCT_FIELD);
-		APPEND_SIZE_T(name);
+		APPEND1(OP_ADD_STRUCT_FIELD, name);
 	}
 	EXPECT(TOK_RIGHT_BRACE);
 
@@ -2544,16 +2545,15 @@ static int compile_short_circuit_binary(struct cstate *state)
 
 	switch (tok.type) {
 	case TOK_AND_AND:
-		APPEND(OP_JUMP_IF_FALSE);
+		APPEND1(OP_JUMP_IF_FALSE, ADDR_OF(end_label, 1, 0));
 		break;
 	case TOK_PIPE_PIPE:
-		APPEND(OP_JUMP_IF_TRUE);
+		APPEND1(OP_JUMP_IF_TRUE, ADDR_OF(end_label, 1, 0));
 		break;
 	default:
 		abort(); /* unreachable */
 	}
 
-	ADDR_OF(end_label);
 	APPEND(OP_POP);
 	X(compile_expression_inner(state, lbp(tok.type)));
 	MARK(end_label);

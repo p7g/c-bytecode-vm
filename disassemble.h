@@ -9,6 +9,6 @@
 
 int cb_disassemble_recursive(struct cb_code *code);
 int cb_disassemble(struct cb_code *code);
-int cb_disassemble_one(cb_instruction *code, size_t offset);
+int cb_disassemble_one(cb_instruction, size_t offset);
 
 #endif
