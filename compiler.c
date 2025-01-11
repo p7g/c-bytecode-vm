@@ -2641,7 +2641,35 @@ static int compile_expression_inner(struct cstate *state, int rbp)
 
 static int compile_expression(struct cstate *state)
 {
-	return compile_expression_inner(state, 0);
+	// TODO: buffer bytecode from calling expression
+	// when calling a function we want the function itself to be last on
+	// the stack as an optimization. To do so means the bytecode for
+	// loading the function must be after the bytecode to load the
+	// arguments. Because of how the Pratt parser is structured and because
+	// this compiler emits code on the fly, to do so means buffering the
+	// bytecode emitted by the "nud" and allowing the "led" to defer adding
+	// it to the main bytecode until after compiling the arguments.
+
+	struct cstate inner_state;
+	cstate_inherit(&inner_state, state);
+	inner_state.function_state = state->function_state;
+	inner_state.loop_state = state->loop_state;
+	inner_state.consts = state->consts;
+	inner_state.consts_len = state->consts_len;
+	inner_state.consts_size = state->consts_size;
+
+	int result = compile_expression_inner(&inner_state, 0);
+
+	for (unsigned i = 0; i < cb_bytecode_len(inner_state.bytecode); i++)
+		APPEND(inner_state.bytecode->code[i]);
+
+	inner_state.function_state = NULL;
+	inner_state.loop_state = NULL;
+	inner_state.consts = NULL;
+	inner_state.consts_len = inner_state.consts_size = 0;
+	cstate_deinit(&inner_state);
+
+	return result;
 }
 
 static int read_file(FILE *f, char **out)

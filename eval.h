@@ -26,6 +26,7 @@ struct cb_frame {
 	size_t bp;
 	/* A pointer to the sp variable for the GC */
 	struct cb_value *const *sp;
+	struct cb_value func;
 };
 
 union cb_inline_cache {

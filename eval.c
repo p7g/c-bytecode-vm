@@ -123,6 +123,7 @@ int cb_run(struct cb_code *code)
 	frame.is_function = 0;
 	frame.num_args = 0;
 	frame.code = code;
+	frame.func.type = CB_VALUE_NULL;
 
 	size_t sp = cb_vm_state.frame && cb_vm_state.frame->sp
 		? *cb_vm_state.frame->sp - cb_vm_state.stack : 0;
@@ -155,14 +156,12 @@ int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 
 		user_func = &fn.val.as_function->value.as_user;
 
-		/* +1 for the function itself */
-		stack_size = user_func->code->stack_size + args_len + 1;
+		stack_size = user_func->code->stack_size + args_len;
 		size_t bp = cb_vm_state.frame ?
 			*cb_vm_state.frame->sp - cb_vm_state.stack : 0;
 		ensure_stack(stack_size, bp);
 
-		cb_vm_state.stack[bp] = fn;
-		memcpy(&cb_vm_state.stack[bp + 1], args,
+		memcpy(&cb_vm_state.stack[bp], args,
 				args_len * sizeof(struct cb_value));
 
 		frame.is_function = 1;
@@ -170,6 +169,7 @@ int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		frame.code = user_func->code;
 		frame.module_id = cb_modspec_id(user_func->code->modspec);
 		frame.bp = bp;
+		frame.func = fn;
 		module = &cb_vm_state.modules[frame.module_id];
 		if (cb_module_is_zero(*module))
 			init_module(module, user_func->code->modspec);
@@ -200,7 +200,7 @@ static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 	if (!frame->is_function) {
 		funcname = "top";
 	} else {
-		struct cb_value func = cb_vm_state.stack[frame->bp];
+		struct cb_value func = frame->func;
 		assert(CB_VALUE_IS_USER_FN(&func));
 		size_t name = func.val.as_function->name;
 		funcname_str = cb_agent_get_string(name);
@@ -241,6 +241,7 @@ static int cb_eval(struct cb_frame *frame)
 # define DEBUG_STATE()
 #endif
 
+#define SELF (frame->func)
 #define NEXT() (*ip++)
 #define DISPATCH() ({ \
 		DEBUG_STATE(); \
@@ -260,11 +261,11 @@ static int cb_eval(struct cb_frame *frame)
 	})
 #define READ_SIZE_T() (NEXT())
 #define TOP() (sp[-1])
-#define LOCAL_IDX(N) (bp - stack + 1 + (N))
-#define LOCAL(N) (bp[N + 1])
+#define LOCAL_IDX(N) (bp - stack + (N))
+#define LOCAL(N) (bp[N])
 #define REPLACE_LOCAL(N, VAL) ({ \
 		struct cb_value _v = (VAL); \
-		bp[N + 1] = _v; \
+		bp[N] = _v; \
 	})
 #define GLOBALS() (global_scope)
 #define PUSH(V) (*sp++ = (V))
@@ -273,7 +274,7 @@ static int cb_eval(struct cb_frame *frame)
 
 	struct cb_value *stack = cb_vm_state.stack;
 	struct cb_value *bp = stack + frame->bp;
-	struct cb_value *sp = bp + frame->is_function + frame->num_args;
+	struct cb_value *sp = bp + frame->num_args;
 	cb_instruction *bytecode = frame->code->bytecode;
 	cb_instruction *ip = bytecode;
 	int retval = 0;
@@ -480,7 +481,7 @@ DO_OP_CALL: {
 	int num_opt_params;
 
 	num_args = READ_SIZE_T();
-	func_val = *(sp - num_args - 1);
+	func_val = POP();
 
 	if (func_val.type != CB_VALUE_FUNCTION)
 		ERROR("Value of type '%s' is not callable\n",
@@ -496,7 +497,7 @@ DO_OP_CALL: {
 	}
 	size_t old_sp = sp - stack;
 	if (func->type == CB_FUNCTION_NATIVE) {
-		size_t dest = sp - stack - num_args - 1;
+		size_t dest = sp - stack - num_args;
 		failed = func->value.as_native(num_args, sp - num_args,
 				&result);
 		cb_vm_state.stack[dest] = result;
@@ -508,7 +509,8 @@ DO_OP_CALL: {
 		next_frame.num_args = num_args;
 		next_frame.module_id = cb_modspec_id(code->modspec);
 		next_frame.code = code;
-		next_frame.bp = sp - stack - num_args - 1;
+		next_frame.bp = sp - stack - num_args;
+		next_frame.func = func_val;
 
 		ensure_stack(code->stack_size, sp - stack);
 		failed = cb_eval(&next_frame);
@@ -516,7 +518,7 @@ DO_OP_CALL: {
 
 	stack = cb_vm_state.stack;
 	bp = stack + frame->bp;
-	sp = stack + old_sp - num_args;
+	sp = stack + old_sp - num_args + 1;
 
 	if (failed) {
 		retval = 1;
@@ -669,31 +671,29 @@ DO_OP_BIND_LOCAL: {
 }
 
 DO_OP_BIND_UPVALUE: {
-	struct cb_value *self, *func;
+	struct cb_value *func;
 	size_t dest_idx = READ_SIZE_T();
 	size_t upvalue_idx = READ_SIZE_T();
 
-	self = bp;
-	assert(CB_VALUE_IS_USER_FN(self));
+	assert(CB_VALUE_IS_USER_FN(&SELF));
 	func = &TOP();
 	if (!CB_VALUE_IS_USER_FN(func))
 		ERROR("Can only bind upvalues to user functions");
 
 	cb_function_add_upvalue(&func->val.as_function->value.as_user, dest_idx,
-		self->val.as_function->value.as_user.upvalues[upvalue_idx]);
+		SELF.val.as_function->value.as_user.upvalues[upvalue_idx]);
 
 	DISPATCH();
 }
 
 DO_OP_LOAD_UPVALUE: {
-	struct cb_value *self, result;
+	struct cb_value result;
 	struct cb_upvalue *uv;
 	size_t idx = READ_SIZE_T();
 
-	self = bp;
-	assert(CB_VALUE_IS_USER_FN(self));
+	assert(CB_VALUE_IS_USER_FN(&SELF));
 
-	uv = self->val.as_function->value.as_user.upvalues[idx];
+	uv = SELF.val.as_function->value.as_user.upvalues[idx];
 	result = cb_load_upvalue(uv);
 	PUSH(result);
 
@@ -701,15 +701,12 @@ DO_OP_LOAD_UPVALUE: {
 }
 
 DO_OP_STORE_UPVALUE: {
-	struct cb_value *self;
 	struct cb_upvalue *uv;
 	size_t idx = READ_SIZE_T();
 
-	self = bp;
-	assert(CB_VALUE_IS_USER_FN(self));
+	assert(CB_VALUE_IS_USER_FN(&SELF));
 
-	/* FIXME: Store self cb_user_function in local */
-	uv = self->val.as_function->value.as_user.upvalues[idx];
+	uv = SELF.val.as_function->value.as_user.upvalues[idx];
 	store_upvalue(uv, TOP());
 
 	DISPATCH();
@@ -1116,6 +1113,7 @@ DO_OP_IMPORT_MODULE: {
 	new_frame.num_args = 0;
 	new_frame.code = code;
 	new_frame.bp = sp - stack;
+	new_frame.func.type = CB_VALUE_NULL;
 
 	ensure_stack(code->stack_size, sp - stack);
 	failed = cb_eval(&new_frame);
@@ -1151,6 +1149,7 @@ DO_OP_APPLY_DEFAULT_ARG: {
 #undef NEXT
 #undef READ_SIZE_T
 #undef TOP
+#undef SELF
 }
 
 #undef PUSH
