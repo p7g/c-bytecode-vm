@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736565889766,
+  "lastUpdate": 1736566029383,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -463,6 +463,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "bench.b",
             "value": 130129,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "7911fdd44b9f47d81b554b0df5a567078c24312b",
+          "message": "remove unnecessary env variables in CI",
+          "timestamp": "2025-01-10T22:24:26-05:00",
+          "tree_id": "fccb77b345fc618fef403a41fcf3cd65a0f193c7",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/7911fdd44b9f47d81b554b0df5a567078c24312b"
+        },
+        "date": 1736566028786,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 130997,
             "unit": "ms"
           }
         ]
