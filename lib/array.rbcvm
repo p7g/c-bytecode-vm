@@ -5,7 +5,11 @@ import iter;
 let doc = docs.module("array", "Functions for working with arrays.");
 
 export let new = _array.new;
-doc:add("function", "new(len)", "Create a new array of length `len`.");
+doc:add(
+  "function",
+  "new(len, init=null)",
+  "Create a new array of length `len`. Each element is initialized to `init`.",
+);
 
 export let length = _array.length;
 doc:add("function", "length(array)", "Get the length of array `array`.");
