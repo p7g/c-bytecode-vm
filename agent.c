@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <libgen.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,8 +8,7 @@
 
 #if __APPLE__
 #include <mach-o/dyld.h>
-#include <limits.h>
-#elif
+#else
 #include <unistd.h>
 #endif
 
@@ -51,11 +51,15 @@ static char *get_stdlib_dir()
 	realpath(buf, exe_path);
 #else
 	/* Linux */
-	char buf[PATH_MAX];
-	ssize_t count = readlink("/proc/self/exe", buf, PATH_MAX);
-	assert(count >= 0 && count < PATH_MAX);
-	buf[count] = '\0';
-	exe_path = strdup(buf);
+	ssize_t count = readlink("/proc/self/exe", exe_path, PATH_MAX);
+	if (count < 0) {
+		perror("readlink");
+		abort();
+	} else if (count >= PATH_MAX) {
+		fputs("Path to cbcvm executable is too long\n", stderr);
+		abort();
+	}
+	exe_path[count] = '\0';
 #endif
 	dir = dirname(exe_path);
 	size_t sz = snprintf(NULL, 0, "%s/lib", dir) + 1;
