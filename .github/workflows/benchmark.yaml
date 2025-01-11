@@ -35,10 +35,9 @@ jobs:
             elapsed=$((after - before))
             sum=$((sum + elapsed))
           done
-
           bfresult=$((sum / NTIMES))
 
-          NTIMES=1
+          NTIMES=10
           sum=0
           for i in $(seq $NTIMES); do
             before=$(gettimems)
@@ -47,9 +46,24 @@ jobs:
             elapsed=$((after - before))
             sum=$((sum + elapsed))
           done
-
           nbodyresult=$((sum / NTIMES))
-          printf '[{"name":"bench.b","value":%f,"unit":"ms"},{"name":"nbody","value":%f,"unit":"ms"}]' $bfresult $nbodyresult > output.txt
+
+          NTIMES=10
+          sum=0
+          for i in $(seq $NTIMES); do
+            before=$(gettimems)
+            ./cbcvm spectral_norm.rbcvm 1000
+            after=$(gettimems)
+            elapsed=$((after - before))
+            sum=$((sum + elapsed))
+          done
+          spectralnormresult=$((sum / NTIMES))
+
+          printf '[' >> output.txt
+          printf '{"name": "bench.b", "value": %f, "unit": "ms"},' $bfresult >> output.txt
+          printf '{"name": "nbody", "value": %f, "unit": "ms"}' $nbodyresult >> output.txt
+          printf '{"name": "spectral_norm", "value": %f, "unit": "ms"}' $spectral_norm >> output.txt
+          printf ']' >> output.txt
       # gh-pages branch is updated and pushed automatically with extracted benchmark data
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
