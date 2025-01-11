@@ -36,8 +36,20 @@ jobs:
             sum=$((sum + elapsed))
           done
 
-          avg=$((sum / NTIMES))
-          printf '[{"name":"bench.b","value":%f,"unit":"ms"}]' $avg > output.txt
+          bfresult=$((sum / NTIMES))
+
+          NTIMES=1
+          sum=0
+          for i in $(seq $NTIMES); do
+            before=$(gettimems)
+            ./cbcvm nbody.rbcvm 500000
+            after=$(gettimems)
+            elapsed=$((after - before))
+            sum=$((sum + elapsed))
+          done
+
+          nbodyresult=$((sum / NTIMES))
+          printf '[{"name":"bench.b","value":%f,"unit":"ms"},{"name":"nbody","value":%f,"unit":"ms"}]' $bfresult $nbodyresult > output.txt
       # gh-pages branch is updated and pushed automatically with extracted benchmark data
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
