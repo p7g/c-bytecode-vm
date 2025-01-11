@@ -73,7 +73,7 @@ jobs:
           printf '[' >> output.txt
           printf '{"name": "bench.b", "value": %f, "unit": "ms"},' $bfresult >> output.txt
           printf '{"name": "nbody", "value": %f, "unit": "ms"},' $nbodyresult >> output.txt
-          printf '{"name": "spectral_norm", "value": %f, "unit": "ms"}' $spectralnormresult >> output.txt
+          printf '{"name": "spectral_norm", "value": %f, "unit": "ms"},' $spectralnormresult >> output.txt
           printf '{"name": "binary_trees", "value": %f, "unit": "ms"}' $binarytreesresult >> output.txt
           printf ']' >> output.txt
       # gh-pages branch is updated and pushed automatically with extracted benchmark data
