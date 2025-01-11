@@ -1932,18 +1932,18 @@ static int lbp(enum token_type op)
 		return 10;
 
 	case TOK_STAR: return 11;
-	case TOK_SLASH: return 12;
-	case TOK_PERCENT: return 13;
-	case TOK_STAR_STAR: return 14;
+	case TOK_SLASH: return 11;
+	case TOK_PERCENT: return 11;
+	case TOK_STAR_STAR: return 12;
 
 	case TOK_LEFT_PAREN:
 	case TOK_LEFT_BRACKET:
 	case TOK_COLON:
 	case TOK_LEFT_BRACE:
-		return 16;
+		return 13;
 
 	case TOK_DOT:
-		return 17;
+		return 14;
 
 	default:
 		return -1;
