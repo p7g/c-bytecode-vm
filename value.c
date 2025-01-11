@@ -187,9 +187,9 @@ cb_str cb_value_to_string(struct cb_value val)
 		break;
 
 	case CB_VALUE_DOUBLE:
-		len = snprintf(NULL, 0, "%g", val.val.as_double);
+		len = snprintf(NULL, 0, "%.12g", val.val.as_double);
 		cb_str_init(&buf, len);
-		snprintf(cb_strptr(&buf), len + 1, "%g", val.val.as_double);
+		snprintf(cb_strptr(&buf), len + 1, "%.12g", val.val.as_double);
 		break;
 
 	case CB_VALUE_BOOL:
