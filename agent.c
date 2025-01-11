@@ -1,8 +1,16 @@
 #include <assert.h>
+#include <libgen.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if __APPLE__
+#include <mach-o/dyld.h>
+#include <limits.h>
+#elif
+#include <unistd.h>
+#endif
 
 #include "agent.h"
 #include "builtin_modules.h"
@@ -27,10 +35,36 @@ struct cb_agent {
 	       next_string_id;
 
 	char *cbcvm_path;
-	const char *import_paths[MAX_IMPORT_PATHS];
+	char *import_paths[MAX_IMPORT_PATHS];
 };
 
 static struct cb_agent agent;
+
+static char *get_stdlib_dir()
+{
+	char exe_path[PATH_MAX];
+	char *dir;
+#if __APPLE__
+	char buf[PATH_MAX];
+	uint32_t bufsize = PATH_MAX;
+	assert(!_NSGetExecutablePath(buf, &bufsize));
+	realpath(buf, exe_path);
+#else
+	/* Linux */
+	char buf[PATH_MAX];
+	ssize_t count = readlink("/proc/self/exe", buf, PATH_MAX);
+	assert(count >= 0 && count < PATH_MAX);
+	buf[count] = '\0';
+	exe_path = strdup(buf);
+#endif
+	dir = dirname(exe_path);
+	size_t sz = snprintf(NULL, 0, "%s/lib", dir) + 1;
+
+	char *result = malloc(sizeof(char) * sz);
+	snprintf(result, sz, "%s/lib", dir);
+
+	return result;
+}
 
 int cb_agent_init(void)
 {
@@ -47,12 +81,14 @@ int cb_agent_init(void)
 	agent.string_table_size = 0;
 	agent.modules_size = 0;
 
-	for (i = 0; i < MAX_IMPORT_PATHS; i += 1)
+	agent.import_paths[0] = get_stdlib_dir();
+	for (i = 1; i < MAX_IMPORT_PATHS; i += 1)
 		agent.import_paths[i] = NULL;
+
 	agent.cbcvm_path = getenv("CBCVM_PATH");
 	if (agent.cbcvm_path) {
 		agent.cbcvm_path = strdup(agent.cbcvm_path);
-		for (i = 0, path = strtok(agent.cbcvm_path, ":"); path;
+		for (i = 1, path = strtok(agent.cbcvm_path, ":"); path;
 				i += 1, path = strtok(NULL, ":")) {
 			if (i >= MAX_IMPORT_PATHS) {
 				fprintf(stderr, "Too many paths in CBCVM_PATH\n");
@@ -94,10 +130,12 @@ void cb_agent_deinit(void)
 	agent.string_table = NULL;
 	agent.modules = NULL;
 
+	free(agent.import_paths[0]);
+	agent.import_paths[0] = NULL;
 	if (agent.cbcvm_path) {
 		free(agent.cbcvm_path);
 		agent.cbcvm_path = NULL;
-		for (i = 0; i < MAX_IMPORT_PATHS && agent.import_paths[i];
+		for (i = 1; i < MAX_IMPORT_PATHS && agent.import_paths[i];
 				i += 1) {
 			agent.import_paths[i] = NULL;
 		}
