@@ -30,7 +30,7 @@ jobs:
           sum=0
           for i in $(seq $NTIMES); do
             before=$(gettimems)
-            CBCVM_PATH=lib ./cbcvm bf.rbcvm bench.b
+            ./cbcvm bf.rbcvm bench.b
             after=$(gettimems)
             elapsed=$((after - before))
             sum=$((sum + elapsed))

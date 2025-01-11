@@ -14,4 +14,4 @@ jobs:
         run: make
       - name: run tests
         run: |
-          CBCVM_PATH=lib scripts/run-tests
+          scripts/run-tests
