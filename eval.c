@@ -227,6 +227,8 @@ static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 }
 #endif
 
+int eval_depth = 0;
+
 static int cb_eval(struct cb_frame *frame)
 {
 #define TABLE_ENTRY(OP) &&DO_##OP,
@@ -290,11 +292,17 @@ static int cb_eval(struct cb_frame *frame)
 	frame->sp = &sp;
 	frame->parent = cb_vm_state.frame;
 	cb_vm_state.frame = frame;
+
+	if (++eval_depth >= 1000) {
+		ERROR("Stack overflow");
+	}
+
 	DISPATCH();
 
 DO_OP_MAX:
 DO_OP_HALT:
 end:
+	eval_depth -= 1;
 	cb_vm_state.frame = cb_vm_state.frame->parent;
 	if (retval && !cb_vm_state.frame) {
 		fprintf(stderr, "Traceback (most recent call last):\n");
