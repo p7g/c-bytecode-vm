@@ -290,7 +290,7 @@ cb_str cb_value_to_string(struct cb_value val)
 	case CB_VALUE_ARRAY: {
 		char *ptr;
 		size_t array_len = val.val.as_array->len;
-		cb_str elements[array_len];
+		cb_str *elements = alloca(sizeof(cb_str) * array_len);
 
 		if (repr_enter(&val.val.as_array->gc_header)) {
 			len = sizeof("[...]") - 1;
