@@ -39,3 +39,21 @@ doc:add("function", "ceil(n)", "Round `n` up to the next integer value.");
 export let floor = toint;
 
 doc:add("function", "floor(n)", "Round `n` down to the previous integer value.");
+
+export function max(a, b) {
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+doc:add("function", "max(a, b)", "Return the greater of `a` and `b`.");
+
+export let log = _math.log;
+export let log2 = _math.log2;
+export let log10 = _math.log10;
+
+doc:add("function", "log(n)", "Computes base-e log of `n`.");
+doc:add("function", "log2(n)", "Computes base-2 log of `n`.");
+doc:add("function", "log10(n)", "Computes base-10 log of `n`.");
