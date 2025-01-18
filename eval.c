@@ -256,7 +256,9 @@ static int cb_eval(struct cb_frame *frame)
 #define ARG2 (op.binary.arg2)
 
 #define RET_WITH_TRACE() ({ \
-		cb_traceback_add_frame(frame); \
+		unsigned line, column; \
+		cb_code_lineno(frame->code, ip - 1 - bytecode, &line, &column); \
+		cb_traceback_add_frame(frame, line, column); \
 		goto end; \
 	})
 #define ERROR(MSG, ...) ({ \

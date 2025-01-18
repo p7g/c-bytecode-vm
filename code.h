@@ -8,6 +8,11 @@
 #include "gc.h"
 #include "module.h"
 
+struct cb_loc {
+	unsigned short run;
+	unsigned line, column;
+};
+
 struct cb_code {
 	cb_gc_header gc_header;
 	cb_modspec *modspec;
@@ -19,10 +24,13 @@ struct cb_code {
 	size_t bytecode_len;
 	struct cb_const *const_pool;
 	union cb_inline_cache *ic;
+	struct cb_loc *loc;
 };
 
 struct cb_code *cb_code_new(void);
 void cb_code_mark(struct cb_code *code);
 cb_gc_hold_key *cb_code_gc_hold(struct cb_code *code);
+void cb_code_lineno(const struct cb_code *code, size_t ip, unsigned *line,
+		unsigned *column);
 
 #endif

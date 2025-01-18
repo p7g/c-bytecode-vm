@@ -15,6 +15,8 @@ static void code_deinit(void *code_ptr)
 		cb_const_free(&code->const_pool[i]);
 	free(code->const_pool);
 	free(code->ic);
+	if (code->loc)
+		free(code->loc);
 }
 
 struct cb_code *cb_code_new(void)
@@ -63,4 +65,22 @@ void cb_code_mark(struct cb_code *code)
 
 	for (unsigned i = 0; i < code->nconsts; i += 1)
 		mark_const(code->const_pool[i]);
+}
+
+void cb_code_lineno(const struct cb_code *code, size_t ip, unsigned *line,
+		unsigned *column)
+{
+	*line = *column = 0;
+
+	size_t sum = 0;
+	/* FIXME: danger */
+	for (unsigned i = 0; sum < ip; i++) {
+		struct cb_loc *l = &code->loc[i];
+		sum += l->run;
+		if (sum >= ip) {
+			*line = l->line;
+			*column = l->column;
+			return;
+		}
+	}
 }

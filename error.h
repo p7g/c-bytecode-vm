@@ -7,15 +7,17 @@
 struct cb_traceback {
 	struct cb_traceback *next;
 	struct cb_frame frame;
-	/* NOTE: only initialized if frame.is_function */
+	/* NOTE: null if not frame.is_function */
 	struct cb_value func;
+	unsigned line, column;
 };
 
 int cb_error_p(void);
 void cb_error_set(struct cb_value value);
 void cb_error_recover(void);
 struct cb_value cb_error_value(void);
-void cb_traceback_add_frame(struct cb_frame *frame);
+void cb_traceback_add_frame(struct cb_frame *frame, unsigned line,
+		unsigned column);
 struct cb_traceback *cb_error_tb(void);
 void cb_traceback_print(FILE *f, struct cb_traceback *tb);
 

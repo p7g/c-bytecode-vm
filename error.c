@@ -57,7 +57,8 @@ void cb_error_recover(void)
 }
 
 /* NOTE: frame is copied, ownership is not take by this function */
-void cb_traceback_add_frame(struct cb_frame *frame)
+void cb_traceback_add_frame(struct cb_frame *frame, unsigned line,
+		unsigned column)
 {
 	struct cb_traceback *tb;
 
@@ -65,8 +66,12 @@ void cb_traceback_add_frame(struct cb_frame *frame)
 
 	tb = malloc(sizeof(struct cb_traceback));
 	tb->frame = *frame;
+	tb->line = line;
+	tb->column = column;
 	if (frame->is_function)
 		tb->func = cb_vm_state.stack[frame->bp];
+	else
+		tb->func.type = CB_VALUE_NULL;
 	tb->next = cb_vm_state.error->tb;
 	cb_vm_state.error->tb = tb;
 }
@@ -90,17 +95,17 @@ void cb_traceback_print(FILE *f, struct cb_traceback *tb)
 					cb_modspec_name(spec));
 			fprintf(f, "%s.", cb_strptr(&modname));
 		}
-		buf = cb_value_to_string(tb->func);
-		fprintf(f, "%s\n", cb_strptr(&buf));
-		cb_str_free(buf);
+		buf = cb_agent_get_string(tb->func.val.as_function->name);
+		fprintf(f, "%s", cb_strptr(&buf));
 	} else {
 		const char *buf;
 
 		spec = cb_agent_get_modspec(tb->frame.module_id);
 		cb_str modname = cb_agent_get_string(cb_modspec_name(spec));
 		buf = cb_strptr(&modname);
-		fprintf(f, "\tin module %s\n", buf);
+		fprintf(f, "\tin module %s", buf);
 	}
+	fprintf(f, " at %u:%u\n", tb->line, tb->column);
 }
 
 struct cb_traceback *cb_error_tb(void)

@@ -640,6 +640,11 @@ void fstate_add_freevar(struct function_state *fstate, size_t free_var)
 	fstate->free_variables[fstate->free_var_len++] = free_var;
 }
 
+struct loc {
+	size_t start, end;
+	unsigned line, column;
+};
+
 struct cstate {
 	struct parse_state *parse_state;
 	struct module_state *module_state;
@@ -649,6 +654,9 @@ struct cstate {
 
 	struct cb_const *consts;
 	size_t consts_len, consts_size;
+
+	struct loc *loc;
+	size_t loc_len, loc_size;
 };
 
 struct loop_state {
@@ -700,6 +708,8 @@ static void cstate_init(struct cstate *const state, const char *input,
 	state->bytecode = cb_bytecode_new();
 	state->consts = NULL;
 	state->consts_len = state->consts_size = 0;
+	state->loc = NULL;
+	state->loc_len = state->loc_size = 0;
 }
 
 static void cstate_deinit(const struct cstate *state)
@@ -710,6 +720,8 @@ static void cstate_deinit(const struct cstate *state)
 		cb_bytecode_free(state->bytecode);
 	if (state->consts)
 		free(state->consts);
+	if (state->loc)
+		free(state->loc);
 }
 
 static void cstate_inherit(struct cstate *dest, const struct cstate *src)
@@ -721,6 +733,8 @@ static void cstate_inherit(struct cstate *dest, const struct cstate *src)
 	dest->bytecode = cb_bytecode_new();
 	dest->consts = NULL;
 	dest->consts_len = dest->consts_size = 0;
+	dest->loc = NULL;
+	dest->loc_len = dest->loc_size = 0;
 }
 
 static size_t cstate_add_const(struct cstate *state, struct cb_const cst)
@@ -740,6 +754,25 @@ static size_t cstate_add_const(struct cstate *state, struct cb_const cst)
 static int cstate_is_global(struct cstate *s)
 {
 	return !s->function_state;
+}
+
+static void cstate_push_loc(struct cstate *s, unsigned line, unsigned column)
+{
+	struct loc loc;
+	loc.line = line;
+	loc.column = column;
+	loc.start = s->bytecode->len;
+
+	if (s->loc_len == s->loc_size) {
+		if (s->loc_size == 0)
+			s->loc_size = 4;
+		else
+			s->loc_size <<= 1;
+		s->loc = realloc(s->loc, s->loc_size * sizeof(struct loc));
+	}
+	if (s->loc_len != 0)
+		s->loc[s->loc_len - 1].end = s->bytecode->len;
+	s->loc[s->loc_len++] = loc;
 }
 
 static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
@@ -832,6 +865,8 @@ static struct token next(struct parse_state *state, int *ok)
 #define NEXT() ({ \
 		int _ok; \
 		struct token _tok = next(state->parse_state, &_ok); \
+		/* FIXME: this isn't always the most ideal spot */ \
+		cstate_push_loc(state, _tok.line, _tok.column); \
 		if (!_ok) \
 			return 1; \
 		_tok; \
@@ -950,6 +985,22 @@ static struct cb_code *create_code(struct cstate *state)
 		if (current > code->stack_size)
 			code->stack_size = current;
 	}
+
+	if (state->loc_len != 0)
+		state->loc[state->loc_len - 1].end = state->bytecode->len;
+	code->loc = malloc(sizeof(struct cb_loc) * state->loc_len);
+	unsigned loc_len = 0;
+	for (unsigned i = 0; i < state->loc_len; i++) {
+		struct loc *in = &state->loc[i];
+		if (in->start == in->end)
+			continue;
+
+		struct cb_loc *out = &code->loc[loc_len++];
+		out->run = in->end - in->start;
+		out->line = in->line;
+		out->column = in->column;
+	}
+	code->loc = realloc(code->loc, sizeof(struct cb_loc) * loc_len);
 
 	code->bytecode = bytecode_finalize(state->bytecode, &code->bytecode_len);
 	code->nconsts = state->consts_len;
