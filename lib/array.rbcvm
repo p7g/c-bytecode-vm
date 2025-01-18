@@ -175,3 +175,20 @@ doc:add(
   "slice(array, start, end)",
   "Returns a slice of `array` starting at index `start` and ending at index `end`.",
 );
+
+export function copy(self) {
+    let len = length(self);
+    let copy = new(len);
+
+    for (let i = 0; i < len; i = i + 1) {
+        copy[i] = self[i];
+    }
+
+    return copy;
+}
+
+doc:add(
+    "function",
+    "copy(array)",
+    "Create a shallow copy of `array`.",
+);
