@@ -85,6 +85,12 @@ static void maybe_grow(struct cb_hashmap *m)
 	free(old_entries);
 }
 
+static void inc_num_entries(cb_hashmap *m)
+{
+	m->num_entries += 1;
+	maybe_grow(m);
+}
+
 size_t cb_hashmap_find(const cb_hashmap *m, size_t key, int *empty)
 {
 	size_t idx;
@@ -133,7 +139,7 @@ void cb_hashmap_set(cb_hashmap *m, size_t key, struct cb_value value)
 		entry->in_use = 1;
 		entry->key = key;
 		entry->value = value;
-		m->num_entries += 1;
+		inc_num_entries(m);
 	} else {
 		entry = &m->entries[idx];
 		assert(entry->in_use);
