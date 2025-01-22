@@ -50,6 +50,16 @@ export function max(a, b) {
 
 doc:add("function", "max(a, b)", "Return the greater of `a` and `b`.");
 
+export function min(a, b) {
+    if (a < b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+doc:add("function", "min(a, b)", "Return the lesser of `a` and `b`.");
+
 export let log = _math.log;
 export let log2 = _math.log2;
 export let log10 = _math.log10;

@@ -59,3 +59,9 @@ export function to_digit(c) {
 }
 
 doc:add("function", "to_digit(c)", "Get the integer value of the digit character `c`.");
+
+export function from_digit(n) {
+    return chr(n + ZERO);
+}
+
+doc:add("function", "from_digit(c)", "Get the character that represents the digit `n`.");
