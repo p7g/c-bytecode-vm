@@ -759,6 +759,8 @@ DO_OP_NEW_ARRAY_WITH_VALUES: {
 		if (v.type != CB_VALUE_INT) \
 			ERROR("Array index must be integer, got %s", \
 					cb_value_type_friendly_name(v.type)); \
+		else if (v.val.as_int < 0) \
+			ERROR("Array index must be positive or 0."); \
 		v.val.as_int; \
 	})
 #define ARRAY_PTR(ARR, IDX) ({ \
