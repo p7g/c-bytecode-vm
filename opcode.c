@@ -57,7 +57,6 @@ int cb_opcode_stack_effect(const cb_instruction instruction)
 	case OP_BITWISE_OR:
 	case OP_BITWISE_AND:
 	case OP_BITWISE_XOR:
-	case OP_BITWISE_NOT:
 	case OP_RETURN:
 	case OP_JUMP_IF_TRUE:
 	case OP_JUMP_IF_FALSE:
@@ -70,6 +69,7 @@ int cb_opcode_stack_effect(const cb_instruction instruction)
 
 	case OP_HALT:
 	case OP_NOT:
+	case OP_BITWISE_NOT:
 	case OP_NEG:
 	case OP_NEW_STRUCT:
 	case OP_ROT_2:
