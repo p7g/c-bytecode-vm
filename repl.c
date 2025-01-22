@@ -13,18 +13,36 @@
 #include "intrinsics.h"
 #include "module.h"
 
+#define HISTORY_FILE "~/.cbcvm_history"
+
+static char *history_file_path(void)
+{
+	char *buf;
+	char *home = getenv("HOME");
+
+	int needed_size = snprintf(NULL, 0, "%s/.cbcvm_history", home);
+	buf = malloc(sizeof(char) * (needed_size + 1));
+	snprintf(buf, needed_size + 1, "%s/.cbcvm_history", home);
+	buf[needed_size] = 0;
+
+	return buf;
+}
+
 int cb_repl(void)
 {
 	cb_modspec *modspec;
 	char *line;
 	int did_init_vm;
 	struct cb_code *code;
+	char *history_file;
 
 	did_init_vm = 0;
 	modspec = cb_modspec_new(cb_agent_intern_string("<repl>", 6));
 	cb_agent_add_modspec(modspec);
 
+	history_file = history_file_path();
 	using_history();
+	read_history(history_file);
 	for (;;) {
 		line = readline(">>> ");
 		if (!line)
@@ -51,5 +69,10 @@ int cb_repl(void)
 
 	if (did_init_vm)
 		cb_vm_deinit();
+
+	stifle_history(1000);
+	write_history(history_file);
+	free(history_file);
+
 	return 0;
 }
