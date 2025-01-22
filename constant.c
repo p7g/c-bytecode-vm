@@ -50,7 +50,6 @@ void cb_const_free(struct cb_const *obj)
 		break;
 
 	case CB_CONST_MODULE:
-		cb_modspec_free(obj->val.as_module->spec);
 		free(obj->val.as_module);
 		break;
 
