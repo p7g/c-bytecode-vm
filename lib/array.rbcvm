@@ -192,3 +192,16 @@ doc:add(
     "copy(array)",
     "Create a shallow copy of `array`.",
 );
+
+export function get(array, index, fallback=null) {
+    if (index >= length(array)) {
+        return fallback;
+    }
+    return array[index];
+}
+
+doc:add(
+    "function",
+    "get(array, index, fallback=null)",
+    "If `index` is out of `array`'s bounds, return `fallback`. Otherwise return the element of `array` at `index`.",
+);
