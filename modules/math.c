@@ -20,22 +20,69 @@ void cb_math_build_spec(cb_modspec *spec)
 static int left_shift(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
+	intptr_t a, b;
 	CB_EXPECT_TYPE(CB_VALUE_INT, argv[0]);
 	CB_EXPECT_TYPE(CB_VALUE_INT, argv[1]);
 
+	a = argv[0].val.as_int;
+	b = argv[1].val.as_int;
 	result->type = CB_VALUE_INT;
-	result->val.as_int = argv[0].val.as_int << argv[1].val.as_int;
+
+	if (b < 0) {
+		cb_error_set(cb_value_from_fmt("Shift amount must be positive or 0"));
+		return 1;
+	}
+
+	if (a == 0) {
+		result->val.as_int = 0;
+		return 0;
+	}
+
+	int neg = a < 0;
+	if (neg)
+		a = -a;
+
+	if (b > __builtin_clzl(a) - 1) {
+		cb_error_set(cb_value_from_fmt("Left shift of %ld by %ld would overflow",
+					a, b));
+		return 1;
+	} else {
+		a <<= b;
+	}
+
+	if (neg)
+		a = -a;
+
+	result->val.as_int = a;
 	return 0;
 }
 
 static int right_shift(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
+	intptr_t a, b;
 	CB_EXPECT_TYPE(CB_VALUE_INT, argv[0]);
 	CB_EXPECT_TYPE(CB_VALUE_INT, argv[1]);
 
+	a = argv[0].val.as_int;
+	b = argv[1].val.as_int;
 	result->type = CB_VALUE_INT;
-	result->val.as_int = argv[0].val.as_int >> argv[1].val.as_int;
+
+	if (b < 0) {
+		cb_error_set(cb_value_from_fmt("Shift amount must be positive or 0"));
+		return 1;
+	}
+
+	int neg = a < 0;
+	if (neg)
+		a = ~a;
+
+	a >>= b;
+
+	if (neg)
+		a = ~a;
+
+	result->val.as_int = a;
 	return 0;
 }
 
