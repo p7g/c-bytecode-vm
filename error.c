@@ -57,8 +57,7 @@ void cb_error_recover(void)
 }
 
 /* NOTE: frame is copied, ownership is not take by this function */
-void cb_traceback_add_frame(struct cb_frame *frame, unsigned line,
-		unsigned column)
+void cb_traceback_add_frame(struct cb_frame *frame, size_t ip)
 {
 	struct cb_traceback *tb;
 
@@ -66,8 +65,7 @@ void cb_traceback_add_frame(struct cb_frame *frame, unsigned line,
 
 	tb = malloc(sizeof(struct cb_traceback));
 	tb->frame = *frame;
-	tb->line = line;
-	tb->column = column;
+	tb->ip = ip;
 	if (frame->is_function)
 		tb->func = cb_vm_state.stack[frame->bp];
 	else
@@ -81,6 +79,7 @@ void cb_traceback_print(FILE *f, struct cb_traceback *tb)
 	struct cb_function *func;
 	struct cb_user_function *ufunc;
 	const cb_modspec *spec;
+	unsigned line, column;
 
 	if (tb->frame.is_function) {
 		cb_str buf;
@@ -105,7 +104,9 @@ void cb_traceback_print(FILE *f, struct cb_traceback *tb)
 		buf = cb_strptr(&modname);
 		fprintf(f, "\tin module %s", buf);
 	}
-	fprintf(f, " at %u:%u\n", tb->line, tb->column);
+
+	cb_code_lineno(tb->frame.code, tb->ip, &line, &column);
+	fprintf(f, " at %u:%u\n", line, column);
 }
 
 struct cb_traceback *cb_error_tb(void)
