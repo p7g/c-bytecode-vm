@@ -2821,3 +2821,34 @@ int cb_compile_file(cb_modspec *module, FILE *f)
 
 	return 0;
 }
+
+struct cb_code *cb_repl_compile(cb_modspec *modspec, char *source)
+{
+	static struct module_state *module_state = NULL;
+
+	if (!modspec) {
+		if (module_state)
+			module_state_free(module_state);
+		return NULL;
+	}
+
+	int first_compile = !module_state;
+	if (!module_state)
+		module_state = module_state_new(modspec);
+
+	struct cstate state;
+	cstate_init(&state, source, cb_modspec_name(modspec));
+
+	state.module_state = module_state;
+
+	if (compile(&state, TOK_EOF))
+		return NULL;
+
+	bytecode_push(state.bytecode, OP(OP_HALT));
+
+	struct cb_code *code = create_code(&state);
+	if (first_compile)
+		cb_modspec_set_code(modspec, code);
+
+	return code;
+}
