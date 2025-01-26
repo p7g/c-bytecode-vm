@@ -142,6 +142,14 @@ A sentinel value indicating that an iterator has been exhausted.
 
 Functions for working with arrays.
 
+### function `get(array, index, fallback=null)`
+
+If `index` is out of `array`'s bounds, return `fallback`. Otherwise return the element of `array` at `index`.
+
+### function `copy(array)`
+
+Create a shallow copy of `array`.
+
 ### function `slice(array, start, end)`
 
 Returns a slice of `array` starting at index `start` and ending at index `end`.
@@ -197,9 +205,9 @@ Create an iterator from array `array`.
 
 Get the length of array `array`.
 
-### function `new(len)`
+### function `new(len, init=null)`
 
-Create a new array of length `len`.
+Create a new array of length `len`. Each element is initialized to `init`.
 
 ## arraylist module
 
@@ -366,6 +374,10 @@ Create a new byte array of size `size`.
 
 Functions for working with characters.
 
+### function `from_digit(c)`
+
+Get the character that represents the digit `n`.
+
 ### function `to_digit(c)`
 
 Get the integer value of the digit character `c`.
@@ -401,6 +413,26 @@ Return true if `c` is an ASCII digit.
 ## math module
 
 Math functions.
+
+### function `log10(n)`
+
+Computes base-10 log of `n`.
+
+### function `log2(n)`
+
+Computes base-2 log of `n`.
+
+### function `log(n)`
+
+Computes base-e log of `n`.
+
+### function `min(a, b)`
+
+Return the lesser of `a` and `b`.
+
+### function `max(a, b)`
+
+Return the greater of `a` and `b`.
 
 ### function `floor(n)`
 
@@ -625,7 +657,7 @@ Testing utilities.
 
 ### function `assert(cond)`
 
-Panics if `cond` is not truthy.
+Throws if `cond` is not truthy.
 
 ### struct `AssertionError`
 
