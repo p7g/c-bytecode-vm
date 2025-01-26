@@ -1076,16 +1076,16 @@ DO_OP_ROT_2: {
 
 DO_OP_IMPORT_MODULE: {
 	size_t const_id, mod_id;
-	struct cb_const_module *const_mod;
+	cb_modspec *modspec;
 	struct cb_module *mod;
 	struct cb_code *code;
 	int failed;
 
 	const_id = ARG;
 	assert(consts[const_id].type == CB_CONST_MODULE);
-	const_mod = consts[const_id].val.as_module;
-	code = const_mod->code;
-	mod_id = cb_modspec_id(const_mod->spec);
+	modspec = consts[const_id].val.as_module;
+	code = cb_modspec_code(modspec);
+	mod_id = cb_modspec_id(modspec);
 	mod = &cb_vm_state.modules[mod_id];
 	if (mod->evaluated) {
 		DISPATCH();
@@ -1094,7 +1094,7 @@ DO_OP_IMPORT_MODULE: {
 	/* FIXME: Remove code that initializes modules ahead of time and just
 	   do it here */
 	if (cb_module_is_zero(*mod))
-		init_module(mod, const_mod->spec);
+		init_module(mod, modspec);
 
 	struct cb_frame new_frame;
 	new_frame.module_id = mod_id;

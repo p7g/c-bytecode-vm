@@ -50,7 +50,7 @@ void cb_const_free(struct cb_const *obj)
 		break;
 
 	case CB_CONST_MODULE:
-		free(obj->val.as_module);
+		/* modspec is owned by the VM */
 		break;
 
 	default:

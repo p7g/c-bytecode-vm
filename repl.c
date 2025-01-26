@@ -33,7 +33,6 @@ int cb_repl(void)
 	cb_modspec *modspec;
 	char *line;
 	int did_init_vm;
-	struct cb_code *code;
 	char *history_file;
 
 	did_init_vm = 0;
@@ -50,21 +49,19 @@ int cb_repl(void)
 		if (!*line)
 			continue;
 		add_history(line);
-		code = cb_compile_string(modspec, line);
+		int failed = cb_compile_string(modspec, line);
 		free(line);
-		if (!code)
+		if (failed)
 			continue;
 		if (cb_options.disasm)
-			cb_disassemble(code);
+			cb_disassemble(cb_modspec_code(modspec));
 		/* XXX: Why lazily init VM? */
 		if (!did_init_vm) {
 			did_init_vm = 1;
 			cb_vm_init();
 			cb_instantiate_builtin_modules();
 		}
-		(void) cb_run(code);
-		/* XXX: Why is this commented out? */
-		// cb_code_free(code);
+		(void) cb_run(cb_modspec_code(modspec));
 	}
 
 	if (did_init_vm)

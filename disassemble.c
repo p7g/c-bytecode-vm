@@ -18,7 +18,7 @@ void print_const_pool(struct cb_code *code)
 		struct cb_const *const_ = &code->const_pool[i];
 		if (const_->type == CB_CONST_MODULE) {
 			cb_str name = cb_agent_get_string(cb_modspec_name(
-					const_->val.as_module->spec));
+					const_->val.as_module));
 			printf("\t%d: <module %s>\n", i, cb_strptr(&name));
 			continue;
 		}
@@ -44,8 +44,8 @@ int cb_disassemble_recursive(struct cb_code *code)
 			name_id = c->val.as_function->name;
 			inner_code = c->val.as_function->code;
 		} else if (c->type == CB_CONST_MODULE) {
-			name_id = cb_modspec_name(c->val.as_module->spec);
-			inner_code = c->val.as_module->code;
+			name_id = cb_modspec_name(c->val.as_module);
+			inner_code = cb_modspec_code(c->val.as_module);
 		} else {
 			continue;
 		}

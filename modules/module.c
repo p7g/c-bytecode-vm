@@ -102,7 +102,6 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 	FILE *f;
 	char *path = NULL;
 	int retval = 0;
-	struct cb_code *code;
 	cb_modspec *modspec;
 
 	import_name_str = CB_EXPECT_STRING(argv[0]);
@@ -128,11 +127,10 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 		cb_agent_add_modspec(modspec);
 	}
 
-	code = cb_compile_file(modspec, f);
-	if (!code)
+	if (cb_compile_file(modspec, f))
 		goto err;
 
-	retval = cb_run(code);
+	retval = cb_run(cb_modspec_code(modspec));
 
 	goto end;
 

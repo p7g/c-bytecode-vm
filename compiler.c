@@ -1053,24 +1053,21 @@ static int compile(struct cstate *state, enum token_type end_tok)
 	return 0;
 }
 
-static struct cb_code *compile_into_module(struct cstate *state,
+static int compile_into_module(struct cstate *state,
 		cb_modspec *modspec)
 {
-	struct cb_code *code;
-
 	state->module_state = module_state_new(modspec);
 
-	if (compile(state, TOK_EOF))
-		return NULL;
+	X(compile(state, TOK_EOF));
 
 	APPEND(OP_HALT);
 
-	code = create_code(state);
+	cb_modspec_set_code(modspec, create_code(state));
 
 	module_state_free(state->module_state);
 	state->module_state = NULL;
 
-	return code;
+	return 0;
 }
 
 static int compile_statement(struct cstate *state)
@@ -1779,8 +1776,6 @@ static int compile_import_statement(struct cstate *state)
 	const struct cb_builtin_module_spec *builtin;
 	FILE *f;
 	cb_modspec *imported_modspec;
-	struct cb_code *imported_code;
-	struct cb_const_module *const_mod;
 	struct cb_const module_const;
 	size_t const_id;
 
@@ -1837,17 +1832,14 @@ static int compile_import_statement(struct cstate *state)
 		if (!f)
 			goto error;
 
-		/* FIXME: Only compile a module once */
-		imported_modspec = cb_modspec_new(modname);
-		cb_agent_add_modspec(imported_modspec);
-		imported_code = cb_compile_file(imported_modspec, f);
-		if (!imported_code)
-			return 1;
-		const_mod = malloc(sizeof(struct cb_const_module));
-		const_mod->spec = imported_modspec;
-		const_mod->code = imported_code;
+		imported_modspec = cb_agent_get_modspec_by_name(modname);
+		if (!imported_modspec) {
+			imported_modspec = cb_modspec_new(modname);
+			cb_agent_add_modspec(imported_modspec);
+			X(cb_compile_file(imported_modspec, f));
+		}
 		module_const.type = CB_CONST_MODULE;
-		module_const.val.as_module = const_mod;
+		module_const.val.as_module = imported_modspec;
 		const_id = cstate_add_const(state, module_const);
 
 		APPEND1(OP_IMPORT_MODULE, const_id);
@@ -2808,28 +2800,24 @@ size_t name_from_path(const char *path)
 	return name;
 }
 
-struct cb_code *cb_compile_string(cb_modspec *module, const char *source)
+int cb_compile_string(cb_modspec *module, const char *source)
 {
 	struct cstate state;
-	struct cb_code *code;
 
 	cstate_init(&state, source, cb_modspec_name(module));
-	code = compile_into_module(&state, module);
+	X(compile_into_module(&state, module));
 	cstate_deinit(&state);
 
-	return code;
+	return 0;
 }
 
-struct cb_code *cb_compile_file(cb_modspec *module, FILE *f)
+int cb_compile_file(cb_modspec *module, FILE *f)
 {
 	char *input;
-	struct cb_code *code;
 
-	if (read_file(f, &input))
-		return NULL;
-
-	code = cb_compile_string(module, input);
+	X(read_file(f, &input));
+	X(cb_compile_string(module, input));
 	free(input);
 
-	return code;
+	return 0;
 }

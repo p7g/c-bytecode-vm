@@ -26,7 +26,6 @@ enum cb_const_type {
 struct cb_const_array;
 struct cb_const_struct;
 struct cb_const_user_function;
-struct cb_const_module;
 
 struct cb_const {
 	enum cb_const_type type;
@@ -39,7 +38,7 @@ struct cb_const {
 		struct cb_const_struct *as_struct;
 		struct cb_struct_spec *as_struct_spec;
 		struct cb_const_user_function *as_function;
-		struct cb_const_module *as_module;
+		cb_modspec *as_module;
 	} val;
 };
 
@@ -60,11 +59,6 @@ struct cb_const_struct {
 
 struct cb_const_user_function {
 	size_t name, arity, num_opt_params;
-	struct cb_code *code;
-};
-
-struct cb_const_module {
-	cb_modspec *spec;
 	struct cb_code *code;
 };
 

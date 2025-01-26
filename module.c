@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "agent.h"
+#include "code.h"
 #include "cb_util.h"
 #include "module.h"
 
@@ -12,6 +13,7 @@ struct modspec {
 	size_t *exports;
 	size_t exports_size;
 	size_t exports_len;
+	struct cb_code *code;
 };
 
 struct modspec *cb_modspec_new(size_t name)
@@ -24,6 +26,7 @@ struct modspec *cb_modspec_new(size_t name)
 	spec->exports = NULL;
 	spec->exports_size = 0;
 	spec->exports_len = 0;
+	spec->code = NULL;
 
 	return spec;
 }
@@ -40,6 +43,18 @@ CB_INLINE size_t cb_modspec_id(const struct modspec *spec)
 {
 	assert(spec);
 	return spec->id;
+}
+
+struct cb_code *cb_modspec_code(const struct modspec *spec)
+{
+	assert(spec && spec->code);
+	return spec->code;
+}
+
+void cb_modspec_set_code(struct modspec *spec, struct cb_code *code)
+{
+	assert(spec && !spec->code);
+	spec->code = code;
 }
 
 size_t cb_modspec_add_export(struct modspec *spec, size_t name)

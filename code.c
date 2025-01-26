@@ -43,7 +43,7 @@ static void mark_const(struct cb_const c)
 {
 	switch (c.type) {
 	case CB_CONST_MODULE:
-		queue_mark(c.val.as_module->code);
+		queue_mark(cb_modspec_code(c.val.as_module));
 		break;
 
 	case CB_CONST_FUNCTION:
