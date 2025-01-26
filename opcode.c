@@ -38,6 +38,7 @@ int cb_opcode_stack_effect(const cb_instruction instruction)
 	case OP_LOAD_GLOBAL:
 	case OP_LOAD_STRUCT:
 	case OP_LOAD_FROM_MODULE:
+	case OP_CATCH:
 		return 1;
 
 	case OP_ADD:
@@ -62,6 +63,7 @@ int cb_opcode_stack_effect(const cb_instruction instruction)
 	case OP_JUMP_IF_FALSE:
 	case OP_STORE_STRUCT:
 	case OP_ADD_STRUCT_FIELD:
+	case OP_THROW:
 		return -1;
 
 	case OP_ARRAY_SET:
@@ -82,6 +84,8 @@ int cb_opcode_stack_effect(const cb_instruction instruction)
 	case OP_STORE_GLOBAL:
 	case OP_APPLY_DEFAULT_ARG:
 	case OP_IMPORT_MODULE:
+	case OP_PUSH_TRY:
+	case OP_POP_TRY:
 		return 0;
 
 	case OP_ALLOCATE_LOCALS:

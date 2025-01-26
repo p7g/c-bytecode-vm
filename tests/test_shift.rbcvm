@@ -6,10 +6,13 @@ export function test_right_shift_keeps_sign() {
 }
 
 export function test_left_shift_overflow() {
-    let [ok, result] = pcall(function () {
-        return math.shl(1, 63);
-    });
-    test.assert(!ok);
+    let failed = false;
+    try {
+        math.shl(1, 63);
+    } catch (e) {
+        failed = true;
+    }
+    test.assert(failed);
 }
 
 export function test_left_shift() {

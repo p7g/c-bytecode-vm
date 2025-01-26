@@ -56,3 +56,71 @@ export function test_return() {
 export function test_loop_in_global_scope() {
     module.import_("global_loop", "tests/global_loop.rbcvm");
 }
+
+export function test_try_catch() {
+    let did_run = false;
+    let err_value = "hello world";
+
+    try {
+        throw err_value;
+        did_run = true;
+    } catch (e) {
+        test.assert(e == err_value);
+    }
+
+    test.assert(!did_run);
+}
+
+export function test_nested_try() {
+    let caught1 = false;
+    let caught2 = false;
+    try {
+        try {
+            throw "test";
+        } catch (e2) {
+            caught2 = true;
+            test.assert(e2 == "test");
+        }
+    } catch (e1) {
+        caught1 = true;
+    }
+    test.assert(!caught1);
+    test.assert(caught2);
+}
+
+export function test_nested_try2() {
+    let caught1 = false;
+    let caught2 = false;
+    try {
+        try {
+            throw "test";
+        } catch (e) {
+            test.assert(e == "test");
+            caught1 = true;
+            throw e;
+        }
+    } catch (e) {
+        test.assert(e == "test");
+        caught2 = true;
+    }
+    test.assert(caught1);
+    test.assert(caught2);
+}
+
+export function test_catch_function() {
+    function throws() {
+        throw "hello";
+    }
+
+    let passed = false;
+    let caught = false;
+    try {
+        throws();
+        passed = true;
+    } catch (e) {
+        caught = true;
+        test.assert(e == "hello");
+    }
+    test.assert(!passed);
+    test.assert(caught);
+}

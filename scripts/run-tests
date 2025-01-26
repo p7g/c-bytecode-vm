@@ -38,14 +38,15 @@ iter.foreach(hashmap.entries(tests_by_file), function run_tests([filename, tests
     print(filename, "");
     iter.foreach(tests, function run_test(test) {
         test = module.get(filename, test);
-        let [ok, result] = pcall(test);
-        if (ok) {
+        try {
+            test();
             print('.');
-        } else {
+        } catch (error) {
             print('F');
-            arraylist.push(failed, [test, result]);
+            arraylist.push(failed, [test, error]);
         }
     });
+
     print('\n');
 });
 

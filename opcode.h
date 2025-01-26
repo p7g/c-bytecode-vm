@@ -57,6 +57,10 @@
 	X(OP_ROT_2) \
 	X(OP_IMPORT_MODULE) \
 	X(OP_APPLY_DEFAULT_ARG) \
+	X(OP_THROW) \
+	X(OP_PUSH_TRY) \
+	X(OP_POP_TRY) \
+	X(OP_CATCH) \
 	X(OP_MAX)
 
 enum cb_opcode {

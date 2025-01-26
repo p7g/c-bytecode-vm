@@ -116,6 +116,9 @@ int cb_disassemble_one(cb_instruction instruction, size_t offset)
 	case OP_RETURN:
 	case OP_NEW_STRUCT:
 	case OP_ROT_2:
+	case OP_THROW:
+	case OP_POP_TRY:
+	case OP_CATCH:
 		printf("%s\n", cb_opcode_name(op));
 		return 0;
 
@@ -131,7 +134,8 @@ int cb_disassemble_one(cb_instruction instruction, size_t offset)
 	case OP_ALLOCATE_LOCALS:
 	case OP_NEW_ARRAY_WITH_VALUES:
 	case OP_CALL:
-	case OP_IMPORT_MODULE: {
+	case OP_IMPORT_MODULE:
+	case OP_PUSH_TRY: {
 		printf("%s(%zu)\n", cb_opcode_name(op), arg);
 		return 0;
 	}

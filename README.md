@@ -128,7 +128,7 @@ Examples:
 some_array[3]
 ```
 
-Accessing a index that is out of range will panic.
+Accessing a index that is out of range will throw.
 
 ### Struct
 
@@ -149,7 +149,7 @@ test { a = 1 }
 test:a
 ```
 
-Accessing a struct field that does not exist results in a panic at run-time.
+Accessing a struct field that does not exist results in a throw at run-time.
 
 An anonymous struct can be declared and instantiated in one expression:
 ```c
@@ -214,7 +214,7 @@ let [b, c] = [1, 2, 3];
 ```
 
 If a field is destructured that doesn't exist on the struct or if more elements
-are destructured from an array than the array contains, the program will panic.
+are destructured from an array than the array contains, the program will throw.
 
 Any fields/elements which aren't matched on are ignored.
 
@@ -273,22 +273,21 @@ omitted.
 
 ## Errors and Error Handling
 
-There is a pretty rudimentary error system that looks a bit like Lua's. It works
-much like exceptions in JavaScript, but without any special syntax for it (just
-special intrinsic functions).
+There is a pretty rudimentary exception system. It works much like exceptions
+in JavaScript, using try/catch and throw. You can throw any value, and
+a try/catch block will catch all errors regardless of type.
 
-To raise an error, the `panic` intrinsic function is used. Any value can be
-passed to it as the error value.
-
-The VM will unwind the call stack until the error state is recovered or it
-reaches the top of the stack, at which point the program will exit. To recover
-from an error state, the `pcall` intrinsic is used, like so:
+In the event of an error, VM will unwind the call stack until the error state
+is recovered or it reaches the top of the stack, at which point the program
+will exit. Here's an example:
 
 ```js
-let [ok, value] = pcall(function () {
+try {
   this_might_fail();
   return "success";
-});
+} catch (e) {
+  return "failed";
+}
 ```
 
 ## Module System
@@ -347,8 +346,6 @@ least for now:
 - `toint`: Converts a double to an integer, or does what `ord` does to a char.
 - `__gc_collect`: Have the garbage collector run immediately. It has a scary
   name because it seems like a scary thing to do.
-- `pcall`: Call a function, catching any errors raised during its execution and
-  returning whether it succeeded.
 
 ## Standard Library
 

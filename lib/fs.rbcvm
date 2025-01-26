@@ -6,7 +6,6 @@ import errno;
 import fn;
 import iter;
 import string;
-import sys;
 
 import _fs;
 
@@ -14,8 +13,14 @@ let doc = docs.module("fs", "Filesystem operations.");
 
 let BLOCK_SIZE = 4096;
 
+export struct Error {
+    message,
+}
+
 function perror(msg) {
-    sys.panic(string_concat(msg, ": ", errno.strerror(errno.get())));
+    throw Error {
+        message = string_concat(msg, ": ", errno.strerror(errno.get())),
+    };
 }
 
 export function read_file(name) {
@@ -83,7 +88,9 @@ doc:add(
 function type_test(path, type) {
     let st = _fs.stat(path);
     if (st == null) {
-        sys.panic(string_concat("stat: ", errno.strerror(errno.get())));
+        throw Error {
+            message = string_concat("stat: ", errno.strerror(errno.get())),
+        };
     }
     return (st:mode & _fs.S_IFMT) == type;
 }

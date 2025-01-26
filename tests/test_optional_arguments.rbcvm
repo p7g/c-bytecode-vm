@@ -5,10 +5,12 @@ export function test_optional_arguments() {
         return req + a * b;
     }
 
-    let [ok, msg] = pcall(function() {
+    try {
         has_optargs();
-    });
-    test.assert(!ok && msg == "Too few arguments to function 'has_optargs'\n");
+        test.assert(false);
+    } catch (msg) {
+        test.assert(msg == "Too few arguments to function 'has_optargs'\n");
+    }
 
     test.assert(has_optargs(1) == 7);
     test.assert(has_optargs(1, 4) == 9);

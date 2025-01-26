@@ -4,7 +4,6 @@ import char;
 import docs;
 import hashmap;
 import string;
-import sys;
 
 let doc = docs.module("json", "A partial implementation of a JSON parser.");
 
@@ -35,7 +34,7 @@ doc:add(
 );
 
 function raise(code, context) {
-  sys.panic(Error { code = code, context = context });
+  throw Error { code = code, context = context };
 }
 
 struct Token {

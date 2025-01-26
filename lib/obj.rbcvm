@@ -54,7 +54,7 @@ export function _send(cls, obj, msg, args) {
   if (meth == null) {
     meth = resolve_method(cls, "method_missing");
     if (meth == null) {
-      sys.panic(NoSuchMethodError { method_name = msg });
+      throw NoSuchMethodError { method_name = msg };
     }
     let args_len = array.length(args);
     let new_args = array.new(args_len + 2);

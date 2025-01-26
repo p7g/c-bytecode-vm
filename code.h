@@ -25,6 +25,7 @@ struct cb_code {
 	struct cb_const *const_pool;
 	union cb_inline_cache *ic;
 	struct cb_loc *loc;
+	unsigned max_try_depth;
 };
 
 struct cb_code *cb_code_new(void);

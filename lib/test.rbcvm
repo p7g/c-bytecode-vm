@@ -1,6 +1,5 @@
 import array;
 import docs;
-import sys;
 
 let doc = docs.module("test", "Testing utilities.");
 
@@ -10,8 +9,8 @@ doc:add("struct", "AssertionError", "Error raised when an assertion fails.");
 
 export function assert(cond, message="Failed assertion") {
     if (!cond) {
-        sys.panic(AssertionError { message = message });
+        throw AssertionError { message = message };
     }
 }
 
-doc:add("function", "assert(cond)", "Panics if `cond` is not truthy.");
+doc:add("function", "assert(cond)", "Throws if `cond` is not truthy.");

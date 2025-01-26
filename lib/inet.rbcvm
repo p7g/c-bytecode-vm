@@ -2,19 +2,22 @@ import _inet;
 import array;
 import math;
 import string;
-import sys;
 
 export let htonl = _inet.htonl;
 export let htons = _inet.htons;
 export let ntohl = _inet.ntohl;
 export let ntohs = _inet.ntohs;
 
+export struct Error { message }
+
 export function bytestol(bytes) {
     if (array.length(bytes) < 4) {
-        sys.panic(string.concat(
-            "Incorrect number of bytes for bytestol. Expected 4, got: ",
-            array.length(bytes),
-        ));
+        throw Error {
+            message = string.concat(
+                "Incorrect number of bytes for bytestol. Expected 4, got: ",
+                array.length(bytes),
+            ),
+        };
     }
 
     let [a, b, c, d] = bytes;
@@ -28,10 +31,12 @@ export function bytestol(bytes) {
 
 export function bytestos(bytes) {
     if (array.length(bytes) != 2) {
-        sys.panic(string.concat(
-            "Incorrect number of bytes for bytestos. Expected 2, got: ",
-            array.length(bytes),
-        ));
+        throw Error {
+            message = string.concat(
+                "Incorrect number of bytes for bytestos. Expected 2, got: ",
+                array.length(bytes),
+            ),
+        };
     }
 
     let [a, b] = bytes;

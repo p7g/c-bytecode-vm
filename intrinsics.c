@@ -49,7 +49,6 @@
 	X("read_file_bytes", read_file_bytes, 1) \
 	X("toint", toint, 1) \
 	X("__gc_collect", __gc_collect, 0) \
-	X("pcall", pcall, 1) \
 	X("__dis", __dis, 1)
 
 INTRINSIC_LIST(DECL);
@@ -458,27 +457,6 @@ static int __gc_collect(size_t argc, struct cb_value *argv,
 {
 	result->type = CB_VALUE_NULL;
 	cb_gc_collect();
-	return 0;
-}
-
-static int pcall(size_t argc, struct cb_value *argv, struct cb_value *result)
-{
-	int failed;
-	struct cb_array *arr;
-
-	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
-	result->type = CB_VALUE_ARRAY;
-	arr = result->val.as_array = cb_array_new(2);
-
-	failed = cb_value_call(argv[0], argv + 1, argc - 1, &arr->values[1]);
-
-	arr->values[0].type = CB_VALUE_BOOL;
-	arr->values[0].val.as_bool = !failed;
-	if (failed) {
-		assert(cb_error_p());
-		arr->values[1] = cb_error_value();
-		cb_error_recover();
-	}
 	return 0;
 }
 

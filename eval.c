@@ -257,7 +257,13 @@ static int cb_eval(struct cb_frame *frame)
 
 #define RET_WITH_TRACE() ({ \
 		cb_traceback_add_frame(frame, ip - 1 - bytecode); \
-		goto end; \
+		if (try_stack != try_stack_base) { \
+			ip = bytecode + try_stack[-1]; \
+			retval = 0; \
+			DISPATCH(); \
+		} else { \
+			goto end; \
+		} \
 	})
 #define ERROR(MSG, ...) ({ \
 		cb_error_set(cb_value_from_fmt((MSG), ##__VA_ARGS__)); \
@@ -286,6 +292,8 @@ static int cb_eval(struct cb_frame *frame)
 	struct cb_const *consts = frame->code->const_pool;
 	cb_hashmap *global_scope = cb_vm_state.modules[frame->module_id].global_scope;
 	union cb_inline_cache *inline_cache = frame->code->ic;
+	size_t *try_stack = alloca(frame->code->max_try_depth * sizeof(size_t));
+	size_t *const try_stack_base = try_stack;
 
 	union cb_op_encoding op;
 
@@ -1117,6 +1125,34 @@ DO_OP_APPLY_DEFAULT_ARG: {
 	if (frame->num_args > param_num)
 		ip = bytecode + next_param_addr;
 	DISPATCH();
+
+DO_OP_THROW: {
+	struct cb_value err;
+
+	err = POP();
+	cb_error_set(err);
+	retval = 1;
+
+	RET_WITH_TRACE();
+}
+
+DO_OP_PUSH_TRY:
+	*try_stack++ = ARG;
+	DISPATCH();
+
+DO_OP_POP_TRY:
+	try_stack--;
+	DISPATCH();
+
+DO_OP_CATCH: {
+	struct cb_value err;
+	try_stack--;
+	assert(cb_error_p());
+	err = cb_error_value();
+	cb_error_recover();
+	PUSH(err);
+	DISPATCH();
+}
 }
 
 #undef CACHE

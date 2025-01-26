@@ -80,6 +80,9 @@
 	X(TOK_EXPORT) \
 	X(TOK_IMPORT) \
 	X(TOK_STRUCT) \
+	X(TOK_THROW) \
+	X(TOK_TRY) \
+	X(TOK_CATCH) \
 	X(TOK_EOF)
 
 enum token_type {
@@ -135,6 +138,9 @@ static struct {
 	KW("export", TOK_EXPORT),
 	KW("import", TOK_IMPORT),
 	KW("struct", TOK_STRUCT),
+	KW("throw", TOK_THROW),
+	KW("try", TOK_TRY),
+	KW("catch", TOK_CATCH),
 };
 #undef KW
 
@@ -657,6 +663,9 @@ struct cstate {
 
 	struct loc *loc;
 	size_t loc_len, loc_size;
+
+	unsigned try_depth;
+	unsigned max_try_depth;
 };
 
 struct loop_state {
@@ -710,6 +719,7 @@ static void cstate_init(struct cstate *const state, const char *input,
 	state->consts_len = state->consts_size = 0;
 	state->loc = NULL;
 	state->loc_len = state->loc_size = 0;
+	state->try_depth = state->max_try_depth = 0;
 }
 
 static void cstate_deinit(const struct cstate *state)
@@ -735,6 +745,7 @@ static void cstate_inherit(struct cstate *dest, const struct cstate *src)
 	dest->consts_len = dest->consts_size = 0;
 	dest->loc = NULL;
 	dest->loc_len = dest->loc_size = 0;
+	dest->try_depth = dest->max_try_depth = 0;
 }
 
 static size_t cstate_add_const(struct cstate *state, struct cb_const cst)
@@ -951,6 +962,8 @@ static int compile_export_statement(struct cstate *);
 static int compile_import_statement(struct cstate *);
 static int compile_struct_statement(struct cstate *, int export);
 static int compile_expression_statement(struct cstate *);
+static int compile_throw_statement(struct cstate *);
+static int compile_try_statement(struct cstate *);
 
 static int compile_expression(struct cstate *);
 
@@ -1008,6 +1021,7 @@ static struct cb_code *create_code(struct cstate *state)
 			state->consts_len * sizeof(struct cb_const));
 	code->modspec = state->module_state->spec;
 	code->ic = calloc(code->bytecode_len, sizeof(union cb_inline_cache));
+	code->max_try_depth = state->max_try_depth;
 
 	/* ownership taken */
 	state->consts = NULL;
@@ -1094,6 +1108,12 @@ static int compile_statement(struct cstate *state)
 		break;
 	case TOK_STRUCT:
 		X(compile_struct_statement(state, 0));
+		break;
+	case TOK_THROW:
+		X(compile_throw_statement(state));
+		break;
+	case TOK_TRY:
+		X(compile_try_statement(state));
 		break;
 	default:
 		X(compile_expression_statement(state));
@@ -1926,6 +1946,57 @@ static int compile_struct_statement(struct cstate *state, int export)
 	if (export && cstate_is_global(state))
 		export_name(state, name_id);
 	APPEND(OP_POP);
+
+	return 0;
+}
+
+static int compile_throw_statement(struct cstate *state)
+{
+	EXPECT(TOK_THROW);
+	X(compile_expression(state));
+	APPEND(OP_THROW);
+	EXPECT(TOK_SEMICOLON);
+	return 0;
+}
+
+static int compile_try_statement(struct cstate *state)
+{
+	EXPECT(TOK_TRY);
+	EXPECT(TOK_LEFT_BRACE);
+
+	size_t catch_label = LABEL();
+	size_t end_label = LABEL();
+	APPEND1(OP_PUSH_TRY, ADDR_OF(catch_label, 1, 0));
+
+	state->try_depth += 1;
+	if (state->try_depth > state->max_try_depth)
+		state->max_try_depth = state->try_depth;
+
+	while (!MATCH_P(TOK_RIGHT_BRACE))
+		X(compile_statement(state));
+	EXPECT(TOK_RIGHT_BRACE);
+	APPEND(OP_POP_TRY);
+	APPEND1(OP_JUMP, ADDR_OF(end_label, 1, 0));
+
+	MARK(catch_label);
+	APPEND(OP_CATCH);
+	EXPECT(TOK_CATCH);
+	if (MATCH_P(TOK_LEFT_PAREN)) {
+		EXPECT(TOK_LEFT_PAREN);
+		struct token name = EXPECT(TOK_IDENT);
+		EXPECT(TOK_RIGHT_PAREN);
+		size_t name_id = intern_ident(state, &name);
+		declare_name(state, name_id, 0);
+	} else {
+		APPEND(OP_POP);
+	}
+
+	EXPECT(TOK_LEFT_BRACE);
+	while (!MATCH_P(TOK_RIGHT_BRACE))
+		X(compile_statement(state));
+	EXPECT(TOK_RIGHT_BRACE);
+
+	MARK(end_label);
 
 	return 0;
 }

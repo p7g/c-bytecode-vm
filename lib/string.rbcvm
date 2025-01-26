@@ -5,7 +5,6 @@ import docs;
 import fn;
 import iter;
 import op;
-import sys;
 
 import _string;
 
@@ -26,6 +25,10 @@ doc:add("function", "concat(a, ...)", "Concatenate all strings passed as argumen
 doc:add("function", "length(string)", "Get the length of `string`.");
 doc:add("function", "char_at(string, idx)", "Get the `idx`th character of `string`.");
 doc:add("function", "from_bytes(bytes)", "Convert a byte array to a string.");
+
+export struct Error {
+    message,
+}
 
 export function iter(str) {
   let cs = chars(str);
@@ -153,7 +156,7 @@ doc:add("function", "endswith(string, suffix)", "Check if `suffix` is a suffix o
 
 export function index(self, c) {
     if (typeof(c) != "char") {
-        sys.panic("index: Only finding index of char is implemented");
+        throw Error { message = "index: Only finding index of char is implemented" };
     }
     let len = length(self);
     for (let i = 0; i < len; i = i + 1) {
@@ -168,7 +171,7 @@ doc:add("function", "index(string, c)", "Find the first index where `c` is found
 
 export function rindex(self, c) {
     if (typeof(c) != "char") {
-        sys.panic("index: Only finding index of char is implemented");
+        throw Error { message = "index: Only finding index of char is implemented" };
     }
     for (let i = length(self) - 1; i >= 0; i = i - 1) {
         if (char_at(self, i) == c) {
