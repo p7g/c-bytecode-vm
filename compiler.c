@@ -16,6 +16,7 @@
 #include "code.h"
 #include "compiler.h"
 #include "constant.h"
+#include "error.h"
 #include "eval.h"
 #include "hashmap.h"
 #include "module.h"
@@ -1857,7 +1858,12 @@ static int compile_import_statement(struct cstate *state)
 
 	return 0;
 
+	struct cb_value err;
 error:
+	err = cb_error_value();
+	cb_str s = cb_value_to_string(err);
+	fprintf(stderr, "%s\n", cb_strptr(&s));
+	cb_str_free(s);
 	return 1;
 }
 

@@ -314,8 +314,11 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 	}
 
 	size_t buf_len = 0;
-	for (i = -1; i < MAX_IMPORT_PATHS && (i == -1 || agent.import_paths[i]); i++)
+	for (i = -1; i < MAX_IMPORT_PATHS && (i == -1 || agent.import_paths[i]); i++) {
 		buf_len += strlen(i == -1 ? pwd : agent.import_paths[i]);
+		if (i >= 0)
+			buf_len += 2; /* ", " */
+	}
 	if (!agent.import_paths[0])
 		buf_len = 6;
 
