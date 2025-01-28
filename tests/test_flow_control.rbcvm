@@ -124,3 +124,47 @@ export function test_catch_function() {
     test.assert(!passed);
     test.assert(caught);
 }
+
+export function test_break_in_try() {
+    let wtf = false;
+    let fine = false;
+    try {
+        while (true) {
+            try {
+                break;
+            } catch {
+                wtf = true;
+                break;
+            }
+        }
+        throw "error";
+    } catch {
+        fine = true;
+    }
+
+    test.assert(!wtf);
+    test.assert(fine);
+}
+
+export function test_continue_in_try() {
+    let wtf = false;
+    let fine = false;
+    try {
+        for (let i = 0; i < 2; i = i + 1) {
+            if (i == 1) {
+                throw "error";
+            }
+            try {
+                continue;
+            } catch {
+                wtf = true;
+                break;
+            }
+        }
+    } catch {
+        fine = true;
+    }
+
+    test.assert(!wtf);
+    test.assert(fine);
+}

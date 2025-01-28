@@ -671,6 +671,7 @@ struct cstate {
 struct loop_state {
 	size_t continue_label;
 	size_t break_label;
+	unsigned try_depth;
 };
 
 static struct parse_state *parse_state_new(const char *input, size_t name)
@@ -1602,6 +1603,7 @@ static int compile_for_statement(struct cstate *state)
 
 	lstate.continue_label = increment_label;
 	lstate.break_label = end_label;
+	lstate.try_depth = 0;
 
 	EXPECT(TOK_FOR);
 	EXPECT(TOK_LEFT_PAREN);
@@ -1664,6 +1666,7 @@ static int compile_while_statement(struct cstate *state)
 
 	lstate.break_label = end_label;
 	lstate.continue_label = start_label;
+	lstate.try_depth = 0;
 
 	EXPECT(TOK_WHILE);
 	EXPECT(TOK_LEFT_PAREN);
@@ -1700,6 +1703,8 @@ static int compile_break_statement(struct cstate *state)
 	}
 	EXPECT(TOK_SEMICOLON);
 
+	for (unsigned i = 0; i < state->loop_state->try_depth; i++)
+		APPEND(OP_POP_TRY);
 	APPEND1(OP_JUMP, ADDR_OF(state->loop_state->break_label, 1, 0));
 
 	return 0;
@@ -1716,6 +1721,8 @@ static int compile_continue_statement(struct cstate *state)
 	}
 	EXPECT(TOK_SEMICOLON);
 
+	for (unsigned i = 0; i < state->loop_state->try_depth; i++)
+		APPEND(OP_POP_TRY);
 	APPEND1(OP_JUMP, ADDR_OF(state->loop_state->continue_label, 1, 0));
 
 	return 0;
@@ -1963,12 +1970,18 @@ static int compile_try_statement(struct cstate *state)
 	state->try_depth += 1;
 	if (state->try_depth > state->max_try_depth)
 		state->max_try_depth = state->try_depth;
+	if (state->loop_state)
+		state->loop_state->try_depth += 1;
 
 	while (!MATCH_P(TOK_RIGHT_BRACE))
 		X(compile_statement(state));
 	EXPECT(TOK_RIGHT_BRACE);
 	APPEND(OP_POP_TRY);
 	APPEND1(OP_JUMP, ADDR_OF(end_label, 1, 0));
+
+	state->try_depth -= 1;
+	if (state->loop_state)
+		state->loop_state->try_depth -= 1;
 
 	MARK(catch_label);
 	APPEND(OP_CATCH);
