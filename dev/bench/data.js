@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738035327806,
+  "lastUpdate": 1738035638282,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -882,6 +882,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "spectral_norm",
             "value": 5206,
+            "unit": "ms"
+          },
+          {
+            "name": "binary_trees",
+            "value": 0,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "ce7933a580167050eca501a2d737c862e120cf8f",
+          "message": "fix hidden error and buffer length calculation",
+          "timestamp": "2025-01-27T22:35:59-05:00",
+          "tree_id": "1ad2b53e4fbe24566d74f487653287506227a8f2",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/ce7933a580167050eca501a2d737c862e120cf8f"
+        },
+        "date": 1738035637805,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 166358,
+            "unit": "ms"
+          },
+          {
+            "name": "nbody",
+            "value": 2526,
+            "unit": "ms"
+          },
+          {
+            "name": "spectral_norm",
+            "value": 5276,
             "unit": "ms"
           },
           {
