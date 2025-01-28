@@ -739,6 +739,14 @@ This should also work with fifos and stuff.
 
 Hashing functions.
 
+### function `primitive(value)`
+
+A hash function for primitive types.
+
+### function `bool(b)`
+
+A hash function for booleans.
+
 ### function `string(s)`
 
 A hash function for strings.
@@ -763,20 +771,12 @@ An implementation of a hash map.
 
 Add each key-value pair in the `entries` iterator to `map`.
 
-### function `from_entries(entries)`
+### function `from_entries(entries, options=...)`
 
-Call `from_entries_with_hash_function` with the default hash function and `entries`.
+Create a new hashmap with the given `options`, and populate it from the
+iterator of key-value pairs `entries`.
 
-### function `from_entries_with_hash_function(hash, entries)`
-
-Create a new hashmap with `hash` as its hash function, and populate it from
-the iterator of key-value pairs `entries`.
-
-### function `make(init)`
-
-Call `make_with_hash_function` with the default hash function and `init`.
-
-### function `make_with_hash_function(hash, init)`
+### function `make(init, options=...)`
 
 Make a new hashmap with `hash` as its hash functions, and call `init` to
 initialize the map.
@@ -824,26 +824,13 @@ Get the value associated with `key` from `map`.
 
 Delete all values from the map.
 
-### function `with_hash_function(func)`
+### function `new(options=...)`
 
-Create a new hash map that uses `func` as its hash function.
+Create a hashmap in the default configuration. Pass `options` to override the defaults.
 
-### function `set_hash_function(map, func)`
+### function `collector(options=...)`
 
-Set the hash function used by `map` to `func`.
-
-### function `new()`
-
-Create a hashmap in the default configuration.
-
-### function `with_capacity(n)`
-
-Create a new hashmap with `n` buckets.
-
-### function `collector(hash_fn=...)`
-
-Create a collector for converting
-an iterator of entries into a hashmap.
+Create a collector for converting an iterator of entries into a hashmap.
 
 ## json module
 

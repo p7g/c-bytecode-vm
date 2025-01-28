@@ -25,7 +25,7 @@ function _test_mapping(iter, collector, unwrap) {
     let entries = iter.zip(it, it);
     let mapping = iter.collect(entries, collector);
 
-    let results = hashmap.make_with_hash_function(hash.int, function (set) {
+    let results = hashmap.make(function (set) {
         for (let i = 0; i < 10; i = i + 2) {
             set(i, i + 1);
         }
@@ -50,7 +50,7 @@ export function test_assoclist_collector() {
 }
 
 export function test_hashmap_collector() {
-    _test_mapping(hashmap.iter, hashmap.collector(hash.int), hashmap.entries);
+    _test_mapping(hashmap.iter, hashmap.collector(), hashmap.entries);
 }
 
 export function test_list_collector() {

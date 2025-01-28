@@ -42,7 +42,7 @@ function peek(stack) {
     return null;
 }
 
-let operator_precedence = hashmap.from_entries_with_hash_function(hash.char, [
+let operator_precedence = hashmap.from_entries([
     ['|', 0],
     ['.', 1],
     ['?', 2],
@@ -94,7 +94,7 @@ struct nfa_state {
 function create_state(is_accepting) {
     return nfa_state {
         is_accepting = is_accepting,
-        transition = hashmap.with_hash_function(hash.char),
+        transition = hashmap.new(),
         epsilon_transitions = arraylist.new(),
     };
 }

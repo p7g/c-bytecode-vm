@@ -1,6 +1,10 @@
 import bytes;
 import docs;
 
+export struct Error {
+    message,
+}
+
 let doc = docs.module("hash", "Hashing functions.");
 
 let FNV_OFFSET_BASIS_32 = 2166136261;
@@ -43,3 +47,38 @@ export function string(str) {
 }
 
 doc:add("function", "string(s)", "A hash function for strings.");
+
+export function bool(b) {
+    if (b) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+doc:add("function", "bool(b)", "A hash function for booleans.");
+
+export function double(d) {
+    throw Error { message = "double hash is not implemented" };
+}
+
+export function primitive(value) {
+    let ty = typeof(value);
+    if (ty == "string") {
+        return string(value);
+    } else if (ty == "char") {
+        return char(value);
+    } else if (ty == "integer") {
+        return int(value);
+    } else if (ty == "boolean") {
+        return bool(value);
+    } else if (ty == "null") {
+        return 0;
+    } else if (ty == "bytes") {
+        return fnv1a(value);
+    } else {
+        throw Error { message = string_concat("Unhashable type ", ty) };
+    }
+}
+
+doc:add("function", "primitive(value)", "A hash function for primitive types.");

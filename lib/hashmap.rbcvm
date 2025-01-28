@@ -15,7 +15,7 @@ struct HashMap {
 
 struct Bucket { key, value }
 
-let default_hash = hash.string;
+let default_hash = hash.primitive;
 
 function do_hash(self, key) {
   return self:hash_fn(key) & self:cap - 1;
@@ -42,9 +42,19 @@ function next_hash(self, hash) {
 
 # public
 
-export function collector(hash_fn=default_hash) {
+export struct Options {
+    initial_capacity,
+    hash_function,
+}
+
+let DEFAULT_OPTIONS = Options {
+    initial_capacity = INITIAL_CAPACITY,
+    hash_function = default_hash,
+};
+
+export function collector(options=DEFAULT_OPTIONS) {
   return iter.collector {
-    init = function () { return with_hash_function(hash_fn); },
+    init = function () { return new(options); },
     reduce = function (map, [key, value]) {
       set(map, key, value);
       return map;
@@ -53,46 +63,25 @@ export function collector(hash_fn=default_hash) {
   };
 }
 
-doc:add("function", "collector(hash_fn=...)", "Create a collector for converting
-an iterator of entries into a hashmap.");
+doc:add(
+    "function",
+    "collector(options=...)",
+    "Create a collector for converting an iterator of entries into a hashmap.",
+);
 
-export function with_capacity(capacity) {
+export function new(options=DEFAULT_OPTIONS) {
   return HashMap{
-    cap=capacity,
+    cap=options:initial_capacity,
     load=0,
-    hash_fn=default_hash,
-    buckets=array.new(capacity),
+    hash_fn=options:hash_function,
+    buckets=array.new(options:initial_capacity),
   };
 }
 
-doc:add("function", "with_capacity(n)", "Create a new hashmap with `n` buckets.");
-
-export function new() {
-  return with_capacity(INITIAL_CAPACITY);
-}
-
-doc:add("function", "new()", "Create a hashmap in the default configuration.");
-
-export function set_hash_function(self, func) {
-  self:hash_fn = func;
-}
-
 doc:add(
-  "function",
-  "set_hash_function(map, func)",
-  "Set the hash function used by `map` to `func`.",
-);
-
-export function with_hash_function(hash_function) {
-  let m = new();
-  set_hash_function(m, hash_function);
-  return m;
-}
-
-doc:add(
-  "function",
-  "with_hash_function(func)",
-  "Create a new hash map that uses `func` as its hash function.",
+    "function",
+    "new(options=...)",
+    "Create a hashmap in the default configuration. Pass `options` to override the defaults.",
 );
 
 export function clear(self) {
@@ -235,9 +224,8 @@ export function values(self) {
 
 doc:add("function", "values(map)", "Get an iterator over the values in `map`.");
 
-export function make_with_hash_function(hash, init_fn) {
-  let map = new();
-  set_hash_function(map, hash);
+export function make(init_fn, options=DEFAULT_OPTIONS) {
+  let map = new(options);
 
   init_fn(function(k, v) {
     set(map, k, v);
@@ -248,7 +236,7 @@ export function make_with_hash_function(hash, init_fn) {
 
 doc:add(
   "function",
-  "make_with_hash_function(hash, init)",
+  "make(init, options=...)",
   "Make a new hashmap with `hash` as its hash functions, and call `init` to
 initialize the map.
 
@@ -256,38 +244,17 @@ The `init` function receives a function that can be called with a key and value
 to set them on the new map.",
 );
 
-export function make(init_fn) {
-  return make_with_hash_function(default_hash, init_fn);
-}
-
-doc:add(
-  "function",
-  "make(init)",
-  "Call `make_with_hash_function` with the default hash function and `init`.",
-);
-
-export function from_entries_with_hash_function(hash, entries) {
-  let map = new();
-  set_hash_function(map, hash);
+export function from_entries(entries, options=DEFAULT_OPTIONS) {
+  let map = new(options);
   extend(map, entries);
   return map;
 }
 
 doc:add(
   "function",
-  "from_entries_with_hash_function(hash, entries)",
-  "Create a new hashmap with `hash` as its hash function, and populate it from
-the iterator of key-value pairs `entries`.",
-);
-
-export function from_entries(entries) {
-  return from_entries_with_hash_function(default_hash, entries);
-}
-
-doc:add(
-  "function",
-  "from_entries(entries)",
-  "Call `from_entries_with_hash_function` with the default hash function and `entries`.",
+  "from_entries(entries, options=...)",
+  "Create a new hashmap with the given `options`, and populate it from the
+iterator of key-value pairs `entries`.",
 );
 
 export function extend(map, entries) {
