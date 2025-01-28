@@ -15,6 +15,7 @@
 #include "agent.h"
 #include "builtin_modules.h"
 #include "cb_util.h"
+#include "error.h"
 #include "eval.h"
 #include "module.h"
 #include "str.h"
@@ -272,9 +273,10 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 #define min(A, B) ({ typeof((A)) _a = (A), _b = (B); _a < _b ? _a : _b; })
 #define CHECK_LEN ({ \
 		if (path[MAX_IMPORT_PATH_LEN - 1] != 0) { \
-			fprintf(stderr, "Import path for '%.*s' is too long\n", \
+			cb_error_set(cb_value_from_fmt( \
+					"Import path for '%.*s' is too long\n", \
 					(int) cb_strlen(import_name), \
-					cb_strptr(&import_name)); \
+					cb_strptr(&import_name))); \
 			return NULL; \
 		} \
 	})
@@ -311,20 +313,32 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 		return f;
 	}
 
-	fprintf(stderr, "Import '%.*s' not found, checked in: ",
-			(int) cb_strlen(import_name),
-			cb_strptr(&import_name));
+	size_t buf_len = 0;
+	for (i = -1; i < MAX_IMPORT_PATHS && (i == -1 || agent.import_paths[i]); i++)
+		buf_len += strlen(i == -1 ? pwd : agent.import_paths[i]);
+	if (!agent.import_paths[0])
+		buf_len = 6;
+
+	char *buf = malloc(sizeof(char) * buf_len + 1);
+	size_t nwritten = 0;
 	for (i = -1; i < MAX_IMPORT_PATHS && (i == -1 || agent.import_paths[i]);
 			i += 1) {
 		if (i == -1 && !pwd)
 			continue;
 		if (i > 0 || (pwd && i > -1))
-			fputs(", ", stderr);
-		fputs(i == -1 ? pwd : agent.import_paths[i], stderr);
+			nwritten += snprintf(buf + nwritten,
+					buf_len - nwritten + 1, ", ");
+		nwritten += snprintf(buf + nwritten, buf_len - nwritten + 1,
+				"%s", i == -1 ? pwd : agent.import_paths[i]);
 	}
 	if (!agent.import_paths[0])
-		fputs("(none)", stderr);
-	fputc('\n', stderr);
+		snprintf(buf, 6, "(none)", stderr);
+	buf[buf_len] = 0;
+
+	cb_error_set(cb_value_from_fmt("Import '%.*s' not found, checked in: %s",
+			(int) cb_strlen(import_name), cb_strptr(&import_name),
+			buf));
+	free(buf);
 	return NULL;
 
 #undef CHECK_LEN

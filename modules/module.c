@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -109,14 +110,17 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 		path = cb_strdup_cstr(CB_EXPECT_STRING(argv[1]));
 		f = fopen(path, "rb");
 		if (!f) {
-			perror("import");
+			free(path);
+			cb_error_set(cb_value_from_fmt("import: %s",
+						strerror(errno)));
 			goto err;
 		}
 	} else {
 		/* FIXME: Keep track of current file directory so pwd can be set */
 		f = cb_agent_resolve_import(import_name_str, NULL, &path);
-		if (!f)
+		if (!f) {
 			goto err;
+		}
 	}
 
 	import_name = cb_agent_intern_string(cb_strptr(&import_name_str),
@@ -127,8 +131,10 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 		cb_agent_add_modspec(modspec);
 	}
 
-	if (cb_compile_file(modspec, f))
+	if (cb_compile_file(modspec, f)) {
+		cb_error_set(cb_value_from_string("Compile error"));
 		goto err;
+	}
 
 	retval = cb_run(cb_modspec_code(modspec));
 
