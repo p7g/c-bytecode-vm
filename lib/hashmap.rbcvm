@@ -99,7 +99,7 @@ export function get(self, key) {
     return null;
   }
 
-  while (bucket == TOMBSTONE || bucket:key != key) {
+  while (bucket != null && (bucket == TOMBSTONE || bucket:key != key)) {
     hashed = next_hash(self, hashed);
     bucket = self:buckets[hashed];
   }
@@ -145,10 +145,10 @@ export function delete(self, key) {
   let bucket;
   while (true) {
     bucket = self:buckets[hashed];
-    if (!bucket || bucket == TOMBSTONE) {
+    if (!bucket) {
       return false;
     }
-    if (bucket:key == key) {
+    if (bucket != TOMBSTONE && bucket:key == key) {
       break;
     }
     hashed = next_hash(self, hashed);
@@ -166,10 +166,10 @@ export function has(self, key) {
 
   while (true) {
     let bucket = self:buckets[hashed];
-    if (!bucket || bucket == TOMBSTONE) {
+    if (!bucket) {
       return false;
     }
-    if (bucket:key == key) {
+    if (bucket != TOMBSTONE && bucket:key == key) {
       return true;
     }
     hashed = next_hash(self, hashed);
@@ -205,12 +205,10 @@ export let iter = entries;
 doc:add("function", "iter(map)", "Get an iterator over the key-value pairs in `map`.");
 
 export function size(self) {
-  let n = 0;
-  iter.foreach(entries(self), function () { n = n + 1; });
-  return n;
+  return self:load;
 }
 
-doc:add("function", "size(map)", "Count the number of values in `map`.");
+doc:add("function", "size(map)", "Return the number of values in `map`.");
 
 export function keys(self) {
   return iter.map(entries(self), function ([k]) { return k; });
