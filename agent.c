@@ -335,7 +335,7 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 				"%s", i == -1 ? pwd : agent.import_paths[i]);
 	}
 	if (!agent.import_paths[0])
-		snprintf(buf, 6, "(none)", stderr);
+		snprintf(buf, 7, "(none)");
 	buf[buf_len] = 0;
 
 	cb_error_set(cb_value_from_fmt("Import '%.*s' not found, checked in: %s",
