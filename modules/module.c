@@ -110,7 +110,6 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 		path = cb_strdup_cstr(CB_EXPECT_STRING(argv[1]));
 		f = fopen(path, "rb");
 		if (!f) {
-			free(path);
 			cb_error_set(cb_value_from_fmt("import: %s",
 						strerror(errno)));
 			goto err;
