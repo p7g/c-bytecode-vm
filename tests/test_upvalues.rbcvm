@@ -116,14 +116,14 @@ export function test_parallel_upvalues() {
     let a = make1();
     let b = make2();
 
-    test::assert(a:get() == 0);
-    test::assert(b:get() == 0);
-    a:set(123);
-    test::assert(a:get() == 123);
-    test::assert(b:get() == 0);
-    b:set(234);
-    test::assert(a:get() == 123);
-    test::assert(b:get() == 234);
+    test::assert(a.get() == 0);
+    test::assert(b.get() == 0);
+    a.set(123);
+    test::assert(a.get() == 123);
+    test::assert(b.get() == 0);
+    b.set(234);
+    test::assert(a.get() == 123);
+    test::assert(b.get() == 234);
 }
 
 export function test_multiple_function_instances() {
@@ -143,12 +143,12 @@ export function test_multiple_function_instances() {
     let a = make();
     let b = make();
 
-    test::assert(a:get() == 0);
-    test::assert(b:get() == 0);
-    a:set(123);
-    test::assert(a:get() == 123);
-    test::assert(b:get() == 0);
-    b:set(234);
-    test::assert(a:get() == 123);
-    test::assert(b:get() == 234);
+    test::assert(a.get() == 0);
+    test::assert(b.get() == 0);
+    a.set(123);
+    test::assert(a.get() == 123);
+    test::assert(b.get() == 0);
+    b.set(234);
+    test::assert(a.get() == 123);
+    test::assert(b.get() == 234);
 }

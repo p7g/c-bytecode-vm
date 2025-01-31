@@ -5,22 +5,22 @@ import iter;
 let doc = docs::module("array", "Functions for working with arrays.");
 
 export let new = _array::new;
-doc:add(
+doc.add(
   "function",
   "new(len, init=null)",
   "Create a new array of length `len`. Each element is initialized to `init`.",
 );
 
 export let length = _array::length;
-doc:add("function", "length(array)", "Get the length of array `array`.");
+doc.add("function", "length(array)", "Get the length of array `array`.");
 
 export let iter = iter::_array_iter;
 
-doc:add("function", "iter(array)", "Create an iterator from array `array`.");
+doc.add("function", "iter(array)", "Create an iterator from array `array`.");
 
 export let collector = iter::_array_collector;
 
-doc:add("object", "collector", "A collector for converting an iterator into an array.");
+doc.add("object", "collector", "A collector for converting an iterator into an array.");
 
 export function find_index(self, func) {
   let len = length(self);
@@ -34,7 +34,7 @@ export function find_index(self, func) {
   return -1;
 }
 
-doc:add(
+doc.add(
   "function",
   "find_index(array, predicate)",
   "Find the index of the element for which `predicate` returns true. If there is none, returns -1.",
@@ -48,7 +48,7 @@ export function find(self, func) {
     return null;
 }
 
-doc:add(
+doc.add(
   "function",
   "find(array, predicate)",
   "Find the element for which `predicate` returns true. If there is none, returns null.",
@@ -62,7 +62,7 @@ export function foreach(self, func) {
   }
 }
 
-doc:add(
+doc.add(
   "function",
   "foreach(array, func)",
   "Call `func` with the element, index, and array for each element of `array`.",
@@ -74,7 +74,7 @@ export function contains(self, thing) {
   });
 }
 
-doc:add(
+doc.add(
   "function",
   "contains(array, thing)",
   "Returns true if any element of `array` is equal to `thing`.",
@@ -91,7 +91,7 @@ export function map(self, func) {
   return new_array;
 }
 
-doc:add(
+doc.add(
   "function",
   "map(array, func)",
   "Create a new array where each element is the result of calling `func` on the
@@ -109,7 +109,7 @@ export function foldl(self, init, reducer) {
   return init;
 }
 
-doc:add(
+doc.add(
   "function",
   "foldl(array, init, reducer)",
   "Reduce `array` from the left, using `init` as the initial value for the
@@ -128,7 +128,7 @@ export function foldl1(self, reducer) {
   return acc;
 }
 
-doc:add(
+doc.add(
   "function",
   "foldl(array, init, reducer)",
   "Reduce `array` from the left, using the first value of `array` as the initial
@@ -147,7 +147,7 @@ export function reverse(self) {
   }
 }
 
-doc:add("function", "reverse(array)", "Reverse `array` in place.");
+doc.add("function", "reverse(array)", "Reverse `array` in place.");
 
 export function reversed(self) {
   let len = length(self);
@@ -160,7 +160,7 @@ export function reversed(self) {
   return copy;
 }
 
-doc:add("function", "reversed(array)", "Create a new array with the elements of `array` reversed.");
+doc.add("function", "reversed(array)", "Create a new array with the elements of `array` reversed.");
 
 export function slice(self, start, end) {
     let sub = new(end - start);
@@ -170,7 +170,7 @@ export function slice(self, start, end) {
     return sub;
 }
 
-doc:add(
+doc.add(
   "function",
   "slice(array, start, end)",
   "Returns a slice of `array` starting at index `start` and ending at index `end`.",
@@ -187,7 +187,7 @@ export function copy(self) {
     return copy;
 }
 
-doc:add(
+doc.add(
     "function",
     "copy(array)",
     "Create a shallow copy of `array`.",
@@ -200,7 +200,7 @@ export function get(array, index, fallback=null) {
     return array[index];
 }
 
-doc:add(
+doc.add(
     "function",
     "get(array, index, fallback=null)",
     "If `index` is out of `array`'s bounds, return `fallback`. Otherwise return the element of `array` at `index`.",

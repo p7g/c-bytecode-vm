@@ -4,7 +4,7 @@ struct module_doc { name, description, items, next }
 struct doc_item { type, name, description, next }
 
 function add(list, item) {
-    item:next = list;
+    item.next = list;
     return item;
 }
 
@@ -19,7 +19,7 @@ export function module(modname, description) {
 
     return struct {
         add = function add_documentation(type, name, description) {
-            doc:items = add(doc:items, doc_item {
+            doc.items = add(doc.items, doc_item {
                 type = type,
                 name = name,
                 description = description,
@@ -29,7 +29,7 @@ export function module(modname, description) {
 }
 
 let doc = module("docs", "Tools to document module exports.");
-doc:add("function", "module", "Create an object to document members of a module.");
+doc.add("function", "module", "Create an object to document members of a module.");
 
 # docs/
 #      index.html <- directory of all modules
@@ -42,22 +42,22 @@ export struct generator {
     finalize,
 }
 
-doc:add("struct", "generator", "The interface for a documentation generator.");
+doc.add("struct", "generator", "The interface for a documentation generator.");
 
 function lllen(list) {
     let len = 0;
     while (list) {
         len = len + 1;
-        list = list:next;
+        list = list.next;
     }
     return len;
 }
 
 function copy_module_doc(mod) {
     return module_doc {
-        name = mod:name,
-        description = mod:description,
-        items = mod:items,
+        name = mod.name,
+        description = mod.description,
+        items = mod.items,
     };
 }
 
@@ -65,22 +65,22 @@ export function generate(gen=single_page_markdown()) {
     let len = lllen(documented);
     let reversed = null;
 
-    for (let mod = documented; mod; mod = mod:next) {
+    for (let mod = documented; mod; mod = mod.next) {
         reversed = add(reversed, copy_module_doc(mod));
     }
 
-    for (let mod = reversed; mod; mod = mod:next) {
-        gen:start_module(mod);
-        for (let item = mod:items; item; item = item:next) {
-            gen:add_to_module(item);
+    for (let mod = reversed; mod; mod = mod.next) {
+        gen.start_module(mod);
+        for (let item = mod.items; item; item = item.next) {
+            gen.add_to_module(item);
         }
-        gen:end_module(mod);
+        gen.end_module(mod);
     }
 
-    return gen:finalize();
+    return gen.finalize();
 }
 
-doc:add(
+doc.add(
     "function",
     "generate(generator)",
     "Generate documentation using `generator` for all items already added to the registry.",
@@ -100,16 +100,16 @@ export function single_page_html() {
             buf = string_concat(
                 buf,
                 "<article>",
-                "<h1>", module:name, "</h1>",
-                "<p>", module:description, "</p>",
+                "<h1>", module.name, "</h1>",
+                "<p>", module.description, "</p>",
             );
         },
 
         add_to_module = function(item) {
             buf = string_concat(
                 buf,
-                "<h2>", "<small>", item:type, "</small> ", item:name, "</h2>",
-                "<p>", item:description, "</p>",
+                "<h2>", "<small>", item.type, "</small> ", item.name, "</h2>",
+                "<p>", item.description, "</p>",
             );
         },
 
@@ -123,7 +123,7 @@ export function single_page_html() {
     };
 }
 
-doc:add(
+doc.add(
     "function",
     "single_page_html()",
     "Create a documentation generator that results in a single string of HTML.",
@@ -141,13 +141,13 @@ export function single_page_markdown() {
         start_module = function(module) {
             top = string_concat(
                 top,
-                "- [", module:name, "](#", id(module:name), ")\n",
+                "- [", module.name, "](#", id(module.name), ")\n",
             );
             buf = string_concat(
                 buf,
                 "\n\n",
-                "## ", module:name, " module\n\n",
-                module:description,
+                "## ", module.name, " module\n\n",
+                module.description,
             );
         },
 
@@ -155,8 +155,8 @@ export function single_page_markdown() {
             buf = string_concat(
                 buf,
                 "\n\n",
-                "### ", item:type, " `", item:name, "`\n\n",
-                item:description,
+                "### ", item.type, " `", item.name, "`\n\n",
+                item.description,
             );
         },
 
@@ -168,7 +168,7 @@ export function single_page_markdown() {
     };
 }
 
-doc:add(
+doc.add(
     "function",
     "single_page_markdown()",
     "Create a documentation generator that results in a single string of markdown.",
@@ -176,17 +176,17 @@ doc:add(
 
 export function print_generator(gen) {
     return generator {
-        start_module = gen:start_module,
-        end_module = gen:end_module,
-        add_to_module = gen:add_to_module,
+        start_module = gen.start_module,
+        end_module = gen.end_module,
+        add_to_module = gen.add_to_module,
 
         finalize = function() {
-            print(gen:finalize());
+            print(gen.finalize());
         },
     };
 }
 
-doc:add(
+doc.add(
     "function",
     "print_generator(inner_generator)",
     "Create a generator that prints the result of `inner_generator` to stdout.",

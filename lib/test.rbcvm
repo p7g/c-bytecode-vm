@@ -5,7 +5,7 @@ let doc = docs::module("test", "Testing utilities.");
 
 export struct AssertionError { message }
 
-doc:add("struct", "AssertionError", "Error raised when an assertion fails.");
+doc.add("struct", "AssertionError", "Error raised when an assertion fails.");
 
 export function assert(cond, message="Failed assertion") {
     if (!cond) {
@@ -13,4 +13,4 @@ export function assert(cond, message="Failed assertion") {
     }
 }
 
-doc:add("function", "assert(cond)", "Throws if `cond` is not truthy.");
+doc.add("function", "assert(cond)", "Throws if `cond` is not truthy.");

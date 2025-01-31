@@ -7,7 +7,7 @@ let doc = docs::module("arraylist", "A growable array.");
 
 export let from_array = _arraylist_impl::from_array;
 
-doc:add(
+doc.add(
   "function",
   "from_array(len, array)",
   "Create a new arraylist from `array`. The `len` argument should be the length
@@ -18,7 +18,7 @@ export function iter(self) {
   let i = 0;
 
   return function arraylist_iterator() {
-    if (i >= self:length) {
+    if (i >= self.length) {
       return iter::STOP;
     }
     let val = get(self, i);
@@ -27,11 +27,11 @@ export function iter(self) {
   };
 }
 
-doc:add("function", "iter(list)", "Create an iterator over arraylist `list`.");
+doc.add("function", "iter(list)", "Create an iterator over arraylist `list`.");
 
 export let with_capacity = _arraylist_impl::with_capacity;
 
-doc:add(
+doc.add(
   "function",
   "with_capacity(cap)",
   "Create an empty arraylist with the given initial capacity.",
@@ -39,7 +39,7 @@ doc:add(
 
 export let new = _arraylist_impl::new;
 
-doc:add(
+doc.add(
   "function",
   "new()",
   "Create an empty arraylist with default initial capacity.",
@@ -47,23 +47,23 @@ doc:add(
 
 export let length = _arraylist_impl::length;
 
-doc:add("function", "length(list)", "Get the number of items in `list`.");
+doc.add("function", "length(list)", "Get the number of items in `list`.");
 
 export let capacity = _arraylist_impl::capacity;
 
-doc:add("function", "capacity(list)", "Get the maximum number of items `list` can hold.");
+doc.add("function", "capacity(list)", "Get the maximum number of items `list` can hold.");
 
 export let get = _arraylist_impl::get;
 
-doc:add("function", "get(list, idx)", "Get the element of `list` at index `idx`.");
+doc.add("function", "get(list, idx)", "Get the element of `list` at index `idx`.");
 
 export let set = _arraylist_impl::set;
 
-doc:add("function", "set(list, idx, value)", "Set the element of `list` at index `idx` to `value`.");
+doc.add("function", "set(list, idx, value)", "Set the element of `list` at index `idx` to `value`.");
 
 export let delete = _arraylist_impl::delete;
 
-doc:add(
+doc.add(
   "function",
   "delete(list, idx)",
   "Remove the element at index `idx` from `list`. This involves shuffling all
@@ -72,11 +72,11 @@ elements after `idx` leftward, so it's not very efficient.",
 
 export let to_array = _arraylist_impl::to_array;
 
-doc:add("function", "to_array(list)", "Copy the elements of `list` into a fixed-length array.");
+doc.add("function", "to_array(list)", "Copy the elements of `list` into a fixed-length array.");
 
 export let push = _arraylist_impl::push;
 
-doc:add(
+doc.add(
   "function",
   "push(list, value)",
   "Push `value` on to the end of `list`, growing it if necessary.",
@@ -88,11 +88,11 @@ export let collector = iter::collector {
   finalize = function (list) { return list; },
 };
 
-doc:add("object", "collector", "A collector for converting an iterator into an arraylist.");
+doc.add("object", "collector", "A collector for converting an iterator into an arraylist.");
 
 export let pop = _arraylist_impl::pop;
 
-doc:add(
+doc.add(
   "function",
   "pop(list)",
   "Remove and return the last element of `list`.",
@@ -100,15 +100,15 @@ doc:add(
 
 export let foreach = _arraylist_impl::foreach;
 
-doc:add(
+doc.add(
   "function",
   "foreach(list, func)",
   "Call `func` for each element of `list`.",
 );
 
 export function find_index(self, func) {
-  let len = self:length;
-  let array = self:array;
+  let len = self.length;
+  let array = self.array;
 
   for (let i = 0; i < len; i = i + 1) {
     if (func(array[i], i, self)) {
@@ -119,7 +119,7 @@ export function find_index(self, func) {
   return -1;
 }
 
-doc:add(
+doc.add(
   "function",
   "find_index(list, func)",
   "Get the index of the first element that satisfies the predicate `func`, or -1
@@ -127,7 +127,7 @@ if none exists.",
 );
 
 export function map(self, func) {
-  let len = self:length;
+  let len = self.length;
   let cap = capacity(self);
   let new_array = _array::new(cap);
 
@@ -138,7 +138,7 @@ export function map(self, func) {
   return from_array(len, new_array);
 }
 
-doc:add(
+doc.add(
   "function",
   "map(list, func)",
   "Create a new arraylist where each element is the result of calling `func` on
@@ -155,7 +155,7 @@ export function find(self, func) {
   return get(self, index);
 }
 
-doc:add(
+doc.add(
   "function",
   "find(list, func)",
   "Get the first element that satisfies the predicate `func`, or null if none exists.",
@@ -165,7 +165,7 @@ export function some(self, f) {
     return -1 != find_index(self, f);
 }
 
-doc:add(
+doc.add(
   "function",
   "some(list, func)",
   "Check if any element in `list` satisfies the predicate `func`.",
@@ -177,7 +177,7 @@ export function contains(self, a) {
     });
 }
 
-doc:add(
+doc.add(
   "function",
   "contains(list, thing)",
   "Check if any element in `list` is equal to `thing`.",

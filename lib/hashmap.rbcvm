@@ -18,26 +18,26 @@ struct Bucket { key, value }
 let default_hash = hash::primitive;
 
 function do_hash(self, key) {
-  return self:hash_fn(key) & self:cap - 1;
+  return self.hash_fn(key) & self.cap - 1;
 }
 
 function grow(self) {
-  let cap = self:cap = self:cap * 2;
+  let cap = self.cap = self.cap * 2;
 
-  let old_buckets = self:buckets;
-  self:buckets = array::new(cap);
-  self:load = 0;
+  let old_buckets = self.buckets;
+  self.buckets = array::new(cap);
+  self.load = 0;
 
   array::foreach(old_buckets, function(bucket) {
     if (!bucket || bucket == TOMBSTONE) {
       return;
     }
-    set(self, bucket:key, bucket:value);
+    set(self, bucket.key, bucket.value);
   });
 }
 
 function next_hash(self, hash) {
-  return (hash + 1) % self:cap;
+  return (hash + 1) % self.cap;
 }
 
 # public
@@ -63,7 +63,7 @@ export function collector(options=DEFAULT_OPTIONS) {
   };
 }
 
-doc:add(
+doc.add(
     "function",
     "collector(options=...)",
     "Create a collector for converting an iterator of entries into a hashmap.",
@@ -71,69 +71,69 @@ doc:add(
 
 export function new(options=DEFAULT_OPTIONS) {
   return HashMap{
-    cap=options:initial_capacity,
+    cap=options.initial_capacity,
     load=0,
-    hash_fn=options:hash_function,
-    buckets=array::new(options:initial_capacity),
+    hash_fn=options.hash_function,
+    buckets=array::new(options.initial_capacity),
   };
 }
 
-doc:add(
+doc.add(
     "function",
     "new(options=...)",
     "Create a hashmap in the default configuration. Pass `options` to override the defaults.",
 );
 
 export function clear(self) {
-  self:buckets = array::new(self:capacity);
-  self:load = 0;
+  self.buckets = array::new(self.capacity);
+  self.load = 0;
 }
 
-doc:add("function", "clear(map)", "Delete all values from the map.");
+doc.add("function", "clear(map)", "Delete all values from the map.");
 
 export function get(self, key) {
   let hashed = do_hash(self, key);
-  let bucket = self:buckets[hashed];
+  let bucket = self.buckets[hashed];
 
   if (bucket == null) {
     return null;
   }
 
-  while (bucket != null && (bucket == TOMBSTONE || bucket:key != key)) {
+  while (bucket != null && (bucket == TOMBSTONE || bucket.key != key)) {
     hashed = next_hash(self, hashed);
-    bucket = self:buckets[hashed];
+    bucket = self.buckets[hashed];
   }
 
-  return bucket:value;
+  return bucket.value;
 }
 
-doc:add("function", "get(map, key)", "Get the value associated with `key` from `map`.");
+doc.add("function", "get(map, key)", "Get the value associated with `key` from `map`.");
 
 export function set(self, key, value) {
   let hashed = do_hash(self, key);
 
   let bucket;
   while (true) {
-    bucket = self:buckets[hashed];
-    if (bucket == null || bucket == TOMBSTONE || bucket:key == key) {
+    bucket = self.buckets[hashed];
+    if (bucket == null || bucket == TOMBSTONE || bucket.key == key) {
       break;
     }
     hashed = next_hash(self, hashed);
   }
 
   if (bucket && bucket != TOMBSTONE) {
-    bucket:value = value;
+    bucket.value = value;
   } else {
-    self:buckets[hashed] = Bucket { key=key, value=value };
-    self:load = self:load + 1;
+    self.buckets[hashed] = Bucket { key=key, value=value };
+    self.load = self.load + 1;
 
-    if (self:load / self:cap > LOAD_FACTOR) {
+    if (self.load / self.cap > LOAD_FACTOR) {
       grow(self);
     }
   }
 }
 
-doc:add(
+doc.add(
   "function",
   "set(map, key, value)",
   "Set the value associated with `key` in `map` to `value`.",
@@ -144,42 +144,42 @@ export function delete(self, key) {
 
   let bucket;
   while (true) {
-    bucket = self:buckets[hashed];
+    bucket = self.buckets[hashed];
     if (!bucket) {
       return false;
     }
-    if (bucket != TOMBSTONE && bucket:key == key) {
+    if (bucket != TOMBSTONE && bucket.key == key) {
       break;
     }
     hashed = next_hash(self, hashed);
   }
 
-  self:buckets[hashed] = TOMBSTONE;
-  self:load = self:load - 1;
+  self.buckets[hashed] = TOMBSTONE;
+  self.load = self.load - 1;
   return true;
 }
 
-doc:add("function", "delete(map, key)", "Delete `key` from `map`.");
+doc.add("function", "delete(map, key)", "Delete `key` from `map`.");
 
 export function has(self, key) {
   let hashed = do_hash(self, key);
 
   while (true) {
-    let bucket = self:buckets[hashed];
+    let bucket = self.buckets[hashed];
     if (!bucket) {
       return false;
     }
-    if (bucket != TOMBSTONE && bucket:key == key) {
+    if (bucket != TOMBSTONE && bucket.key == key) {
       return true;
     }
     hashed = next_hash(self, hashed);
   }
 }
 
-doc:add("function", "has(map, key)", "Check if `map` has a value for `key`.");
+doc.add("function", "has(map, key)", "Check if `map` has a value for `key`.");
 
 export function entries(self) {
-  let len = array::length(self:buckets);
+  let len = array::length(self.buckets);
   let i = 0;
 
   return function next() {
@@ -188,39 +188,39 @@ export function entries(self) {
     }
     let bucket = null;
     while (i < len) {
-      let bucket = self:buckets[i];
+      let bucket = self.buckets[i];
       i = i + 1;
       if (bucket && bucket != TOMBSTONE) {
-        return [bucket:key, bucket:value];
+        return [bucket.key, bucket.value];
       }
     }
     return iter::STOP;
   };
 }
 
-doc:add("function", "entries(map)", "Get an iterator over the key-value pairs in `map`.");
+doc.add("function", "entries(map)", "Get an iterator over the key-value pairs in `map`.");
 
 export let iter = entries;
 
-doc:add("function", "iter(map)", "Get an iterator over the key-value pairs in `map`.");
+doc.add("function", "iter(map)", "Get an iterator over the key-value pairs in `map`.");
 
 export function size(self) {
-  return self:load;
+  return self.load;
 }
 
-doc:add("function", "size(map)", "Return the number of values in `map`.");
+doc.add("function", "size(map)", "Return the number of values in `map`.");
 
 export function keys(self) {
   return iter::map(entries(self), function ([k]) { return k; });
 }
 
-doc:add("function", "keys(map)", "Get an iterator over the keys in `map`.");
+doc.add("function", "keys(map)", "Get an iterator over the keys in `map`.");
 
 export function values(self) {
   return iter::map(entries(self), function ([_, v]) { return v; });
 }
 
-doc:add("function", "values(map)", "Get an iterator over the values in `map`.");
+doc.add("function", "values(map)", "Get an iterator over the values in `map`.");
 
 export function make(init_fn, options=DEFAULT_OPTIONS) {
   let map = new(options);
@@ -232,7 +232,7 @@ export function make(init_fn, options=DEFAULT_OPTIONS) {
   return map;
 }
 
-doc:add(
+doc.add(
   "function",
   "make(init, options=...)",
   "Make a new hashmap with `hash` as its hash functions, and call `init` to
@@ -248,7 +248,7 @@ export function from_entries(entries, options=DEFAULT_OPTIONS) {
   return map;
 }
 
-doc:add(
+doc.add(
   "function",
   "from_entries(entries, options=...)",
   "Create a new hashmap with the given `options`, and populate it from the
@@ -261,7 +261,7 @@ export function extend(map, entries) {
   });
 }
 
-doc:add(
+doc.add(
   "function",
   "extend(map, entries)",
   "Add each key-value pair in the `entries` iterator to `map`.",

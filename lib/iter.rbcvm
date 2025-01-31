@@ -5,7 +5,7 @@ import docs;
 let doc = docs::module("iter", "Lazy iterators.");
 
 export let STOP = struct {};
-doc:add("object", "STOP", "A sentinel value indicating that an iterator has been exhausted.");
+doc.add("object", "STOP", "A sentinel value indicating that an iterator has been exhausted.");
 
 export function _array_iter(array) {
   let i = 0;
@@ -30,7 +30,7 @@ function ensure_iterable(it) {
 
 export struct collector { init, reduce, finalize }
 
-doc:add(
+doc.add(
   "struct",
   "collector",
   "An struct defining the required functions to convert an iterator into an arbitrary collection.",
@@ -51,7 +51,7 @@ export function count(n) {
   };
 }
 
-doc:add("function", "count(n)", "Create an iterator that counts up from `n` indefinitely.");
+doc.add("function", "count(n)", "Create an iterator that counts up from `n` indefinitely.");
 
 export function range(to) {
   let i = 0;
@@ -65,7 +65,7 @@ export function range(to) {
   };
 }
 
-doc:add("function", "range(to)", "Create an iterator that counts from 0 to `to`.");
+doc.add("function", "range(to)", "Create an iterator that counts from 0 to `to`.");
 
 export function enumerate(it, start=0) {
   let i = start;
@@ -76,7 +76,7 @@ export function enumerate(it, start=0) {
   });
 }
 
-doc:add("function", "enumerate(it)", "Create an iterator that yields pairs of index and value from `it`.");
+doc.add("function", "enumerate(it)", "Create an iterator that yields pairs of index and value from `it`.");
 
 export function foreach(_it, fn) {
   let it = ensure_iterable(_it);
@@ -87,19 +87,19 @@ export function foreach(_it, fn) {
   }
 }
 
-doc:add(
+doc.add(
   "function",
   "foreach(it, fn)",
   "Call the function `fn` for every element of `it`. This evaluates the iterator.",
 );
 
 export function collect(it, collector=_array_collector) {
-  return collector:finalize(
-    fold(ensure_iterable(it), collector:init(), collector:reduce),
+  return collector.finalize(
+    fold(ensure_iterable(it), collector.init(), collector.reduce),
   );
 }
 
-doc:add(
+doc.add(
   "function",
   "collect(it)",
   "Evaluate an iterator, returning an array of the values it yields.",
@@ -116,7 +116,7 @@ export function map(_it, fn) {
   };
 }
 
-doc:add(
+doc.add(
   "function",
   "map(it, fn)",
   "Return a new iterator that yields the values of `it` applied to `fn`.",
@@ -134,7 +134,7 @@ export function take(_it, n) {
   };
 }
 
-doc:add(
+doc.add(
   "function",
   "take(it, n)",
   "Create an iterator that evaluates the first `n` elements of `it`.
@@ -151,7 +151,7 @@ export function drop(_it, n) {
   return it;
 }
 
-doc:add(
+doc.add(
   "function",
   "drop(it, n)",
   "Create an iterator that ignores the first `n` elements of `it`.
@@ -179,7 +179,7 @@ export function take_while(_it, pred) {
   };
 }
 
-doc:add(
+doc.add(
   "function",
   "take_while(it, pred)",
   "Create an iterator that yields the values of `it` until `pred` returns false.",
@@ -204,7 +204,7 @@ export function zip(_a, _b) {
   };
 }
 
-doc:add("function", "zip(a, b)", "Create an iterator that joins `a` and `b` pair-wise.");
+doc.add("function", "zip(a, b)", "Create an iterator that joins `a` and `b` pair-wise.");
 
 export function flat(_it) {
   let it = ensure_iterable(_it);
@@ -227,14 +227,14 @@ export function flat(_it) {
   };
 }
 
-doc:add("function", "flat(it)", "Flattens an iterator of iterators.");
+doc.add("function", "flat(it)", "Flattens an iterator of iterators.");
 
 export function fold1(it, reducer) {
   it = ensure_iterable(it);
   return fold(it, it(), reducer);
 }
 
-doc:add(
+doc.add(
   "function",
   "fold1(it, reducer)",
   "Reduce the iterator, using the first value as the initial value of the accumulator.",
@@ -247,7 +247,7 @@ export function fold(it, init, reducer) {
   return init;
 }
 
-doc:add(
+doc.add(
   "function",
   "fold(it, init, reducer)",
   "Reduce the iterator, using `init` as the initial value of the accumulator.",
@@ -262,7 +262,7 @@ export function max(it) {
   });
 }
 
-doc:add(
+doc.add(
   "function",
   "max(it)",
   "Find the largest item in the iterator (using `>`).",
@@ -277,7 +277,7 @@ export function min(it) {
   });
 }
 
-doc:add(
+doc.add(
   "function",
   "min(it)",
   "Find the smallest item in the iterator (using `<`).",
@@ -293,7 +293,7 @@ export function repeat(val, times) {
   };
 }
 
-doc:add(
+doc.add(
   "function",
   "repeat(val, n)",
   "Create an iterator that repeats `val` `n` times.",
@@ -317,7 +317,7 @@ export function intersperse(_it, sep) {
   };
 }
 
-doc:add(
+doc.add(
   "function",
   "intersperse(it, val)",
   "Yield `val` in between each element of `it`.",

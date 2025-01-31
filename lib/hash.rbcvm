@@ -24,7 +24,7 @@ export function fnv1a(bytes) {
   return hash;
 }
 
-doc:add(
+doc.add(
   "function",
   "fnv1a(bytes)",
   "Applies the 32bit FNV-1a hashing algorithm to a byte array.",
@@ -34,19 +34,19 @@ export function int(n) {
   return n;
 }
 
-doc:add("function", "int(n)", "A hashing function for integer values.");
+doc.add("function", "int(n)", "A hashing function for integer values.");
 
 export function char(c) {
   return int(ord(c));
 }
 
-doc:add("function", "char(c)", "A hashing function for character values.");
+doc.add("function", "char(c)", "A hashing function for character values.");
 
 export function string(str) {
   return fnv1a(string_bytes(str));
 }
 
-doc:add("function", "string(s)", "A hash function for strings.");
+doc.add("function", "string(s)", "A hash function for strings.");
 
 export function bool(b) {
     if (b) {
@@ -56,7 +56,7 @@ export function bool(b) {
     }
 }
 
-doc:add("function", "bool(b)", "A hash function for booleans.");
+doc.add("function", "bool(b)", "A hash function for booleans.");
 
 export function double(d) {
     throw Error { message = "double hash is not implemented" };
@@ -81,4 +81,4 @@ export function primitive(value) {
     }
 }
 
-doc:add("function", "primitive(value)", "A hash function for primitive types.");
+doc.add("function", "primitive(value)", "A hash function for primitive types.");

@@ -4,18 +4,18 @@ let docs = docs::module("box", "A simple wrapper type to emulate references.");
 
 struct Box { inner }
 
-docs:add("function", "new(value)", "Make a new box containing `value`.");
+docs.add("function", "new(value)", "Make a new box containing `value`.");
 export function new(value) {
   return Box{inner=value};
 }
 
-docs:add("function", "set(self, value)",
+docs.add("function", "set(self, value)",
         "Change the value in the box to `value`.");
 export function set(self, value) {
-  self:inner = value;
+  self.inner = value;
 }
 
-docs:add("function", "get(self)", "Get the value that's inside the box.");
+docs.add("function", "get(self)", "Get the value that's inside the box.");
 export function get(self) {
-  return self:inner;
+  return self.inner;
 }

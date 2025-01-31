@@ -11,11 +11,11 @@ export let get = _bytes::get;
 export let set = _bytes::set;
 export let length = _bytes::length;
 
-doc:add("function", "new(size)", "Create a new byte array of size `size`.");
-doc:add("function", "copy(from, to, n)", "Copy `n` bytes from `from` to `to`.");
-doc:add("function", "get(bytes, i)", "Get the `i`th element from `bytes`.");
-doc:add("function", "set(bytes, i, val)", "Set the `i`th value in `bytes` to `val`.");
-doc:add("function", "length(bytes)", "Get the length of `bytes`.");
+doc.add("function", "new(size)", "Create a new byte array of size `size`.");
+doc.add("function", "copy(from, to, n)", "Copy `n` bytes from `from` to `to`.");
+doc.add("function", "get(bytes, i)", "Get the `i`th element from `bytes`.");
+doc.add("function", "set(bytes, i, val)", "Set the `i`th value in `bytes` to `val`.");
+doc.add("function", "length(bytes)", "Get the length of `bytes`.");
 
 export let collector = iter::collector {
     init = arraylist::new,
@@ -30,7 +30,7 @@ export let collector = iter::collector {
     },
 };
 
-doc:add("object", "collector", "A collector for converting an iterator into byte array.");
+doc.add("object", "collector", "A collector for converting an iterator into byte array.");
 
 export function iter(bytes) {
     let i = 0;
@@ -45,4 +45,4 @@ export function iter(bytes) {
     };
 }
 
-doc:add("function", "iter(bytes)", "Create an iterator over `bytes`.");
+doc.add("function", "iter(bytes)", "Create an iterator over `bytes`.");

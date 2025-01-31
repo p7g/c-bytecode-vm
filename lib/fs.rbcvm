@@ -52,7 +52,7 @@ export function read_file(name) {
     );
 }
 
-doc:add("function", "read_file(name)", "Read the file called `fname` to completion.
+doc.add("function", "read_file(name)", "Read the file called `fname` to completion.
 
 This should also work with fifos and stuff.");
 
@@ -79,7 +79,7 @@ export function directory_entries(path) {
     };
 }
 
-doc:add(
+doc.add(
     "function",
     "directory_entries(path)",
     "Get an iterator over the entries of a directory, excluding '.' and '..'.",
@@ -92,35 +92,35 @@ function type_test(path, type) {
             message = string_concat("stat: ", errno::strerror(errno::get())),
         };
     }
-    return (st:mode & _fs::S_IFMT) == type;
+    return (st.mode & _fs::S_IFMT) == type;
 }
 
 export function isfile(path) {
     return type_test(path, _fs::S_IFREG);
 }
 
-doc:add("function", "isfile(path)", "Check if `path` points to a file.");
+doc.add("function", "isfile(path)", "Check if `path` points to a file.");
 
 export function isdir(path) {
     return type_test(path, _fs::S_IFDIR);
 }
 
-doc:add("function", "isdir(path)", "Check if `path` points to a directory.");
+doc.add("function", "isdir(path)", "Check if `path` points to a directory.");
 
 export function islink(path) {
     return type_test(path, _fs::S_IFLNK);
 }
 
-doc:add("function", "islink(path)", "Check if `path` points to a link.");
+doc.add("function", "islink(path)", "Check if `path` points to a link.");
 
 export function issock(path) {
     return type_test(path, _fs::S_IFSOCK);
 }
 
-doc:add("function", "issock(path)", "Check if `path` points to a socket.");
+doc.add("function", "issock(path)", "Check if `path` points to a socket.");
 
 # TODO: Re-export constants and functions from _fs
 
-doc:add("Note", "", "Lower-level functions and constants are exported from `_fs`.
+doc.add("Note", "", "Lower-level functions and constants are exported from `_fs`.
 
 These are not documented, and will eventually move here.");

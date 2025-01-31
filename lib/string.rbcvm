@@ -18,13 +18,13 @@ export let length = _string::len;
 export let char_at = _string::char_at;
 export let from_bytes = _string::from_bytes;
 
-doc:add("function", "chars(string)", "Get the characters of `string` as an array.");
-doc:add("function", "from_chars(chars)", "Create a string from the array of characters `chars`.");
-doc:add("function", "bytes(string)", "Get the bytes of `string` as an array.");
-doc:add("function", "concat(a, ...)", "Concatenate all strings passed as arguments with no separator.");
-doc:add("function", "length(string)", "Get the length of `string`.");
-doc:add("function", "char_at(string, idx)", "Get the `idx`th character of `string`.");
-doc:add("function", "from_bytes(bytes)", "Convert a byte array to a string.");
+doc.add("function", "chars(string)", "Get the characters of `string` as an array.");
+doc.add("function", "from_chars(chars)", "Create a string from the array of characters `chars`.");
+doc.add("function", "bytes(string)", "Get the bytes of `string` as an array.");
+doc.add("function", "concat(a, ...)", "Concatenate all strings passed as arguments with no separator.");
+doc.add("function", "length(string)", "Get the length of `string`.");
+doc.add("function", "char_at(string, idx)", "Get the `idx`th character of `string`.");
+doc.add("function", "from_bytes(bytes)", "Convert a byte array to a string.");
 
 export struct Error {
     message,
@@ -44,7 +44,7 @@ export function iter(str) {
   };
 }
 
-doc:add("function", "iter(str)", "Create an iterator over the characters in `str`.");
+doc.add("function", "iter(str)", "Create an iterator over the characters in `str`.");
 
 export let collector = iter::collector {
   init = arraylist::new,
@@ -57,7 +57,7 @@ export let collector = iter::collector {
   },
 };
 
-doc:add("object", "collector", "A collector to convert an iterator of characters
+doc.add("object", "collector", "A collector to convert an iterator of characters
 or strings into a string.");
 
 export function parse_integer(str, base=10) {
@@ -72,7 +72,7 @@ export function parse_integer(str, base=10) {
   });
 }
 
-doc:add(
+doc.add(
   "function",
   "parse_integer(str, base)",
   "Parse `str` as an integer of base `base`. Currently only works for base 10.",
@@ -106,7 +106,7 @@ export function parse_float(str) {
   return sum;
 }
 
-doc:add(
+doc.add(
   "function",
   "parse_float(str)",
   "Parse `str` as a floating point number.",
@@ -117,7 +117,7 @@ export function slice(self, start, end) {
   return from_chars(array::slice(cs, start, end));
 }
 
-doc:add(
+doc.add(
   "function",
   "slice(string, start, end)",
   "Get a substring of `string` starting from `start` and ending at `end`.",
@@ -136,7 +136,7 @@ export function startswith(self, other) {
     return true;
 }
 
-doc:add("function", "startswith(string, prefix)", "Check if `prefix` is a prefix of `string`.");
+doc.add("function", "startswith(string, prefix)", "Check if `prefix` is a prefix of `string`.");
 
 export function endswith(self, other) {
     let otherlen = length(other);
@@ -152,7 +152,7 @@ export function endswith(self, other) {
     return true;
 }
 
-doc:add("function", "endswith(string, suffix)", "Check if `suffix` is a suffix of `string`.");
+doc.add("function", "endswith(string, suffix)", "Check if `suffix` is a suffix of `string`.");
 
 export function index(self, c) {
     if (typeof(c) != "char") {
@@ -167,7 +167,7 @@ export function index(self, c) {
     return -1;
 }
 
-doc:add("function", "index(string, c)", "Find the first index where `c` is found in `string`.");
+doc.add("function", "index(string, c)", "Find the first index where `c` is found in `string`.");
 
 export function rindex(self, c) {
     if (typeof(c) != "char") {
@@ -181,13 +181,13 @@ export function rindex(self, c) {
     return -1;
 }
 
-doc:add("function", "rindex(string, c)", "Find the last index where `c` is found in `string`.");
+doc.add("function", "rindex(string, c)", "Find the last index where `c` is found in `string`.");
 
 export function contains(self, c) {
     return -1 != index(self, c);
 }
 
-doc:add("function", "contains(string, c)", "Check if `string` contains the character `c`.");
+doc.add("function", "contains(string, c)", "Check if `string` contains the character `c`.");
 
 export function lstrip(string, pred=char::is_whitespace) {
     let chars = chars(string);
@@ -199,7 +199,7 @@ export function lstrip(string, pred=char::is_whitespace) {
     return from_chars(array::slice(chars, i, len));
 }
 
-doc:add(
+doc.add(
   "function",
   "lstrip(string, pred=char::is_whitespace)",
   "Remove characters from the start of the string while `pred` remains true.",
@@ -215,7 +215,7 @@ export function rstrip(string, pred=char::is_whitespace) {
     return from_chars(array::slice(chars, 0, i + 1));
 }
 
-doc:add(
+doc.add(
   "function",
   "rstrip(string, pred=char::is_whitespace)",
   "Remove characters from the end of the string while `pred` remains true.",
@@ -225,7 +225,7 @@ export function strip(string, lpred=char::is_whitespace, rpred=null) {
     return rstrip(lstrip(string, lpred), rpred || lpred);
 }
 
-doc:add(
+doc.add(
   "function",
   "strip(string, lpred=char::is_whitespace, rpred=null)",
   "Remove characters from both ends of the string while predicates remain true.
@@ -250,7 +250,7 @@ export function split(string, on) {
     return arraylist::to_array(parts);
 }
 
-doc:add(
+doc.add(
   "function",
   "split(string, on)",
   "Break a string into an array of parts, where each part is separated by `on`.",
@@ -268,7 +268,7 @@ export function join(it, sep="") {
   }
 }
 
-doc:add(
+doc.add(
   "function",
   "join(strings, sep)",
   "Join all `strings` together with `sep` in between each.",

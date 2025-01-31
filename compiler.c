@@ -2072,7 +2072,7 @@ static int lbp(enum token_type op)
 
 	case TOK_LEFT_PAREN:
 	case TOK_LEFT_BRACKET:
-	case TOK_COLON:
+	case TOK_DOT:
 	case TOK_LEFT_BRACE:
 		return 13;
 
@@ -2624,7 +2624,7 @@ static int compile_struct_field_expression(struct cstate *state)
 	struct token fname_tok;
 	size_t name;
 
-	EXPECT(TOK_COLON);
+	EXPECT(TOK_DOT);
 	fname_tok = EXPECT(TOK_IDENT);
 	name = intern_ident(state, &fname_tok);
 
@@ -2733,7 +2733,7 @@ static int led(struct cstate *state)
 		X(compile_index_expression(state));
 		break;
 
-	case TOK_COLON:
+	case TOK_DOT:
 		X(compile_struct_field_expression(state));
 		break;
 

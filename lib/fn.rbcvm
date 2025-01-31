@@ -7,13 +7,13 @@ let doc = docs::module("fn", "Functional programming utilities.");
 let _apply = apply;
 export let apply = _apply;
 
-doc:add("function", "apply(func, args)", "Call `func`, passing as arguments the elements of the array `args`.");
+doc.add("function", "apply(func, args)", "Call `func`, passing as arguments the elements of the array `args`.");
 
 export function identity(n) {
     return n;
 }
 
-doc:add("function", "identity(x)", "Return `x`.");
+doc.add("function", "identity(x)", "Return `x`.");
 
 export function flip(f) {
     return function(a, b) {
@@ -21,7 +21,7 @@ export function flip(f) {
     };
 }
 
-doc:add("function", "flip(f)", "Return a function `g(a, b)` which calls `f(b, a)`.");
+doc.add("function", "flip(f)", "Return a function `g(a, b)` which calls `f(b, a)`.");
 
 export function curry(fn, a) {
     return function(b) {
@@ -29,7 +29,7 @@ export function curry(fn, a) {
     };
 }
 
-doc:add("function", "curry(fn, a)", "Return a `fn` partially-applied with `a`.");
+doc.add("function", "curry(fn, a)", "Return a `fn` partially-applied with `a`.");
 
 export function partial(fn, args) {
     return array::foldl(args, fn, function(acc, i) {
@@ -37,7 +37,7 @@ export function partial(fn, args) {
     });
 }
 
-doc:add("function", "partial(fn, args)", "Honestly not really sure what this does lol");
+doc.add("function", "partial(fn, args)", "Honestly not really sure what this does lol");
 
 export function compose(functions) {
     return array::foldl1(functions, function(acc, fn) {
@@ -47,10 +47,10 @@ export function compose(functions) {
     });
 }
 
-doc:add("function", "compose(functions)", "Pipe the function return values from right-to-left.
+doc.add("function", "compose(functions)", "Pipe the function return values from right-to-left.
 
 For example, `compose([a, b, c])(\"test\")` is equivalent to `a(b(c(\"test\")))`.");
 
 export let chain = compose([compose, array::reversed]);
 
-doc:add("function", "chain(functions)", "The same as `compose`, except the values are piped left-to-right.");
+doc.add("function", "chain(functions)", "The same as `compose`, except the values are piped left-to-right.");

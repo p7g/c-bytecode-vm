@@ -12,7 +12,7 @@ export function new() {
   return null;
 }
 
-doc:add("function", "new()", "Create a new, empty linked list.");
+doc.add("function", "new()", "Create a new, empty linked list.");
 
 export function iter(self) {
   let current = self;
@@ -21,24 +21,24 @@ export function iter(self) {
       return iter::STOP;
     }
     let node = current;
-    current = node:cdr;
-    return node:car;
+    current = node.cdr;
+    return node.car;
   };
 }
 
-doc:add("function", "iter(list)", "Create an iterator over `list`.");
+doc.add("function", "iter(list)", "Create an iterator over `list`.");
 
 export function length(self) {
   let len = 0;
 
-  for (let current = self; current; current = current:cdr) {
+  for (let current = self; current; current = current.cdr) {
     len = len + 1;
   }
 
   return len;
 }
 
-doc:add("function", "length(list)", "Get the length of the list.
+doc.add("function", "length(list)", "Get the length of the list.
 
 Note that this is O(n) (i.e. requires traversing the entire list).");
 
@@ -46,7 +46,7 @@ export function prepend(self, value) {
   return Node{car=value, cdr=self};
 }
 
-doc:add("function", "prepend(list, value)", "Return a new list with `value` added to the front.
+doc.add("function", "prepend(list, value)", "Return a new list with `value` added to the front.
 
 This function is O(1) (i.e. takes the same time regardless of the length of the list).");
 
@@ -54,32 +54,32 @@ export function append(self, value) {
   return reverse(prepend(reverse(self), value));
 }
 
-doc:add("function", "append(list, value)", "Return a new list with `value` added to the end.
+doc.add("function", "append(list, value)", "Return a new list with `value` added to the end.
 
 Like `length`, this function is O(n).");
 
 export function foreach(self, func) {
   let current = self;
   for (let i = 0; current; i = i + 1) {
-    func(current:car, i, self);
-    current = current:cdr;
+    func(current.car, i, self);
+    current = current.cdr;
   }
 }
 
-doc:add("function", "foreach(list, func)", "Call `func` for every element of `list`.");
+doc.add("function", "foreach(list, func)", "Call `func` for every element of `list`.");
 
 export function find(self, func) {
   let current = self;
   for (let i = 0; current; i = i + 1) {
-    if (func(current:car, i, self)) {
-      return current:car;
+    if (func(current.car, i, self)) {
+      return current.car;
     }
   }
 
   return null;
 }
 
-doc:add(
+doc.add(
   "function",
   "find(list, func)",
   "Return the first element of `list` that satisfies the predicate `func`.
@@ -91,7 +91,7 @@ export function reverse(self) {
   return foldl(self, new(), prepend);
 }
 
-doc:add("function", "reverse(list)", "Make a new linked list that is the reverse of `list`.");
+doc.add("function", "reverse(list)", "Make a new linked list that is the reverse of `list`.");
 
 export let collector = iter::collector {
   init = new,
@@ -99,7 +99,7 @@ export let collector = iter::collector {
   finalize = reverse,
 };
 
-doc:add("object", "collector", "A collector to convert an iterator into a list.");
+doc.add("object", "collector", "A collector to convert an iterator into a list.");
 
 export function map(self, func) {
   let new_list = foldl(self, new(), function (new_list, val) {
@@ -108,7 +108,7 @@ export function map(self, func) {
   return reversed(new_list);
 }
 
-doc:add(
+doc.add(
   "function",
   "map(list, func)",
   "Create a new linked list where every element is calculated by calling `func` on the old element.",
@@ -124,14 +124,14 @@ export function to_array(self) {
   return arr;
 }
 
-doc:add("function", "to_array(list)", "Create a new array with the elements of `list`.");
+doc.add("function", "to_array(list)", "Create a new array with the elements of `list`.");
 
 export function foldl(self, init, reducer) {
-  for (let current = self, i = 0; current; current = current:cdr) {
-    init = reducer(init, current:car, i, self);
+  for (let current = self, i = 0; current; current = current.cdr) {
+    init = reducer(init, current.car, i, self);
     i = i + 1;
   }
   return init;
 }
 
-doc:add("function", "foldl(list, init, reducer)", "Reduce the list from the left.");
+doc.add("function", "foldl(list, init, reducer)", "Reduce the list from the left.");

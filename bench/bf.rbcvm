@@ -59,15 +59,15 @@ function run(tape, ops) {
     for (let i = 0; i < len; i = i + 1) {
         let op = ops[i];
 
-        if (op:type == "inc") {
-            tape:inc(op:value);
-        } else if (op:type == "move") {
-            tape:move(op:value);
-        } else if (op:type == "print") {
-            print(chr(tape:get()));
-        } else if (op:type == "loop") {
-            while (tape:get() != 0) {
-                run(tape, op:value);
+        if (op.type == "inc") {
+            tape.inc(op.value);
+        } else if (op.type == "move") {
+            tape.move(op.value);
+        } else if (op.type == "print") {
+            print(chr(tape.get()));
+        } else if (op.type == "loop") {
+            while (tape.get() != 0) {
+                run(tape, op.value);
             }
         }
     }

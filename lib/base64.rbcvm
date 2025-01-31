@@ -20,7 +20,7 @@ export function encode_size(payload) {
     return size - size % 4 + 4;
 }
 
-doc:add(
+doc.add(
     "function",
     "encode_size(payload)",
     "Calculate the size of the base64 encoding of the byte array `payload`.",
@@ -45,7 +45,7 @@ export function decode_size(payload) {
     return size;
 }
 
-doc:add(
+doc.add(
     "function",
     "decode_size(payload)",
     "Calculate the number of bytes that will result from decoding `payload`.",
@@ -139,7 +139,7 @@ export function decode(str) {
     return out;
 }
 
-doc:add("function", "decode(data)", "Decode a base64 string into an array of ints.");
+doc.add("function", "decode(data)", "Decode a base64 string into an array of ints.");
 
 export function encode(data, out=null) {
     if (out == null) {
@@ -194,7 +194,7 @@ export function encode(data, out=null) {
     return string::from_bytes(out);
 }
 
-doc:add(
+doc.add(
     "function",
     "encode(payload, out=null)",
     string::concat(

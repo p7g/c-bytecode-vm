@@ -7,7 +7,7 @@ export function join(a, b) {
     return string_concat(a, "/", b);
 }
 
-doc:add("function", "join(a, b)", "Join the paths `a` and `b` with a '/'.");
+doc.add("function", "join(a, b)", "Join the paths `a` and `b` with a '/'.");
 
 export function dirname(path) {
     let slash_pos = string::rindex(path, '/');
@@ -17,7 +17,7 @@ export function dirname(path) {
     return string::slice(path, 0, slash_pos);
 }
 
-doc:add(
+doc.add(
     "function",
     "dirname(path)",
     "Return the portion of `path` that is before the last '/'.
@@ -33,7 +33,7 @@ export function basename(path) {
     return string::slice(path, slash_pos + 1, string::length(path));
 }
 
-doc:add(
+doc.add(
     "function",
     "basename(path)",
     "Get the portion of `path` after the last '/'.
@@ -49,4 +49,4 @@ export function ext(path) {
     return string::slice(path, dot_pos + 1, string::length(path));
 }
 
-doc:add("function", "ext(path)", "Get the extension of `path`, without the '.'.");
+doc.add("function", "ext(path)", "Get the extension of `path`, without the '.'.");

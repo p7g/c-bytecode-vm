@@ -22,12 +22,12 @@ let T_NULL = 10;
 export struct UnexpectedTokenError { message }
 export struct InvalidJsonError { message }
 
-doc:add(
+doc.add(
   "struct",
   "UnexpectedTokenError",
   "Error raised when an unexpected token is encountered.",
 );
-doc:add(
+doc.add(
   "struct",
   "InvalidJsonError",
   "Error raised when the input string is not able to be parsed.",
@@ -154,8 +154,8 @@ function tokenize(input) {
 
 function parse_value(next, peek) {
   let token = next();
-  let type = token:type;
-  let value = token:value;
+  let type = token.type;
+  let value = token.value;
 
   let ret;
   if (type == T_NUMBER) {
@@ -172,12 +172,12 @@ function parse_value(next, peek) {
     let values = hashmap::new();
     let is_first = true;
 
-    while (peek():type != T_RIGHT_BRACE) {
+    while (peek().type != T_RIGHT_BRACE) {
       if (!is_first) {
         let comma = next();
-        if (comma:type != T_COMMA) {
+        if (comma.type != T_COMMA) {
           raise(UnexpectedTokenError {
-            message = string_concat("Expected comma, found '", comma:value, "'"),
+            message = string_concat("Expected comma, found '", comma.value, "'"),
           });
         }
       } else {
@@ -193,9 +193,9 @@ function parse_value(next, peek) {
       }
 
       let colon = next();
-      if (colon:type != T_COLON) {
+      if (colon.type != T_COLON) {
         raise(UnexpectedTokenError {
-          message = string_concat("Expected colon, found '", comma:value, "'"),
+          message = string_concat("Expected colon, found '", comma.value, "'"),
         });
       }
 
@@ -210,12 +210,12 @@ function parse_value(next, peek) {
     let values = arraylist::new();
 
     let is_first = true;
-    while (peek():type != T_RIGHT_BRACKET) {
+    while (peek().type != T_RIGHT_BRACKET) {
       if (!is_first) {
         let comma = next();
-        if (comma:type != T_COMMA) {
+        if (comma.type != T_COMMA) {
           raise(UnexpectedTokenError {
-            message = string_concat("Expected comma, found '", comma:value, "'"),
+            message = string_concat("Expected comma, found '", comma.value, "'"),
           });
         }
       } else {
@@ -257,11 +257,11 @@ export function parse(input) {
 
   if (i != len) {
     raise(InvalidJsonError {
-      message = string_concat("Expected EOF, found ", tostring(tokens[i - 1]:value)),
+      message = string_concat("Expected EOF, found ", tostring(tokens[i - 1].value)),
     });
   }
 
   return data;
 }
 
-doc:add("function", "parse(input)", "Parse the string `input` as JSON.");
+doc.add("function", "parse(input)", "Parse the string `input` as JSON.");
