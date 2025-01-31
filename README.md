@@ -146,7 +146,7 @@ Examples:
 struct test { a, b }
 test { a = 1 }
 
-test:a
+test.a
 ```
 
 Accessing a struct field that does not exist results in a throw at run-time.
@@ -308,11 +308,11 @@ that name, any imports of that name will result in the same module being
 imported.
 
 Once a module is imported, its exports can be accessed by prefixing their name
-with the module name and a dot, like `test.assert`. There is currently no way to
+with the module name and a dot, like `test::assert`. There is currently no way to
 alias an imported module, nor is there a way to create individual bindings for
 its exports while importing.
 
-Note that the module name in an expression like `test.assert` is not resolved
+Note that the module name in an expression like `test::assert` is not resolved
 like a variable; it is looked up in the list of imported modules directly. This
 means that the following will not work:
 ```js
@@ -377,17 +377,17 @@ function range(to) {
   };
 }
 
-test.assert(iter.collect(range(10)) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+test::assert(iter::collect(range(10)) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 ```
 
 Using constructs like these, iteration can be performed like in JavaScript:
 ```js
-iter.foreach(range(10), function (n) {
+iter::foreach(range(10), function (n) {
   println(n);
 });
 ```
 
-To "break" out of `foreach` just return `iter.STOP` (the same sentinel used to
+To "break" out of `foreach` just return `iter::STOP` (the same sentinel used to
 signal when an iterator is exhausted).
 
 Modules that declare "types" that can be iterated over should export an `iter`
