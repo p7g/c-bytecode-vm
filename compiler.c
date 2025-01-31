@@ -67,6 +67,7 @@
 	X(TOK_GREATER_THAN_EQUAL) \
 	X(TOK_COMMA) \
 	X(TOK_DOT) \
+	X(TOK_DOUBLE_COLON) \
 	X(TOK_RETURN) \
 	X(TOK_FUNCTION) \
 	X(TOK_FOR) \
@@ -231,10 +232,10 @@ static int next_token(struct lex_state *state, const char *input,
 		case ')': TOKEN(TOK_RIGHT_PAREN);
 		case '%': TOKEN(TOK_PERCENT);
 		case ';': TOKEN(TOK_SEMICOLON);
-		case ':': TOKEN(TOK_COLON);
 		case ',': TOKEN(TOK_COMMA);
 		case '~': TOKEN(TOK_TILDE);
 		case '.': TOKEN(TOK_DOT);
+		case ':': OR2(':', TOK_COLON, TOK_DOUBLE_COLON);
 		case '=': OR2('=', TOK_EQUAL, TOK_EQUAL_EQUAL);
 		case '*': OR2('*', TOK_STAR, TOK_STAR_STAR);
 		case '&': OR2('&', TOK_AND, TOK_AND_AND);
@@ -2075,7 +2076,7 @@ static int lbp(enum token_type op)
 	case TOK_LEFT_BRACE:
 		return 13;
 
-	case TOK_DOT:
+	case TOK_DOUBLE_COLON:
 		return 14;
 
 	default:
@@ -2182,7 +2183,7 @@ static int compile_identifier_expression(struct cstate *state)
 	tok = EXPECT(TOK_IDENT);
 	name = intern_ident(state, &tok);
 
-	if (MATCH_P(TOK_DOT)) {
+	if (MATCH_P(TOK_DOUBLE_COLON)) {
 		NEXT();
 		export = EXPECT(TOK_IDENT);
 		module = cb_agent_get_modspec_by_name(name);

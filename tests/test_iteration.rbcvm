@@ -9,23 +9,23 @@ import string;
 import test;
 
 export function test_array_collector() {
-    let collected = iter.collect(iter.range(10), array.collector);
-    test.assert(collected == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    let collected = iter::collect(iter::range(10), array::collector);
+    test::assert(collected == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 }
 
 export function test_arraylist_collector() {
-    let collected = arraylist.to_array(
-        iter.collect(iter.range(10), arraylist.collector),
+    let collected = arraylist::to_array(
+        iter::collect(iter::range(10), arraylist::collector),
     );
-    test.assert(collected == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    test::assert(collected == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 }
 
 function _test_mapping(iter, collector, unwrap) {
-    let it = iter.range(10);
-    let entries = iter.zip(it, it);
-    let mapping = iter.collect(entries, collector);
+    let it = iter::range(10);
+    let entries = iter::zip(it, it);
+    let mapping = iter::collect(entries, collector);
 
-    let results = hashmap.make(function (set) {
+    let results = hashmap::make(function (set) {
         for (let i = 0; i < 10; i = i + 2) {
             set(i, i + 1);
         }
@@ -33,35 +33,35 @@ function _test_mapping(iter, collector, unwrap) {
 
     let valid = true;
 
-    iter.foreach(
-        unwrap(iter.collect(iter(mapping), collector)),
+    iter::foreach(
+        unwrap(iter::collect(iter(mapping), collector)),
         function ([key, value]) {
-            if (hashmap.get(results, key) != value) {
+            if (hashmap::get(results, key) != value) {
                 valid = false;
             }
         },
     );
 
-    test.assert(valid);
+    test::assert(valid);
 }
 
 export function test_assoclist_collector() {
-    _test_mapping(assoclist.iter, assoclist.collector, assoclist.entries);
+    _test_mapping(assoclist::iter, assoclist::collector, assoclist::entries);
 }
 
 export function test_hashmap_collector() {
-    _test_mapping(hashmap.iter, hashmap.collector(), hashmap.entries);
+    _test_mapping(hashmap::iter, hashmap::collector(), hashmap::entries);
 }
 
 export function test_list_collector() {
-    let collected = list.to_array(
-        iter.collect(iter.range(10), list.collector),
+    let collected = list::to_array(
+        iter::collect(iter::range(10), list::collector),
     );
-    test.assert(collected == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    test::assert(collected == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 }
 
 export function test_string_collector() {
     let str = "hello";
-    test.assert(iter.collect(string.iter(str), string.collector) == str);
-    test.assert(iter.collect(iter.range(10), string.collector) == "0123456789");
+    test::assert(iter::collect(string::iter(str), string::collector) == str);
+    test::assert(iter::collect(iter::range(10), string::collector) == "0123456789");
 }

@@ -2,14 +2,14 @@ import _array;
 import _arraylist_impl;
 import docs;
 
-let doc = docs.module("iter", "Lazy iterators.");
+let doc = docs::module("iter", "Lazy iterators.");
 
 export let STOP = struct {};
 doc:add("object", "STOP", "A sentinel value indicating that an iterator has been exhausted.");
 
 export function _array_iter(array) {
   let i = 0;
-  let len = _array.length(array);
+  let len = _array::length(array);
   return function array_iterator() {
     if (i == len) {
       return STOP;
@@ -37,9 +37,9 @@ doc:add(
 );
 
 export let _array_collector = collector {
-  init = _arraylist_impl.new,
-  reduce = _arraylist_impl.push,
-  finalize = _arraylist_impl.to_array,
+  init = _arraylist_impl::new,
+  reduce = _arraylist_impl::push,
+  finalize = _arraylist_impl::to_array,
 };
 
 export function count(n) {

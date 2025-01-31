@@ -3,50 +3,50 @@ import test;
 
 export function test_literal() {
     let arr = [1, 2, 3];
-    test.assert(arr == [1, 2, 3]);
-    test.assert(arr[0] == 1);
-    test.assert(arr[1] == 2);
-    test.assert(arr[2] == 3);
+    test::assert(arr == [1, 2, 3]);
+    test::assert(arr[0] == 1);
+    test::assert(arr[1] == 2);
+    test::assert(arr[2] == 3);
 }
 
 export function test_new() {
-    test.assert(array.new(4) == [null, null, null, null]);
+    test::assert(array::new(4) == [null, null, null, null]);
 }
 
 export function test_length() {
-    test.assert(array.length(array.new(5)) == 5);
+    test::assert(array::length(array::new(5)) == 5);
 }
 
 export function test_find_index() {
     let arr = [1, 2, 3, 4, 5];
-    test.assert(2 == array.find_index(arr, function (n) { return n == 3; }));
-    test.assert(-1 == array.find_index(arr, function (n) { return n == 123; }));
+    test::assert(2 == array::find_index(arr, function (n) { return n == 3; }));
+    test::assert(-1 == array::find_index(arr, function (n) { return n == 123; }));
 }
 
 export function test_find() {
     let arr = [1, 2, 3, 4, 5];
-    test.assert(2 == array.find(arr, function (n) { return n % 2 == 0; }));
-    test.assert(null == array.find(arr, function (n) { return n == 123; }));
+    test::assert(2 == array::find(arr, function (n) { return n % 2 == 0; }));
+    test::assert(null == array::find(arr, function (n) { return n == 123; }));
 }
 
 export function test_foreach() {
     let arr = [1, 2, 3, 4];
-    let len = array.length(arr);
+    let len = array::length(arr);
     let niters = 0;
-    array.foreach(arr, function (n, i, a) {
+    array::foreach(arr, function (n, i, a) {
         niters = niters + 1;
-        test.assert(a[i] == n);
+        test::assert(a[i] == n);
     });
-    test.assert(niters == len);
+    test::assert(niters == len);
 }
 
 export function test_contains() {
-    test.assert(array.contains([1, 2, 3], 2));
-    test.assert(!array.contains([1, 2, 3], 4));
+    test::assert(array::contains([1, 2, 3], 2));
+    test::assert(!array::contains([1, 2, 3], 4));
 }
 
 export function test_map() {
-    test.assert([2, 4, 6] == array.map([1, 2, 3], function (n) {
+    test::assert([2, 4, 6] == array::map([1, 2, 3], function (n) {
         return n * 2;
     }));
 }
@@ -54,32 +54,32 @@ export function test_map() {
 export function test_foldl() {
     function mul(a, b) { return a * b; }
 
-    test.assert(120 == array.foldl([1, 2, 3, 4, 5], 1, mul));
+    test::assert(120 == array::foldl([1, 2, 3, 4, 5], 1, mul));
 }
 
 export function test_foldl1() {
     function add(a, b) { return a + b; }
 
-    test.assert(15 == array.foldl1([1, 2, 3, 4, 5], add));
+    test::assert(15 == array::foldl1([1, 2, 3, 4, 5], add));
 }
 
 export function test_reverse() {
     let arr = [1, 2, 3, 4, 5];
-    array.reverse(arr);
-    test.assert(arr == [5, 4, 3, 2, 1]);
+    array::reverse(arr);
+    test::assert(arr == [5, 4, 3, 2, 1]);
     let arr = [1, 2, 3, 4];
-    array.reverse(arr);
-    test.assert(arr == [4, 3, 2, 1]);
+    array::reverse(arr);
+    test::assert(arr == [4, 3, 2, 1]);
 }
 
 export function test_reversed() {
     let arr = [1, 2, 3, 4, 5];
-    test.assert(array.reversed(array.reversed(arr)) == arr);
-    test.assert(array.reversed(arr) == [5, 4, 3, 2, 1]);
+    test::assert(array::reversed(array::reversed(arr)) == arr);
+    test::assert(array::reversed(arr) == [5, 4, 3, 2, 1]);
 }
 
 export function test_slice() {
     let arr = [1, 2, 3, 4, 5];
-    test.assert(array.slice(arr, 0, array.length(arr)) == arr);
-    test.assert(array.slice(arr, 1, 4) == [2, 3, 4]);
+    test::assert(array::slice(arr, 0, array::length(arr)) == arr);
+    test::assert(array::slice(arr, 1, 4) == [2, 3, 4]);
 }

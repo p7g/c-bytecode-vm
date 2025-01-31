@@ -2,23 +2,23 @@ import _array;
 import docs;
 import iter;
 
-let doc = docs.module("array", "Functions for working with arrays.");
+let doc = docs::module("array", "Functions for working with arrays.");
 
-export let new = _array.new;
+export let new = _array::new;
 doc:add(
   "function",
   "new(len, init=null)",
   "Create a new array of length `len`. Each element is initialized to `init`.",
 );
 
-export let length = _array.length;
+export let length = _array::length;
 doc:add("function", "length(array)", "Get the length of array `array`.");
 
-export let iter = iter._array_iter;
+export let iter = iter::_array_iter;
 
 doc:add("function", "iter(array)", "Create an iterator from array `array`.");
 
-export let collector = iter._array_collector;
+export let collector = iter::_array_collector;
 
 doc:add("object", "collector", "A collector for converting an iterator into an array.");
 

@@ -1,6 +1,6 @@
 import docs;
 
-let doc = docs.module("char", "Functions for working with characters.");
+let doc = docs::module("char", "Functions for working with characters.");
 
 let ZERO = ord('0');
 let NINE = ord('9');

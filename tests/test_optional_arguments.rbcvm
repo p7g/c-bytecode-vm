@@ -7,12 +7,12 @@ export function test_optional_arguments() {
 
     try {
         has_optargs();
-        test.assert(false);
+        test::assert(false);
     } catch (msg) {
-        test.assert(msg == "Too few arguments to function 'has_optargs'\n");
+        test::assert(msg == "Too few arguments to function 'has_optargs'\n");
     }
 
-    test.assert(has_optargs(1) == 7);
-    test.assert(has_optargs(1, 4) == 9);
-    test.assert(has_optargs(1, 4, 5) == 21);
+    test::assert(has_optargs(1) == 7);
+    test::assert(has_optargs(1, 4) == 9);
+    test::assert(has_optargs(1, 4, 5) == 21);
 }

@@ -15,7 +15,7 @@ struct Body {
 function offset_momentum(bodies) {
     let px, py, pz;
     px = py = pz = 0.0;
-    let num_bodies = array.length(bodies);
+    let num_bodies = array::length(bodies);
 
     for (let i = 0; i < num_bodies; i = i + 1) {
         let b = bodies[i];
@@ -32,7 +32,7 @@ function offset_momentum(bodies) {
 
 function energy(bodies) {
     let e = 0.0;
-    let num_bodies = array.length(bodies);
+    let num_bodies = array::length(bodies);
     for (let i = 0; i < num_bodies; i = i + 1) {
         let b = bodies[i];
         let sq = b:vx ** 2 + b:vy ** 2 + b:vz ** 2;
@@ -43,14 +43,14 @@ function energy(bodies) {
             let dy = b:y - b2:y;
             let dz = b:z - b2:z;
             sq = dx ** 2 + dy ** 2 + dz ** 2;
-            e = e - (b:mass * b2:mass) / math.sqrt(sq);
+            e = e - (b:mass * b2:mass) / math::sqrt(sq);
         }
     }
     return e;
 }
 
 function advance(bodies, dt) {
-    let num_bodies = array.length(bodies);
+    let num_bodies = array::length(bodies);
     for (let i = 0; i < num_bodies; i = i + 1) {
         let b = bodies[i];
         for (let j = i + 1; j < num_bodies; j = j + 1) {
@@ -60,7 +60,7 @@ function advance(bodies, dt) {
             let dy = b:y - b2:y;
             let dz = b:z - b2:z;
             let dpos_norm_sq = dx ** 2 + dy ** 2 + dz ** 2;
-            let mag = dt / (dpos_norm_sq * math.sqrt(dpos_norm_sq));
+            let mag = dt / (dpos_norm_sq * math::sqrt(dpos_norm_sq));
 
             let mj = b2:mass * mag;
             b:vx = b:vx - dx * mj;
@@ -148,4 +148,4 @@ function nbody(n) {
     println(energy(bodies));
 }
 
-nbody(string.parse_integer(argv()[0]));
+nbody(string::parse_integer(argv()[0]));

@@ -25,14 +25,14 @@ function eval_At_times_u(N, u, Au) {
 }
 
 function eval_AtA_times_u(N, u, AtAu) {
-    let v = array.new(N, 0);
+    let v = array::new(N, 0);
     eval_A_times_u(N, u, v);
     eval_At_times_u(N, v, AtAu);
 }
 
 function main(n) {
-    let u = array.new(n, 1);
-    let v = array.new(n, 0);
+    let u = array::new(n, 1);
+    let v = array::new(n, 0);
 
     for (let i = 0; i < 10; i = i + 1) {
         eval_AtA_times_u(n, u, v);
@@ -45,7 +45,7 @@ function main(n) {
         vBv = vBv + u[i] * v[i];
         vv = vv + v[i] ** 2;
     }
-    println(math.sqrt(vBv / vv));
+    println(math::sqrt(vBv / vv));
 }
 
-main(string.parse_integer(argv()[0]));
+main(string::parse_integer(argv()[0]));

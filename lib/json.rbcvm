@@ -5,7 +5,7 @@ import docs;
 import hashmap;
 import string;
 
-let doc = docs.module("json", "A partial implementation of a JSON parser.");
+let doc = docs::module("json", "A partial implementation of a JSON parser.");
 
 let T_LEFT_BRACE = 0;
 let T_RIGHT_BRACE = 1;
@@ -42,9 +42,9 @@ struct Token {
 }
 
 function tokenize(input) {
-  let chars = string.chars(input);
-  let tokens = arraylist.new();
-  let len = array.length(chars);
+  let chars = string::chars(input);
+  let tokens = arraylist::new();
+  let len = array::length(chars);
   let i = 0;
 
   while (i < len) {
@@ -105,7 +105,7 @@ function tokenize(input) {
 
       i = i + 1;
       token = Token{type=T_STRING, value=str};
-    } else if (char.is_digit(char) || char == '-') {
+    } else if (char::is_digit(char) || char == '-') {
       let is_float = false;
       let c;
       let str;
@@ -121,7 +121,7 @@ function tokenize(input) {
         is_float = true;
         i = i + 1;
         str = string_concat(str, "0");
-      } else if (char.is_digit(c) && c != '0') {
+      } else if (char::is_digit(c) && c != '0') {
         str = string_concat(str, tostring(c));
         i = i + 1;
       } else {
@@ -136,7 +136,7 @@ function tokenize(input) {
         raise(UnexpectedTokenError { message = chars[i] });
       }
 
-      while (i < len && char.is_digit(chars[i])) {
+      while (i < len && char::is_digit(chars[i])) {
         str = string_concat(str, tostring(chars[i]));
         i = i + 1;
       }
@@ -146,10 +146,10 @@ function tokenize(input) {
       raise(UnexpectedTokenError { message = char });
     }
 
-    arraylist.push(tokens, token);
+    arraylist::push(tokens, token);
   }
 
-  return arraylist.to_array(tokens);
+  return arraylist::to_array(tokens);
 }
 
 function parse_value(next, peek) {
@@ -159,7 +159,7 @@ function parse_value(next, peek) {
 
   let ret;
   if (type == T_NUMBER) {
-    ret = string.parse_float(value, 10);
+    ret = string::parse_float(value, 10);
   } else if (type == T_STRING) {
     ret = value;
   } else if (type == T_TRUE) {
@@ -169,7 +169,7 @@ function parse_value(next, peek) {
   } else if (type == T_NULL) {
     ret = null;
   } else if (type == T_LEFT_BRACE) {
-    let values = hashmap.new();
+    let values = hashmap::new();
     let is_first = true;
 
     while (peek():type != T_RIGHT_BRACE) {
@@ -200,14 +200,14 @@ function parse_value(next, peek) {
       }
 
       let map_value = parse_value(next, peek);
-      hashmap.set(values, key, map_value);
+      hashmap::set(values, key, map_value);
     }
 
     next();  # consume right brace
 
     ret = values;
   } else if (type == T_LEFT_BRACKET) {
-    let values = arraylist.new();
+    let values = arraylist::new();
 
     let is_first = true;
     while (peek():type != T_RIGHT_BRACKET) {
@@ -223,12 +223,12 @@ function parse_value(next, peek) {
       }
 
       let value = parse_value(next, peek);
-      arraylist.push(values, value);
+      arraylist::push(values, value);
     }
 
     next(); # consume right bracket
 
-    ret = arraylist.to_array(values);
+    ret = arraylist::to_array(values);
   } else {
     raise(UnexpectedTokenError {
       message = string_concat("Unexpected token ", tostring(value)),
@@ -240,7 +240,7 @@ function parse_value(next, peek) {
 
 export function parse(input) {
   let tokens = tokenize(input);
-  let len = array.length(tokens);
+  let len = array::length(tokens);
   let i = 0;
 
   function peek() {

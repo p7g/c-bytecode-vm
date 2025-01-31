@@ -1,6 +1,6 @@
 import docs;
 
-let doc = docs.module("op", "Functions that wrap operators.");
+let doc = docs::module("op", "Functions that wrap operators.");
 
 export function eq(a, b) {
   return a == b;

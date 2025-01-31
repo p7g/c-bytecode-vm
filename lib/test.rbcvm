@@ -1,7 +1,7 @@
 import array;
 import docs;
 
-let doc = docs.module("test", "Testing utilities.");
+let doc = docs::module("test", "Testing utilities.");
 
 export struct AssertionError { message }
 

@@ -2,7 +2,7 @@ import array;
 import docs;
 import iter;
 
-let doc = docs.module("list", "A linked list implementation.");
+let doc = docs::module("list", "A linked list implementation.");
 
 struct Node {
   car, cdr
@@ -18,7 +18,7 @@ export function iter(self) {
   let current = self;
   return function list_iterator() {
     if (current == null) {
-      return iter.STOP;
+      return iter::STOP;
     }
     let node = current;
     current = node:cdr;
@@ -93,7 +93,7 @@ export function reverse(self) {
 
 doc:add("function", "reverse(list)", "Make a new linked list that is the reverse of `list`.");
 
-export let collector = iter.collector {
+export let collector = iter::collector {
   init = new,
   reduce = prepend,
   finalize = reverse,
@@ -115,7 +115,7 @@ doc:add(
 );
 
 export function to_array(self) {
-  let arr = array.new(length(self));
+  let arr = array::new(length(self));
 
   foreach(self, function(val, i) {
     arr[i] = val;

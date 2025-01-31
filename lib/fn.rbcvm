@@ -1,7 +1,7 @@
 import array;
 import docs;
 
-let doc = docs.module("fn", "Functional programming utilities.");
+let doc = docs::module("fn", "Functional programming utilities.");
 
 # Re-export the intrinsic apply function.
 let _apply = apply;
@@ -32,7 +32,7 @@ export function curry(fn, a) {
 doc:add("function", "curry(fn, a)", "Return a `fn` partially-applied with `a`.");
 
 export function partial(fn, args) {
-    return array.foldl(args, fn, function(acc, i) {
+    return array::foldl(args, fn, function(acc, i) {
         return curry(acc, i);
     });
 }
@@ -40,7 +40,7 @@ export function partial(fn, args) {
 doc:add("function", "partial(fn, args)", "Honestly not really sure what this does lol");
 
 export function compose(functions) {
-    return array.foldl1(functions, function(acc, fn) {
+    return array::foldl1(functions, function(acc, fn) {
         return function(arg) {
             return acc(fn(arg));
         };
@@ -51,6 +51,6 @@ doc:add("function", "compose(functions)", "Pipe the function return values from 
 
 For example, `compose([a, b, c])(\"test\")` is equivalent to `a(b(c(\"test\")))`.");
 
-export let chain = compose([compose, array.reversed]);
+export let chain = compose([compose, array::reversed]);
 
 doc:add("function", "chain(functions)", "The same as `compose`, except the values are piped left-to-right.");

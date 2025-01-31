@@ -1,6 +1,6 @@
 import docs;
 
-let docs = docs.module("box", "A simple wrapper type to emulate references.");
+let docs = docs::module("box", "A simple wrapper type to emulate references.");
 
 struct Box { inner }
 

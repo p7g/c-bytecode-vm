@@ -3,9 +3,9 @@ import _arraylist_impl;
 import docs;
 import iter;
 
-let doc = docs.module("arraylist", "A growable array.");
+let doc = docs::module("arraylist", "A growable array.");
 
-export let from_array = _arraylist_impl.from_array;
+export let from_array = _arraylist_impl::from_array;
 
 doc:add(
   "function",
@@ -19,7 +19,7 @@ export function iter(self) {
 
   return function arraylist_iterator() {
     if (i >= self:length) {
-      return iter.STOP;
+      return iter::STOP;
     }
     let val = get(self, i);
     i = i + 1;
@@ -29,7 +29,7 @@ export function iter(self) {
 
 doc:add("function", "iter(list)", "Create an iterator over arraylist `list`.");
 
-export let with_capacity = _arraylist_impl.with_capacity;
+export let with_capacity = _arraylist_impl::with_capacity;
 
 doc:add(
   "function",
@@ -37,7 +37,7 @@ doc:add(
   "Create an empty arraylist with the given initial capacity.",
 );
 
-export let new = _arraylist_impl.new;
+export let new = _arraylist_impl::new;
 
 doc:add(
   "function",
@@ -45,23 +45,23 @@ doc:add(
   "Create an empty arraylist with default initial capacity.",
 );
 
-export let length = _arraylist_impl.length;
+export let length = _arraylist_impl::length;
 
 doc:add("function", "length(list)", "Get the number of items in `list`.");
 
-export let capacity = _arraylist_impl.capacity;
+export let capacity = _arraylist_impl::capacity;
 
 doc:add("function", "capacity(list)", "Get the maximum number of items `list` can hold.");
 
-export let get = _arraylist_impl.get;
+export let get = _arraylist_impl::get;
 
 doc:add("function", "get(list, idx)", "Get the element of `list` at index `idx`.");
 
-export let set = _arraylist_impl.set;
+export let set = _arraylist_impl::set;
 
 doc:add("function", "set(list, idx, value)", "Set the element of `list` at index `idx` to `value`.");
 
-export let delete = _arraylist_impl.delete;
+export let delete = _arraylist_impl::delete;
 
 doc:add(
   "function",
@@ -70,11 +70,11 @@ doc:add(
 elements after `idx` leftward, so it's not very efficient.",
 );
 
-export let to_array = _arraylist_impl.to_array;
+export let to_array = _arraylist_impl::to_array;
 
 doc:add("function", "to_array(list)", "Copy the elements of `list` into a fixed-length array.");
 
-export let push = _arraylist_impl.push;
+export let push = _arraylist_impl::push;
 
 doc:add(
   "function",
@@ -82,7 +82,7 @@ doc:add(
   "Push `value` on to the end of `list`, growing it if necessary.",
 );
 
-export let collector = iter.collector {
+export let collector = iter::collector {
   init = new,
   reduce = push,
   finalize = function (list) { return list; },
@@ -90,7 +90,7 @@ export let collector = iter.collector {
 
 doc:add("object", "collector", "A collector for converting an iterator into an arraylist.");
 
-export let pop = _arraylist_impl.pop;
+export let pop = _arraylist_impl::pop;
 
 doc:add(
   "function",
@@ -98,7 +98,7 @@ doc:add(
   "Remove and return the last element of `list`.",
 );
 
-export let foreach = _arraylist_impl.foreach;
+export let foreach = _arraylist_impl::foreach;
 
 doc:add(
   "function",
@@ -129,7 +129,7 @@ if none exists.",
 export function map(self, func) {
   let len = self:length;
   let cap = capacity(self);
-  let new_array = _array.new(cap);
+  let new_array = _array::new(cap);
 
   foreach(self, function(val, i) {
     new_array[i] = func(val);

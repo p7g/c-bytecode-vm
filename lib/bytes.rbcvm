@@ -3,13 +3,13 @@ import arraylist;
 import docs;
 import iter;
 
-let doc = docs.module("bytes", "A compact byte array type.");
+let doc = docs::module("bytes", "A compact byte array type.");
 
-export let new = _bytes.new;
-export let copy = _bytes.copy;
-export let get = _bytes.get;
-export let set = _bytes.set;
-export let length = _bytes.length;
+export let new = _bytes::new;
+export let copy = _bytes::copy;
+export let get = _bytes::get;
+export let set = _bytes::set;
+export let length = _bytes::length;
 
 doc:add("function", "new(size)", "Create a new byte array of size `size`.");
 doc:add("function", "copy(from, to, n)", "Copy `n` bytes from `from` to `to`.");
@@ -17,14 +17,14 @@ doc:add("function", "get(bytes, i)", "Get the `i`th element from `bytes`.");
 doc:add("function", "set(bytes, i, val)", "Set the `i`th value in `bytes` to `val`.");
 doc:add("function", "length(bytes)", "Get the length of `bytes`.");
 
-export let collector = iter.collector {
-    init = arraylist.new,
-    reduce = arraylist.push,
+export let collector = iter::collector {
+    init = arraylist::new,
+    reduce = arraylist::push,
     finalize = function collect_bytes(list) {
-        let len = arraylist.length(list);
+        let len = arraylist::length(list);
         let bytes = new(len);
         for (let i = 0; i < len; i = i + 1) {
-            set(bytes, i, arraylist.get(list, i));
+            set(bytes, i, arraylist::get(list, i));
         }
         return bytes;
     },
@@ -37,7 +37,7 @@ export function iter(bytes) {
     let len = length(bytes);
     return function bytes_iter() {
         if (i >= len) {
-            return iter.STOP;
+            return iter::STOP;
         }
         let val = get(bytes, i);
         i = i + 1;

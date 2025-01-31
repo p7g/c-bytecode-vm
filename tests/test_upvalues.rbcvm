@@ -7,7 +7,7 @@ export function test_basic() {
         return function get() { return a; };
     }
 
-    test.assert(make()() == 123);
+    test::assert(make()() == 123);
 }
 
 export function test_multiple_references() {
@@ -25,9 +25,9 @@ export function test_multiple_references() {
     }
 
     let { get, set } = make();
-    test.assert(get() == 0);
+    test::assert(get() == 0);
     set(123);
-    test.assert(get() == 123);
+    test::assert(get() == 123);
 }
 
 export function test_multiple_levels() {
@@ -54,9 +54,9 @@ export function test_multiple_levels() {
 
     let { get, set } = make();
 
-    test.assert(get() == 0);
+    test::assert(get() == 0);
     set(123);
-    test.assert(get() == 123);
+    test::assert(get() == 123);
 }
 
 export function test_multiple_levels2() {
@@ -78,9 +78,9 @@ export function test_multiple_levels2() {
         let get = makeget();
         let set = makeset();
 
-        test.assert(get() == 0);
+        test::assert(get() == 0);
         set(123);
-        test.assert(get() == 123);
+        test::assert(get() == 123);
     }
 
     make();
@@ -116,14 +116,14 @@ export function test_parallel_upvalues() {
     let a = make1();
     let b = make2();
 
-    test.assert(a:get() == 0);
-    test.assert(b:get() == 0);
+    test::assert(a:get() == 0);
+    test::assert(b:get() == 0);
     a:set(123);
-    test.assert(a:get() == 123);
-    test.assert(b:get() == 0);
+    test::assert(a:get() == 123);
+    test::assert(b:get() == 0);
     b:set(234);
-    test.assert(a:get() == 123);
-    test.assert(b:get() == 234);
+    test::assert(a:get() == 123);
+    test::assert(b:get() == 234);
 }
 
 export function test_multiple_function_instances() {
@@ -143,12 +143,12 @@ export function test_multiple_function_instances() {
     let a = make();
     let b = make();
 
-    test.assert(a:get() == 0);
-    test.assert(b:get() == 0);
+    test::assert(a:get() == 0);
+    test::assert(b:get() == 0);
     a:set(123);
-    test.assert(a:get() == 123);
-    test.assert(b:get() == 0);
+    test::assert(a:get() == 123);
+    test::assert(b:get() == 0);
     b:set(234);
-    test.assert(a:get() == 123);
-    test.assert(b:get() == 234);
+    test::assert(a:get() == 123);
+    test::assert(b:get() == 234);
 }

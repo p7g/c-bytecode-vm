@@ -9,29 +9,29 @@ export function test_if() {
     } else {
         n = 2;
     }
-    test.assert(n == 1);
+    test::assert(n == 1);
     if (false) {
         n = 3;
     } else {
         n = 4;
     }
-    test.assert(n == 4);
+    test::assert(n == 4);
 }
 
 export function test_while() {
-    let ns = array.new(10);
+    let ns = array::new(10);
     let i = 0;
     while (i < 10) {
         ns[i] = 10 - i;
         i = i + 1;
     }
-    test.assert(ns = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    test::assert(ns = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
 export function test_break() {
     while (false) {
         break;
-        test.assert(false);
+        test::assert(false);
     }
 }
 
@@ -43,18 +43,18 @@ export function test_continue() {
         }
         n = n * i;
     }
-    test.assert(n == 40);
+    test::assert(n == 40);
 }
 
 export function test_return() {
-    test.assert(function () {
+    test::assert(function () {
         return 123;
         return 234;
     }() == 123);
 }
 
 export function test_loop_in_global_scope() {
-    module.import_("global_loop", "tests/global_loop.rbcvm");
+    module::import_("global_loop", "tests/global_loop.rbcvm");
 }
 
 export function test_try_catch() {
@@ -65,10 +65,10 @@ export function test_try_catch() {
         throw err_value;
         did_run = true;
     } catch (e) {
-        test.assert(e == err_value);
+        test::assert(e == err_value);
     }
 
-    test.assert(!did_run);
+    test::assert(!did_run);
 }
 
 export function test_nested_try() {
@@ -79,13 +79,13 @@ export function test_nested_try() {
             throw "test";
         } catch (e2) {
             caught2 = true;
-            test.assert(e2 == "test");
+            test::assert(e2 == "test");
         }
     } catch (e1) {
         caught1 = true;
     }
-    test.assert(!caught1);
-    test.assert(caught2);
+    test::assert(!caught1);
+    test::assert(caught2);
 }
 
 export function test_nested_try2() {
@@ -95,16 +95,16 @@ export function test_nested_try2() {
         try {
             throw "test";
         } catch (e) {
-            test.assert(e == "test");
+            test::assert(e == "test");
             caught1 = true;
             throw e;
         }
     } catch (e) {
-        test.assert(e == "test");
+        test::assert(e == "test");
         caught2 = true;
     }
-    test.assert(caught1);
-    test.assert(caught2);
+    test::assert(caught1);
+    test::assert(caught2);
 }
 
 export function test_catch_function() {
@@ -119,10 +119,10 @@ export function test_catch_function() {
         passed = true;
     } catch (e) {
         caught = true;
-        test.assert(e == "hello");
+        test::assert(e == "hello");
     }
-    test.assert(!passed);
-    test.assert(caught);
+    test::assert(!passed);
+    test::assert(caught);
 }
 
 export function test_break_in_try() {
@@ -142,8 +142,8 @@ export function test_break_in_try() {
         fine = true;
     }
 
-    test.assert(!wtf);
-    test.assert(fine);
+    test::assert(!wtf);
+    test::assert(fine);
 }
 
 export function test_continue_in_try() {
@@ -165,6 +165,6 @@ export function test_continue_in_try() {
         fine = true;
     }
 
-    test.assert(!wtf);
-    test.assert(fine);
+    test::assert(!wtf);
+    test::assert(fine);
 }

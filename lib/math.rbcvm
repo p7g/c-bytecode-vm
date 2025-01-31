@@ -1,7 +1,7 @@
 import _math;
 import docs;
 
-let doc = docs.module("math", "Math functions.");
+let doc = docs::module("math", "Math functions.");
 
 export function abs(n) {
     if (n < 0) {
@@ -18,11 +18,11 @@ export function sqrt(n) {
 
 doc:add("function", "sqrt(n)", "Calculate the square root of `n`.");
 
-export let shl = _math.shl;
+export let shl = _math::shl;
 
 doc:add("function", "shl(a, b)", "Shift `a` to the left by `b` bits.");
 
-export let shr = _math.shr;
+export let shr = _math::shr;
 
 doc:add("function", "shr(a, b)", "Shift `a` to the right by `b` bits.");
 
@@ -60,9 +60,9 @@ export function min(a, b) {
 
 doc:add("function", "min(a, b)", "Return the lesser of `a` and `b`.");
 
-export let log = _math.log;
-export let log2 = _math.log2;
-export let log10 = _math.log10;
+export let log = _math::log;
+export let log2 = _math::log2;
+export let log10 = _math::log10;
 
 doc:add("function", "log(n)", "Computes base-e log of `n`.");
 doc:add("function", "log2(n)", "Computes base-2 log of `n`.");

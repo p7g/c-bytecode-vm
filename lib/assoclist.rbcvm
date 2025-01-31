@@ -2,28 +2,28 @@ import arraylist;
 import docs;
 import iter;
 
-let doc = docs.module(
+let doc = docs::module(
   "assoclist",
   "A map data structure backed by an arraylist of key-value pairs.",
 );
 
-export let new = arraylist.new;
-export let length = arraylist.length;
+export let new = arraylist::new;
+export let length = arraylist::length;
 
 doc:add("function", "new", "Create an empty assoclist.");
 doc:add("function", "length", "Check the number of items in the list.");
 
 function get_entry(self, key) {
-  return arraylist.find(self, function([k]) {
+  return arraylist::find(self, function([k]) {
     return k == key;
   });
 }
 
-export let iter = arraylist.iter;
+export let iter = arraylist::iter;
 
 doc:add("function", "iter(list)", "Create an iterator over the entries of `list`.");
 
-export let collector = iter.collector {
+export let collector = iter::collector {
   init = new,
   reduce = function (list, [key, value]) {
     set(list, key, value);
@@ -39,7 +39,7 @@ export function set(self, key, value) {
   let found = get_entry(self, key);
 
   if (found == null) {
-    arraylist.push(self, [key, value]);
+    arraylist::push(self, [key, value]);
   } else {
     found[1] = value;
   }
@@ -68,14 +68,14 @@ doc:add(
 );
 
 export function delete(self, key) {
-  let idx = arraylist.find_index(self, function(entry) {
+  let idx = arraylist::find_index(self, function(entry) {
     return entry[0] == key;
   });
 
   if (idx < 0) {
     return false;
   } else {
-    arraylist.delete(self, idx);
+    arraylist::delete(self, idx);
   }
 }
 
@@ -86,7 +86,7 @@ doc:add(
 );
 
 export function has(self, key) {
-  return null != arraylist.find(self, function(entry) {
+  return null != arraylist::find(self, function(entry) {
     return entry[0] == key;
   });
 }
@@ -98,13 +98,13 @@ doc:add(
 );
 
 export function is_empty(self) {
-  return arraylist.length(self) == 0;
+  return arraylist::length(self) == 0;
 }
 
 doc:add("function", "is_empty(list)", "Check if `list` has no elements.");
 
 export function entries(self) {
-  return arraylist.to_array(self);
+  return arraylist::to_array(self);
 }
 
 doc:add("function", "entries(list)", "Get all entries from `list`.");

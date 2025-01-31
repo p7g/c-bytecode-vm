@@ -3,43 +3,43 @@ import array;
 import math;
 import string;
 
-export let htonl = _inet.htonl;
-export let htons = _inet.htons;
-export let ntohl = _inet.ntohl;
-export let ntohs = _inet.ntohs;
+export let htonl = _inet::htonl;
+export let htons = _inet::htons;
+export let ntohl = _inet::ntohl;
+export let ntohs = _inet::ntohs;
 
 export struct Error { message }
 
 export function bytestol(bytes) {
-    if (array.length(bytes) < 4) {
+    if (array::length(bytes) < 4) {
         throw Error {
-            message = string.concat(
+            message = string::concat(
                 "Incorrect number of bytes for bytestol. Expected 4, got: ",
-                array.length(bytes),
+                array::length(bytes),
             ),
         };
     }
 
     let [a, b, c, d] = bytes;
     return ntohl(
-        math.shl(a, 24)
-        | math.shl(b, 16)
-        | math.shl(c, 8)
+        math::shl(a, 24)
+        | math::shl(b, 16)
+        | math::shl(c, 8)
         | d
     );
 }
 
 export function bytestos(bytes) {
-    if (array.length(bytes) != 2) {
+    if (array::length(bytes) != 2) {
         throw Error {
-            message = string.concat(
+            message = string::concat(
                 "Incorrect number of bytes for bytestos. Expected 2, got: ",
-                array.length(bytes),
+                array::length(bytes),
             ),
         };
     }
 
     let [a, b] = bytes;
-    let result = ntohs(math.shl(a, 8) | b);
+    let result = ntohs(math::shl(a, 8) | b);
     return result;
 }

@@ -24,4 +24,4 @@ import re;
 import string;
 import test;
 
-docs.generate(docs.print_generator(docs.single_page_markdown()));
+docs::generate(docs::print_generator(docs::single_page_markdown()));

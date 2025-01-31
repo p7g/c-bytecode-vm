@@ -10,40 +10,40 @@ import path;
 import string;
 import sys;
 
-let tests_by_file = hashmap.new();
+let tests_by_file = hashmap::new();
 
-iter.foreach(fs.directory_entries("tests"), function collect_test_modules(path) {
-    path = path.join("tests", path);
-    if (fs.isfile(path) && path.ext(path) == "rbcvm") {
-        let tests = arraylist.new();
-        module.import_(path, path);
-        iter.foreach(module.exports(path), function collect_tests(export_) {
-            if (string.startswith(export_, "test")) {
-                arraylist.push(tests, export_);
+iter::foreach(fs::directory_entries("tests"), function collect_test_modules(path) {
+    path = path::join("tests", path);
+    if (fs::isfile(path) && path::ext(path) == "rbcvm") {
+        let tests = arraylist::new();
+        module::import_(path, path);
+        iter::foreach(module::exports(path), function collect_tests(export_) {
+            if (string::startswith(export_, "test")) {
+                arraylist::push(tests, export_);
             }
         });
-        hashmap.set(tests_by_file, path, arraylist.to_array(tests));
+        hashmap::set(tests_by_file, path, arraylist::to_array(tests));
     }
 });
 
 let ntests = 0;
-iter.foreach(hashmap.values(tests_by_file), function count_tests(tests) {
-    ntests = ntests + array.length(tests);
+iter::foreach(hashmap::values(tests_by_file), function count_tests(tests) {
+    ntests = ntests + array::length(tests);
 });
 println("Collected", ntests, "tests");
 
-let failed = arraylist.new();
+let failed = arraylist::new();
 
-iter.foreach(hashmap.entries(tests_by_file), function run_tests([filename, tests]) {
+iter::foreach(hashmap::entries(tests_by_file), function run_tests([filename, tests]) {
     print(filename, "");
-    iter.foreach(tests, function run_test(test) {
-        test = module.get(filename, test);
+    iter::foreach(tests, function run_test(test) {
+        test = module::get(filename, test);
         try {
             test();
             print('.');
         } catch (error) {
             print('F');
-            arraylist.push(failed, [test, error]);
+            arraylist::push(failed, [test, error]);
         }
     });
 
@@ -51,13 +51,13 @@ iter.foreach(hashmap.entries(tests_by_file), function run_tests([filename, tests
 });
 
 println();
-let num_failed = arraylist.length(failed);
+let num_failed = arraylist::length(failed);
 if (num_failed == 0) {
     println("All tests passed");
 } else {
     println(num_failed, "failing tests:");
-    arraylist.foreach(failed, function print_failed_tests([test, error]) {
-        println(string.concat("\t", tostring(test), ": ", tostring(error)));
+    arraylist::foreach(failed, function print_failed_tests([test, error]) {
+        println(string::concat("\t", tostring(test), ": ", tostring(error)));
     });
-    sys.exit(1);
+    sys::exit(1);
 }

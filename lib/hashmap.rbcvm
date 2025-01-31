@@ -3,7 +3,7 @@ import docs;
 import hash;
 import iter;
 
-let doc = docs.module("hashmap", "An implementation of a hash map.");
+let doc = docs::module("hashmap", "An implementation of a hash map.");
 
 let INITIAL_CAPACITY = toint(2 ** 3);
 let LOAD_FACTOR = 0.7;
@@ -15,7 +15,7 @@ struct HashMap {
 
 struct Bucket { key, value }
 
-let default_hash = hash.primitive;
+let default_hash = hash::primitive;
 
 function do_hash(self, key) {
   return self:hash_fn(key) & self:cap - 1;
@@ -25,10 +25,10 @@ function grow(self) {
   let cap = self:cap = self:cap * 2;
 
   let old_buckets = self:buckets;
-  self:buckets = array.new(cap);
+  self:buckets = array::new(cap);
   self:load = 0;
 
-  array.foreach(old_buckets, function(bucket) {
+  array::foreach(old_buckets, function(bucket) {
     if (!bucket || bucket == TOMBSTONE) {
       return;
     }
@@ -53,7 +53,7 @@ let DEFAULT_OPTIONS = Options {
 };
 
 export function collector(options=DEFAULT_OPTIONS) {
-  return iter.collector {
+  return iter::collector {
     init = function () { return new(options); },
     reduce = function (map, [key, value]) {
       set(map, key, value);
@@ -74,7 +74,7 @@ export function new(options=DEFAULT_OPTIONS) {
     cap=options:initial_capacity,
     load=0,
     hash_fn=options:hash_function,
-    buckets=array.new(options:initial_capacity),
+    buckets=array::new(options:initial_capacity),
   };
 }
 
@@ -85,7 +85,7 @@ doc:add(
 );
 
 export function clear(self) {
-  self:buckets = array.new(self:capacity);
+  self:buckets = array::new(self:capacity);
   self:load = 0;
 }
 
@@ -179,12 +179,12 @@ export function has(self, key) {
 doc:add("function", "has(map, key)", "Check if `map` has a value for `key`.");
 
 export function entries(self) {
-  let len = array.length(self:buckets);
+  let len = array::length(self:buckets);
   let i = 0;
 
   return function next() {
     if (i >= len) {
-      return iter.STOP;
+      return iter::STOP;
     }
     let bucket = null;
     while (i < len) {
@@ -194,7 +194,7 @@ export function entries(self) {
         return [bucket:key, bucket:value];
       }
     }
-    return iter.STOP;
+    return iter::STOP;
   };
 }
 
@@ -211,13 +211,13 @@ export function size(self) {
 doc:add("function", "size(map)", "Return the number of values in `map`.");
 
 export function keys(self) {
-  return iter.map(entries(self), function ([k]) { return k; });
+  return iter::map(entries(self), function ([k]) { return k; });
 }
 
 doc:add("function", "keys(map)", "Get an iterator over the keys in `map`.");
 
 export function values(self) {
-  return iter.map(entries(self), function ([_, v]) { return v; });
+  return iter::map(entries(self), function ([_, v]) { return v; });
 }
 
 doc:add("function", "values(map)", "Get an iterator over the values in `map`.");
@@ -256,7 +256,7 @@ iterator of key-value pairs `entries`.",
 );
 
 export function extend(map, entries) {
-  iter.foreach(entries, function([k, v]) {
+  iter::foreach(entries, function([k, v]) {
     set(map, k, v);
   });
 }

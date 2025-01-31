@@ -8,19 +8,19 @@ struct Tape { get, inc, move }
 
 function tape_new() {
     let pos = 0;
-    let data = arraylist.from_array(1, [0]);
+    let data = arraylist::from_array(1, [0]);
 
     return Tape {
         get = function() {
-            return arraylist.get(data, pos);
+            return arraylist::get(data, pos);
         },
         inc = function(n) {
-            arraylist.set(data, pos, arraylist.get(data, pos) + n);
+            arraylist::set(data, pos, arraylist::get(data, pos) + n);
         },
         move = function(n) {
             pos = pos + n;
-            if (pos >= arraylist.length(data)) {
-                arraylist.push(data, 0);
+            if (pos >= arraylist::length(data)) {
+                arraylist::push(data, 0);
             }
         },
     };
@@ -29,32 +29,32 @@ function tape_new() {
 struct Op { type, value }
 
 function parse(it) {
-    let ops = arraylist.new();
+    let ops = arraylist::new();
     let c;
 
-    while ((c = it()) != iter.STOP) {
+    while ((c = it()) != iter::STOP) {
         if (c == '+') {
-            arraylist.push(ops, Op{type="inc", value=1});
+            arraylist::push(ops, Op{type="inc", value=1});
         } else if (c == '-') {
-            arraylist.push(ops, Op{type="inc", value=-1});
+            arraylist::push(ops, Op{type="inc", value=-1});
         } else if (c == '>') {
-            arraylist.push(ops, Op{type="move", value=1});
+            arraylist::push(ops, Op{type="move", value=1});
         } else if (c == '<') {
-            arraylist.push(ops, Op{type="move", value=-1});
+            arraylist::push(ops, Op{type="move", value=-1});
         } else if (c == '.') {
-            arraylist.push(ops, Op{type="print"});
+            arraylist::push(ops, Op{type="print"});
         } else if (c == '[') {
-            arraylist.push(ops, Op{type="loop", value=parse(it)});
+            arraylist::push(ops, Op{type="loop", value=parse(it)});
         } else if (c == ']') {
             break;
         }
     }
 
-    return arraylist.to_array(ops);
+    return arraylist::to_array(ops);
 }
 
 function run(tape, ops) {
-    let len = array.length(ops);
+    let len = array::length(ops);
 
     for (let i = 0; i < len; i = i + 1) {
         let op = ops[i];
@@ -74,9 +74,9 @@ function run(tape, ops) {
 }
 
 let args = argv();
-if (array.length(args) != 1) {
+if (array::length(args) != 1) {
     println("Usage: ./cbcvm bf3.rbcvm <program>");
 } else {
-    let it = array.iter(string.chars(fs.read_file(args[0])));
+    let it = array::iter(string::chars(fs::read_file(args[0])));
     run(tape_new(), parse(it));
 }

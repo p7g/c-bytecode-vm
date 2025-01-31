@@ -12,7 +12,7 @@ export function from_array(len, array) {
 }
 
 export function with_capacity(cap) {
-  return from_array(0, _array.new(cap));
+  return from_array(0, _array::new(cap));
 }
 
 export function new() {
@@ -24,7 +24,7 @@ export function length(self) {
 }
 
 export function capacity(self) {
-  return _array.length(self:array);
+  return _array::length(self:array);
 }
 
 export function get(self, idx) {
@@ -46,7 +46,7 @@ export function delete(self, index) {
 }
 
 export function to_array(self) {
-  let new_array = _array.new(self:length);
+  let new_array = _array::new(self:length);
 
   foreach(self, function(val, i) {
     new_array[i] = val;
@@ -58,10 +58,10 @@ export function to_array(self) {
 export function push(self, value) {
   let next_idx = self:length;
   let array = self:array;
-  let len = _array.length(array);
+  let len = _array::length(array);
 
   if (next_idx >= len) {
-    let new_array = _array.new(2 * len);
+    let new_array = _array::new(2 * len);
     for (let i = 0; i < next_idx; i = i + 1) {
       new_array[i] = array[i];
     }
