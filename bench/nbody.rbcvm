@@ -39,11 +39,11 @@ function energy(bodies) {
         e = e + 0.5 * b.mass * sq;
         for (let j = i + 1; j < num_bodies; j = j + 1) {
             let b2 = bodies[j];
-            let dx = b.x - b2:x;
-            let dy = b.y - b2:y;
-            let dz = b.z - b2:z;
+            let dx = b.x - b2.x;
+            let dy = b.y - b2.y;
+            let dz = b.z - b2.z;
             sq = dx ** 2 + dy ** 2 + dz ** 2;
-            e = e - (b.mass * b2:mass) / math::sqrt(sq);
+            e = e - (b.mass * b2.mass) / math::sqrt(sq);
         }
     }
     return e;
@@ -56,21 +56,21 @@ function advance(bodies, dt) {
         for (let j = i + 1; j < num_bodies; j = j + 1) {
             let b2 = bodies[j];
 
-            let dx = b.x - b2:x;
-            let dy = b.y - b2:y;
-            let dz = b.z - b2:z;
+            let dx = b.x - b2.x;
+            let dy = b.y - b2.y;
+            let dz = b.z - b2.z;
             let dpos_norm_sq = dx ** 2 + dy ** 2 + dz ** 2;
             let mag = dt / (dpos_norm_sq * math::sqrt(dpos_norm_sq));
 
-            let mj = b2:mass * mag;
+            let mj = b2.mass * mag;
             b.vx = b.vx - dx * mj;
             b.vy = b.vy - dy * mj;
             b.vz = b.vz - dz * mj;
 
             let mi = b.mass * mag;
-            b2:vx = b2:vx + dx * mi;
-            b2:vy = b2:vy + dy * mi;
-            b2:vz = b2:vz + dz * mi;
+            b2.vx = b2.vx + dx * mi;
+            b2.vy = b2.vy + dy * mi;
+            b2.vz = b2.vz + dz * mi;
         }
     }
 
