@@ -2867,6 +2867,7 @@ struct cb_code *cb_repl_compile(cb_modspec *modspec, char *source)
 	bytecode_push(state.bytecode, OP(OP_HALT));
 
 	struct cb_code *code = create_code(&state);
+	cstate_deinit(&state);
 	if (first_compile)
 		cb_modspec_set_code(modspec, code);
 
