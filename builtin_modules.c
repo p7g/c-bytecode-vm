@@ -86,13 +86,13 @@ struct cb_struct_spec *cb_declare_struct(const char *name, unsigned nfields,
 	va_start(args, nfields);
 
 	struct cb_struct_spec *spec = cb_struct_spec_new(
-			cb_agent_intern_string(name, strlen(name) - 1),
+			cb_agent_intern_string(name, strlen(name)),
 			nfields);
 
 	for (unsigned i = 0; i < nfields; i++) {
 		const char *fieldname = va_arg(args, const char *);
 		size_t fieldname_id = cb_agent_intern_string(fieldname,
-				strlen(fieldname) - 1);
+				strlen(fieldname));
 		cb_struct_spec_set_field_name(spec, i, fieldname_id);
 	}
 
