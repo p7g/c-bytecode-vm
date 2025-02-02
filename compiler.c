@@ -2861,15 +2861,15 @@ struct cb_code *cb_repl_compile(cb_modspec *modspec, char *source)
 
 	state.module_state = module_state;
 
-	if (compile(&state, TOK_EOF))
-		return NULL;
+	struct cb_code *code = NULL;
+	if (!compile(&state, TOK_EOF)) {
+		bytecode_push(state.bytecode, OP(OP_HALT));
+		code = create_code(&state);
+		if (first_compile)
+			cb_modspec_set_code(modspec, code);
+	}
 
-	bytecode_push(state.bytecode, OP(OP_HALT));
-
-	struct cb_code *code = create_code(&state);
 	cstate_deinit(&state);
-	if (first_compile)
-		cb_modspec_set_code(modspec, code);
 
 	return code;
 }
