@@ -23,4 +23,7 @@ extern const struct cb_builtin_module_spec *cb_builtin_modules;
 void cb_initialize_builtin_modules(void);
 void cb_instantiate_builtin_modules(void);
 
+struct cb_struct_spec *cb_declare_struct(const char *name, unsigned nfields, ...);
+struct cb_struct *cb_struct_make(struct cb_struct_spec *spec, ...);
+
 #endif

@@ -113,45 +113,28 @@ static size_t ident_stat, ident_statbuf, ident_fopen, ident_fclose, ident_fread,
 struct cb_struct_spec *get_stat_struct_spec(void)
 {
 	static struct cb_struct_spec *spec = NULL;
-	size_t i = 0;
 
 	if (spec)
 		return spec;
 
-#define F(NAME) cb_struct_spec_set_field_name(spec, i++, \
-		cb_agent_intern_string((NAME), sizeof((NAME)) - 1));
-
-	spec = cb_struct_spec_new(cb_agent_intern_string("stat", 4), 10);
-	F("mode");
-	F("nlink");
-	F("uid");
-	F("gid");
-	F("size");
-	F("blksize");
-	F("blocks");
-	F("atime");
-	F("mtime");
-	F("ctime");
-
+	spec = cb_declare_struct("stat", 10, "mode", "nlink", "uid", "gid",
+			"size", "blksize", "blocks", "atime", "mtime", "ctime");
 	return spec;
-#undef F
 }
 
-void populate_stat_struct(struct cb_struct *out, struct stat *in)
+struct cb_struct *make_stat_struct(struct stat *in)
 {
-#define SET_FIELD(K, V) cb_struct_set_field(out, cb_agent_intern_string((K), \
-		sizeof((K)) - 1), V, NULL)
-	SET_FIELD("mode", cb_int(in->st_mode));
-	SET_FIELD("nlink", cb_int(in->st_nlink));
-	SET_FIELD("uid", cb_int(in->st_uid));
-	SET_FIELD("gid", cb_int(in->st_gid));
-	SET_FIELD("size", cb_int(in->st_size));
-	SET_FIELD("blksize", cb_int(in->st_blksize));
-	SET_FIELD("blocks", cb_int(in->st_blocks));
-	SET_FIELD("atime", cb_int(in->st_atime));
-	SET_FIELD("mtime", cb_int(in->st_mtime));
-	SET_FIELD("ctime", cb_int(in->st_ctime));
-#undef SET_FIELD
+	return cb_struct_make(get_stat_struct_spec(),
+			cb_int(in->st_mode),
+			cb_int(in->st_nlink),
+			cb_int(in->st_uid),
+			cb_int(in->st_gid),
+			cb_int(in->st_size),
+			cb_int(in->st_blksize),
+			cb_int(in->st_blocks),
+			cb_int(in->st_atime),
+			cb_int(in->st_mtime),
+			cb_int(in->st_ctime));
 }
 
 static int wrapped_stat(size_t argc, struct cb_value *argv,
@@ -165,9 +148,7 @@ static int wrapped_stat(size_t argc, struct cb_value *argv,
 		result->type = CB_VALUE_NULL;
 	} else {
 		result->type = CB_VALUE_STRUCT;
-		result->val.as_struct = cb_struct_spec_instantiate(
-				get_stat_struct_spec());
-		populate_stat_struct(result->val.as_struct, &s);
+		result->val.as_struct = make_stat_struct(&s);
 	}
 	return 0;
 }

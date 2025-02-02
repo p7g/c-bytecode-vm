@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -6,6 +7,8 @@
 #include "eval.h"
 #include "hashmap.h"
 #include "module.h"
+#include "struct.h"
+#include "value.h"
 
 #include "modules/arrays.h"
 #include "modules/bytesmodule.h"
@@ -74,4 +77,39 @@ void cb_instantiate_builtin_modules(void)
 	 * all modules are in a valid state. */
 	for (i = 0; i < cb_builtin_module_count; i += 1)
 		builtins[i].instantiate(modules[i]);
+}
+
+struct cb_struct_spec *cb_declare_struct(const char *name, unsigned nfields,
+		...)
+{
+	va_list args;
+	va_start(args, nfields);
+
+	struct cb_struct_spec *spec = cb_struct_spec_new(
+			cb_agent_intern_string(name, strlen(name) - 1),
+			nfields);
+
+	for (unsigned i = 0; i < nfields; i++) {
+		const char *fieldname = va_arg(args, const char *);
+		size_t fieldname_id = cb_agent_intern_string(fieldname,
+				strlen(fieldname) - 1);
+		cb_struct_spec_set_field_name(spec, i, fieldname_id);
+	}
+
+	va_end(args);
+	return spec;
+}
+
+struct cb_struct *cb_struct_make(struct cb_struct_spec *spec, ...)
+{
+	va_list args;
+	va_start(args, spec);
+
+	struct cb_struct *s = cb_struct_spec_instantiate(spec);
+
+	for (unsigned i = 0; i < spec->nfields; i++)
+		s->fields[i] = va_arg(args, struct cb_value);
+
+	va_end(args);
+	return s;
 }
