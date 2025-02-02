@@ -681,6 +681,22 @@ static void queue_mark(struct cb_value *val)
 	cb_gc_queue_mark((void *) val, value_mark_fn);
 }
 
+static void array_mark(struct cb_array *arr)
+{
+	for (unsigned i = 0; i < arr->len; i += 1)
+		queue_mark(&arr->values[i]);
+}
+
+static void array_mark_fn(void *obj)
+{
+	array_mark((struct cb_array *) obj);
+}
+
+cb_gc_hold_key *cb_array_gc_hold(struct cb_array *arr)
+{
+	return cb_gc_hold((void *) arr, array_mark_fn);
+}
+
 void cb_value_mark(struct cb_value val)
 {
 #define GC_LOG(F) ({ \
@@ -722,8 +738,7 @@ void cb_value_mark(struct cb_value val)
 
 	case CB_VALUE_ARRAY: {
 		GC_LOG(val.val.as_array);
-		for (unsigned i = 0; i < val.val.as_array->len; i += 1)
-			queue_mark(&val.val.as_array->values[i]);
+		array_mark(val.val.as_array);
 		break;
 	}
 

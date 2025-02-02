@@ -119,6 +119,7 @@ void cb_value_decref(struct cb_value val);
 struct cb_function *cb_function_new(void);
 struct cb_string *cb_string_new(void);
 struct cb_array *cb_array_new(size_t len);
+cb_gc_hold_key *cb_array_gc_hold(struct cb_array *arr);
 struct cb_value cb_cfunc_new(size_t name, size_t arity,
 		cb_native_function *func);
 struct cb_value cb_int(int64_t);
