@@ -1,5 +1,7 @@
 #include <assert.h>
+#include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "agent.h"
 #include "error.h"
@@ -36,6 +38,11 @@ void cb_error_set(struct cb_value value)
 		free(cb_vm_state.error);
 
 	cb_vm_state.error = err;
+}
+
+void cb_error_from_errno(void)
+{
+	cb_error_set(cb_value_from_string(strerror(errno)));
 }
 
 void cb_error_recover(void)
