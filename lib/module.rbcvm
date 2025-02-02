@@ -1,0 +1,30 @@
+import _module;
+import assoclist;
+import docs;
+import iter;
+
+let doc = docs::module("module", "Dynamically import from modules.");
+
+export let export_names = _module::export_names;
+export let get = _module::get;
+export let import_ = _module::import_;
+
+doc.add("function", "export_names(modname)",
+        "Return an array of names that are exported from module `modname`.");
+doc.add("function", "get(modname, import_name)",
+        "Return the object exported from module `modname` with the name `import_name`.");
+doc.add("function", "import_(modname, path=...)",
+        "Import the module `modname`. Specify `path` to override default module resolution.");
+
+export function exports(modname) {
+    let l = assoclist::new();
+
+    iter::foreach(export_names(modname), function (name) {
+        assoclist::set(l, name, get(modname, name));
+    });
+
+    return assoclist::entries(l);
+}
+
+doc.add("function", "exports",
+        "Return an array of pairs holding each export's name and value.");

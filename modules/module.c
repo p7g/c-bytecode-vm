@@ -15,16 +15,16 @@
 #include "str.h"
 #include "value.h"
 
-static size_t ident_exports, ident_get, ident_import;
+static size_t ident_export_names, ident_get, ident_import;
 
 void cb_module_build_spec(cb_modspec *spec)
 {
-	CB_DEFINE_EXPORT(spec, "exports", ident_exports);
+	CB_DEFINE_EXPORT(spec, "export_names", ident_export_names);
 	CB_DEFINE_EXPORT(spec, "get", ident_get);
 	CB_DEFINE_EXPORT(spec, "import_", ident_import);
 }
 
-static int get_exports(size_t argc, struct cb_value *argv,
+static int get_export_names(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	struct cb_array *arr;
@@ -37,7 +37,7 @@ static int get_exports(size_t argc, struct cb_value *argv,
 	id = cb_agent_get_string_id(cb_strptr(&modname), cb_strlen(modname));
 
 	if (id == -1 || !(spec = cb_agent_get_modspec_by_name(id))) {
-		cb_error_set(cb_value_from_fmt("exports: No module '%s'",
+		cb_error_set(cb_value_from_fmt("export_names: No module '%s'",
 				cb_strptr(&modname)));
 		return 1;
 	}
@@ -85,7 +85,7 @@ static int get_export(size_t argc, struct cb_value *argv,
 	}
 
 	mod = &cb_vm_state.modules[cb_modspec_id(spec)];
-	assert(mod->evaluated);
+	assert(mod->global_scope);
 	if (!cb_hashmap_get(mod->global_scope, export_name_id, result)) {
 		cb_error_set(cb_value_from_fmt(
 				"get: Module '%s' has no export '%s'",
@@ -145,13 +145,15 @@ err:
 end:
 	if (path)
 		free(path);
+
+	result->type = CB_VALUE_NULL;
 	return retval;
 }
 
 void cb_module_instantiate(struct cb_module *mod)
 {
-	CB_SET_EXPORT(mod, ident_exports,
-			cb_cfunc_new(ident_exports, 1, get_exports));
+	CB_SET_EXPORT(mod, ident_export_names,
+			cb_cfunc_new(ident_export_names, 1, get_export_names));
 	CB_SET_EXPORT(mod, ident_get, cb_cfunc_new(ident_get, 2, get_export));
 	CB_SET_EXPORT(mod, ident_import, cb_cfunc_new(ident_import, 2, import));
 }

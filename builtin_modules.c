@@ -29,7 +29,7 @@ static const struct cb_builtin_module_spec builtins[] = {
 	{"_string", cb_strings_build_spec, cb_strings_instantiate},
 	{"errno", cb_errno_build_spec, cb_errno_instantiate},
 	{"sys", cb_sys_build_spec, cb_sys_instantiate},
-	{"module", cb_module_build_spec, cb_module_instantiate},
+	{"_module", cb_module_build_spec, cb_module_instantiate},
 	{"_array", cb_arrays_build_spec, cb_arrays_instantiate},
 	{"_inet", cb_inet_build_spec, cb_inet_instantiate},
 	{"_math", cb_math_build_spec, cb_math_instantiate},

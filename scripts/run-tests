@@ -17,7 +17,7 @@ iter::foreach(fs::directory_entries("tests"), function collect_test_modules(path
     if (fs::isfile(path) && path::ext(path) == "rbcvm") {
         let tests = arraylist::new();
         module::import_(path, path);
-        iter::foreach(module::exports(path), function collect_tests(export_) {
+        iter::foreach(module::export_names(path), function collect_tests(export_) {
             if (string::startswith(export_, "test")) {
                 arraylist::push(tests, export_);
             }
