@@ -474,7 +474,7 @@ DO_OP_JUMP_IF_FALSE: {
 
 DO_OP_CALL: {
 	size_t num_args;
-	struct cb_value func_val, result;
+	struct cb_value func_val;
 	struct cb_function *func;
 	int failed;
 	int num_opt_params;
@@ -498,8 +498,7 @@ DO_OP_CALL: {
 	if (func->type == CB_FUNCTION_NATIVE) {
 		size_t dest = sp - stack - num_args - 1;
 		failed = func->value.as_native(num_args, sp - num_args,
-				&result);
-		cb_vm_state.stack[dest] = result;
+				&cb_vm_state.stack[dest]);
 	} else {
 		struct cb_code *code = func->value.as_user.code;
 
