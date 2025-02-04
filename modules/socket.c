@@ -69,7 +69,7 @@ static int expect_uint16(const char *name, struct cb_value val, uint16_t *out)
 	return 0;
 }
 
-struct cb_struct_spec *get_addrinfo_struct_spec(void)
+static struct cb_struct_spec *get_addrinfo_struct_spec(void)
 {
 	static struct cb_struct_spec *spec = NULL;
 
@@ -81,7 +81,7 @@ struct cb_struct_spec *get_addrinfo_struct_spec(void)
 	return spec;
 }
 
-int sockaddr_val(struct sockaddr *sa, struct cb_value *result)
+static int sockaddr_val(struct sockaddr *sa, struct cb_value *result)
 {
 	void *addr;
 	short port;
@@ -153,7 +153,7 @@ err:
 	return NULL;
 }
 
-int getaddrinfo_impl(size_t argc, struct cb_value *argv,
+static int getaddrinfo_impl(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	struct cb_value node_val, service_val;
@@ -196,7 +196,7 @@ int getaddrinfo_impl(size_t argc, struct cb_value *argv,
 	return result->val.as_array == NULL;
 }
 
-int socket_impl(size_t argc, struct cb_value *argv, struct cb_value *result)
+static int socket_impl(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	int domain, type, protocol;
 
@@ -215,7 +215,7 @@ int socket_impl(size_t argc, struct cb_value *argv, struct cb_value *result)
 	return 0;
 }
 
-int inet_pton_wrapped(int family, const char *addrstr, void *addr)
+static int inet_pton_wrapped(int family, const char *addrstr, void *addr)
 {
 	int status;
 	if ((status = inet_pton(family, addrstr, addr)) != 1) {
@@ -265,7 +265,7 @@ static int parse_address(struct cb_value address_val,
 	return 0;
 }
 
-int connect_impl(size_t argc, struct cb_value *argv,
+static int connect_impl(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	int fd;
@@ -285,7 +285,8 @@ int connect_impl(size_t argc, struct cb_value *argv,
 	return 0;
 }
 
-int send_impl(size_t argc, struct cb_value *argv, struct cb_value *result)
+static int send_impl(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
 {
 	int fd, sent;
 	struct cb_bytes *buf;
@@ -311,7 +312,8 @@ int send_impl(size_t argc, struct cb_value *argv, struct cb_value *result)
 	return 0;
 }
 
-int recv_impl(size_t argc, struct cb_value *argv, struct cb_value *result)
+static int recv_impl(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
 {
 	int fd, amount, received;
 	char *data;
