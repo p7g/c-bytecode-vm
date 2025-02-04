@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include "builtin_modules.h"
 #include "bytes.h"
@@ -338,6 +339,83 @@ static int recv_impl(size_t argc, struct cb_value *argv,
 	return 0;
 }
 
+static int bind_impl(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	int fd;
+	struct sockaddr_storage addr;
+	int addrlen;
+
+	CONVERT_TO_C_INT(fd, argv[0]);
+	if (parse_address(argv[1], &addr, &addrlen))
+		return 1;
+
+	if (bind(fd, (struct sockaddr *) &addr, addrlen) == -1) {
+		cb_error_from_errno();
+		return 1;
+	}
+
+	result->type = CB_VALUE_NULL;
+	return 0;
+}
+
+static int listen_impl(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	int fd, backlog;
+
+	CONVERT_TO_C_INT(fd, argv[0]);
+	CONVERT_TO_C_INT(backlog, argv[1]);
+
+	if (listen(fd, backlog) == -1) {
+		cb_error_from_errno();
+		return 1;
+	}
+
+	result->type = CB_VALUE_NULL;
+	return 0;
+}
+
+static int accept_impl(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	int fd;
+	struct sockaddr_storage addr;
+	unsigned addrlen = sizeof addr;
+	struct cb_value addr_val;
+
+	CONVERT_TO_C_INT(fd, argv[0]);
+
+	int newfd = accept(fd, (struct sockaddr *) &addr, &addrlen);
+	if (newfd == -1) {
+		cb_error_from_errno();
+		return 1;
+	}
+
+	if (sockaddr_val((struct sockaddr *) &addr, &addr_val))
+		return 1;
+
+	struct cb_array *arr = cb_array_new(2);
+	arr->values[0] = cb_int(newfd);
+	arr->values[1] = addr_val;
+
+	result->type = CB_VALUE_ARRAY;
+	result->val.as_array = arr;
+	return 0;
+}
+
+static int close_impl(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	int fd;
+	CONVERT_TO_C_INT(fd, argv[0]);
+	if (close(fd) == -1) {
+		cb_error_from_errno();
+		return 1;
+	}
+	return 0;
+}
+
 #define CONSTS(X) \
 	X(AF_INET) \
 	X(AF_INET6) \
@@ -351,18 +429,23 @@ static int recv_impl(size_t argc, struct cb_value *argv,
 CONSTS(DECL_CONST_IDENT)
 #undef DECL_CONST_IDENT
 
-size_t ident_addrinfo, ident_address, ident_connect, ident_getaddrinfo,
-       ident_recv, ident_send, ident_socket;
+size_t ident_accept, ident_address, ident_addrinfo, ident_bind, ident_close,
+       ident_connect, ident_getaddrinfo, ident_listen, ident_recv, ident_send,
+       ident_socket;
 
 void cb_socket_build_spec(cb_modspec *spec)
 {
+	CB_DEFINE_EXPORT(spec, "accept", ident_accept);
 	CB_DEFINE_EXPORT(spec, "address", ident_address);
 	CB_DEFINE_EXPORT(spec, "addrinfo", ident_addrinfo);
-	CB_DEFINE_EXPORT(spec, "getaddrinfo", ident_getaddrinfo);
-	CB_DEFINE_EXPORT(spec, "socket", ident_socket);
+	CB_DEFINE_EXPORT(spec, "bind", ident_bind);
+	CB_DEFINE_EXPORT(spec, "close", ident_close);
 	CB_DEFINE_EXPORT(spec, "connect", ident_connect);
-	CB_DEFINE_EXPORT(spec, "send", ident_send);
+	CB_DEFINE_EXPORT(spec, "getaddrinfo", ident_getaddrinfo);
+	CB_DEFINE_EXPORT(spec, "listen", ident_listen);
 	CB_DEFINE_EXPORT(spec, "recv", ident_recv);
+	CB_DEFINE_EXPORT(spec, "send", ident_send);
+	CB_DEFINE_EXPORT(spec, "socket", ident_socket);
 
 #define DEFINE_CONST(NAME) CB_DEFINE_EXPORT(spec, #NAME, ident_ ## NAME);
 	CONSTS(DEFINE_CONST)
@@ -379,11 +462,15 @@ void cb_socket_instantiate(struct cb_module *mod)
 
 	CB_SET_EXPORT(mod, ident_address, address_spec);
 	CB_SET_EXPORT(mod, ident_addrinfo, addrinfo_spec);
+	CB_SET_EXPORT_FN(mod, ident_accept, 1, accept_impl);
+	CB_SET_EXPORT_FN(mod, ident_bind, 2, bind_impl);
+	CB_SET_EXPORT_FN(mod, ident_close, 1, close_impl);
+	CB_SET_EXPORT_FN(mod, ident_connect, 2, connect_impl);
 	CB_SET_EXPORT_FN(mod, ident_getaddrinfo, 2, getaddrinfo_impl);
-	CB_SET_EXPORT_FN(mod, ident_socket, 3, socket_impl);
-	CB_SET_EXPORT_FN(mod, ident_connect, 3, connect_impl);
-	CB_SET_EXPORT_FN(mod, ident_send, 2, send_impl);
+	CB_SET_EXPORT_FN(mod, ident_listen, 2, listen_impl);
 	CB_SET_EXPORT_FN(mod, ident_recv, 2, recv_impl);
+	CB_SET_EXPORT_FN(mod, ident_send, 2, send_impl);
+	CB_SET_EXPORT_FN(mod, ident_socket, 3, socket_impl);
 
 #define EXPORT_CONST(NAME) CB_SET_EXPORT(mod, ident_ ## NAME, cb_int(NAME));
 	CONSTS(EXPORT_CONST)
