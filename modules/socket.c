@@ -179,10 +179,15 @@ static int getaddrinfo_impl(size_t argc, struct cb_value *argv,
 		service = cb_strptr(&service_str);
 	}
 
+	int flags = 0;
+	if (argc > 2)
+		CONVERT_TO_C_INT(flags, argv[2]);
+
 	struct addrinfo *server;
 	struct addrinfo hints = {0};
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = flags;
 
 	int status = getaddrinfo(node, service, &hints, &server);
 	if (status) {
@@ -339,7 +344,8 @@ static int recv_impl(size_t argc, struct cb_value *argv,
 	X(SOCK_STREAM) \
 	X(SOCK_DGRAM) \
 	X(IPPROTO_TCP) \
-	X(IPPROTO_UDP)
+	X(IPPROTO_UDP) \
+	X(AI_PASSIVE)
 
 #define DECL_CONST_IDENT(NAME) size_t ident_ ## NAME;
 CONSTS(DECL_CONST_IDENT)
