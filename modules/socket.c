@@ -18,6 +18,19 @@
 		if (expect_c_int(#OUT, (VAL), &OUT)) \
 			return 1; \
 	})
+#define STRUCT_ADDR_HOST(S) ((S)->fields[0])
+#define STRUCT_ADDR_PORT(S) ((S)->fields[1])
+
+static struct cb_struct_spec *get_address_struct_spec(void)
+{
+	static struct cb_struct_spec *spec = NULL;
+
+	if (spec)
+		return spec;
+
+	spec = cb_declare_struct("address", 2, "host", "port");
+	return spec;
+}
 
 static int expect_c_int(const char *name, struct cb_value val, int *out)
 {
@@ -63,59 +76,49 @@ struct cb_struct_spec *get_addrinfo_struct_spec(void)
 	if (spec)
 		return spec;
 
-	spec = cb_declare_struct("addrinfo", 5, "family", "socktype",
-			"protocol", "addr", "port");
+	spec = cb_declare_struct("addrinfo", 4, "family", "socktype",
+			"protocol", "addr");
 	return spec;
 }
 
-int addrinfo_ip_val(struct addrinfo *ai, struct cb_value *result)
+int sockaddr_val(struct sockaddr *sa, struct cb_value *result)
 {
 	void *addr;
+	short port;
 
-	if (ai->ai_family == AF_INET) {
-		struct sockaddr_in *ipv4 = (struct sockaddr_in *) ai->ai_addr;
+	if (sa->sa_family == AF_INET) {
+		struct sockaddr_in *ipv4 = (struct sockaddr_in *) sa;
 		addr = &ipv4->sin_addr;
+		port = ipv4->sin_port;
 	} else {
-		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) ai->ai_addr;
+		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) sa;
 		addr = &ipv6->sin6_addr;
+		port = ipv6->sin6_port;
 	}
 
 	char ipstr[INET6_ADDRSTRLEN];
-	if (!inet_ntop(ai->ai_family, addr, ipstr, INET6_ADDRSTRLEN)) {
+	if (!inet_ntop(sa->sa_family, addr, ipstr, INET6_ADDRSTRLEN)) {
 		cb_error_from_errno();
 		return 1;
 	}
 
-	*result = cb_value_from_string(ipstr);
+	result->type = CB_VALUE_STRUCT;
+	result->val.as_struct = cb_struct_make(get_address_struct_spec(),
+			cb_value_from_string(ipstr), cb_int(ntohs(port)));
 	return 0;
-}
-
-struct cb_value addrinfo_port_val(struct addrinfo *ai)
-{
-	unsigned short port;
-	if (ai->ai_addr->sa_family == AF_INET)
-		port = ((struct sockaddr_in *) ai->ai_addr)->sin_port;
-	else
-		port = ((struct sockaddr_in6 *) ai->ai_addr)->sin6_port;
-
-	struct cb_value result;
-	result.type = CB_VALUE_INT;
-	result.val.as_int = ntohs(port);
-	return result;
 }
 
 static struct cb_struct *addrinfo_to_struct(struct addrinfo *info)
 {
 	struct cb_value addr_val;
-	if (addrinfo_ip_val(info, &addr_val))
+	if (sockaddr_val(info->ai_addr, &addr_val))
 		return NULL;
 
 	return cb_struct_make(get_addrinfo_struct_spec(),
 			cb_int(info->ai_family),
 			cb_int(info->ai_socktype),
 			cb_int(info->ai_protocol),
-			addr_val,
-			addrinfo_port_val(info));
+			addr_val);
 }
 
 static struct cb_array *addrinfo_to_array(struct addrinfo *info)
@@ -226,35 +229,52 @@ int inet_pton_wrapped(int family, const char *addrstr, void *addr)
 	return 0;
 }
 
-int connect_impl(size_t argc, struct cb_value *argv, struct cb_value *result)
+static int parse_address(struct cb_value address_val,
+		struct sockaddr_storage *addr, int *addr_size)
 {
-	int fd;
-	char *ip_str;
-	unsigned short port;
+	short port;
+	char *host;
+	struct cb_struct *address_struct;
+	struct cb_value host_val, port_val;
 
-	CONVERT_TO_C_INT(fd, argv[0]);
-	cb_str addr_str = CB_EXPECT_STRING(argv[1]);
-	CB_HTONS(port, argv[2]);
-	ip_str = cb_strptr(&addr_str);
+	CB_EXPECT_STRUCT(get_address_struct_spec(), address_val);
+	address_struct = address_val.val.as_struct;
+	host_val = STRUCT_ADDR_HOST(address_struct);
+	port_val = STRUCT_ADDR_PORT(address_struct);
 
-	int is_ipv6 = !!strchr(ip_str, ':');
-	union {
-		struct sockaddr_in ipv4;
-		struct sockaddr_in6 ipv6;
-	} addr = {0};
-	int addrlen = is_ipv6 ? sizeof addr.ipv6 : sizeof addr.ipv4;
+	cb_str host_str = CB_EXPECT_STRING(host_val);
+	CB_HTONS(port, port_val);
+	host = cb_strptr(&host_str);
+
+	int is_ipv6 = !!strchr(host, ':');
 
 	if (is_ipv6) {
-		if (inet_pton_wrapped(AF_INET6, ip_str, &addr.ipv6.sin6_addr))
+		if (inet_pton_wrapped(AF_INET6, host, addr))
 			return 1;
-		addr.ipv6.sin6_port = port;
-		addr.ipv6.sin6_family = AF_INET6;
+		((struct sockaddr_in6 *) addr)->sin6_port = port;
+		((struct sockaddr_in6 *) addr)->sin6_family = AF_INET6;
+		*addr_size = sizeof(struct sockaddr_in6);
 	} else {
-		if (inet_pton_wrapped(AF_INET, ip_str, &addr.ipv4.sin_addr))
+		if (inet_pton_wrapped(AF_INET, host, addr))
 			return 1;
-		addr.ipv4.sin_port = port;
-		addr.ipv4.sin_family = AF_INET;
+		((struct sockaddr_in *) addr)->sin_port = port;
+		((struct sockaddr_in *) addr)->sin_family = AF_INET;
+		*addr_size = sizeof(struct sockaddr_in);
 	}
+
+	return 0;
+}
+
+int connect_impl(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	int fd;
+	struct sockaddr_storage addr;
+	int addrlen = sizeof addr;
+
+	CONVERT_TO_C_INT(fd, argv[0]);
+	if (parse_address(argv[1], &addr, &addrlen))
+		return 1;
 
 	if (connect(fd, (struct sockaddr *) &addr, addrlen) == -1) {
 		cb_error_from_errno();
@@ -323,11 +343,12 @@ int recv_impl(size_t argc, struct cb_value *argv, struct cb_value *result)
 CONSTS(DECL_CONST_IDENT)
 #undef DECL_CONST_IDENT
 
-size_t ident_addrinfo, ident_connect, ident_getaddrinfo, ident_recv, ident_send,
-       ident_socket;
+size_t ident_addrinfo, ident_address, ident_connect, ident_getaddrinfo,
+       ident_recv, ident_send, ident_socket;
 
 void cb_socket_build_spec(cb_modspec *spec)
 {
+	CB_DEFINE_EXPORT(spec, "address", ident_address);
 	CB_DEFINE_EXPORT(spec, "addrinfo", ident_addrinfo);
 	CB_DEFINE_EXPORT(spec, "getaddrinfo", ident_getaddrinfo);
 	CB_DEFINE_EXPORT(spec, "socket", ident_socket);
@@ -342,10 +363,13 @@ void cb_socket_build_spec(cb_modspec *spec)
 
 void cb_socket_instantiate(struct cb_module *mod)
 {
-	struct cb_value addrinfo_spec;
+	struct cb_value addrinfo_spec, address_spec;
 	addrinfo_spec.type = CB_VALUE_STRUCT_SPEC;
 	addrinfo_spec.val.as_struct_spec = get_addrinfo_struct_spec();
+	address_spec.type = CB_VALUE_STRUCT_SPEC;
+	address_spec.val.as_struct_spec = get_address_struct_spec();
 
+	CB_SET_EXPORT(mod, ident_address, address_spec);
 	CB_SET_EXPORT(mod, ident_addrinfo, addrinfo_spec);
 	CB_SET_EXPORT_FN(mod, ident_getaddrinfo, 2, getaddrinfo_impl);
 	CB_SET_EXPORT_FN(mod, ident_socket, 3, socket_impl);

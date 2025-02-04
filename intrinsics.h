@@ -31,6 +31,19 @@
 		} \
 		_CB_EXPECT_STRING_str; \
 	})
+#define CB_EXPECT_STRUCT(SPEC, VAL) ({ \
+		struct cb_value _val = (VAL); \
+		struct cb_struct_spec *_spec = (SPEC); \
+		CB_EXPECT_TYPE(CB_VALUE_STRUCT, _val); \
+		if (_val.val.as_struct->spec != _spec) { \
+			cb_error_set(cb_value_from_fmt( \
+					"%s: expected %s argument, got %s", \
+					__func__, \
+					cb_agent_get_string(_spec->name), \
+					cb_agent_get_string(_val.val.as_struct->spec->name))); \
+			return 1; \
+		} \
+	})
 
 void make_intrinsics(cb_hashmap *scope);
 void cb_intrinsics_set_argv(int argc, char **argv);
