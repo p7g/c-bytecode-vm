@@ -295,26 +295,14 @@ int recv_impl(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	int fd, amount, received;
 	char *data;
+	struct cb_bytes *bytes;
 
 	CONVERT_TO_C_INT(fd, argv[0]);
 	CONVERT_TO_C_INT(amount, argv[1]);
 
 	data = malloc(amount * sizeof(char));
-	received = 0;
-
-	while (received < amount) {
-		int received2 = recv(fd, data + received, amount - received, 0);
-		if (received2 == -1) {
-			cb_error_from_errno();
-			free(data);
-			return 1;
-		}
-		if (received2 == 0)
-			break;
-		received += received2;
-	}
-
-	struct cb_bytes *bytes = cb_bytes_new(received);
+	received = recv(fd, data, amount, 0);
+	bytes = cb_bytes_new(received);
 	memcpy(cb_bytes_ptr(bytes), data, received);
 	free(data);
 
