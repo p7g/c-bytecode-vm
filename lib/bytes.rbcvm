@@ -5,6 +5,8 @@ import iter;
 
 let doc = docs::module("bytes", "A compact byte array type.");
 
+export struct Error { message }
+
 export let new = _bytes::new;
 export let copy = _bytes::copy;
 export let get = _bytes::get;
@@ -16,6 +18,37 @@ doc.add("function", "copy(from, to, n)", "Copy `n` bytes from `from` to `to`.");
 doc.add("function", "get(bytes, i)", "Get the `i`th element from `bytes`.");
 doc.add("function", "set(bytes, i, val)", "Set the `i`th value in `bytes` to `val`.");
 doc.add("function", "length(bytes)", "Get the length of `bytes`.");
+
+export function slice(bytes, start=0, end=-1) {
+    if (end == -1) {
+        end = length(bytes);
+    }
+
+    if (end < start) {
+        throw Error { message = "slice end must be greater or equal to start" };
+    }
+
+    let len = end - start;
+    let new_bytes = new(len);
+    for (let i = 0; i < len; i = i + 1) {
+        set(new_bytes, i, get(bytes, i + start));
+    }
+    return new_bytes;
+}
+
+export function concat(a, b) {
+    let a_len = length(a),
+        b_len = length(b);
+    let result = new(a_len + b_len);
+    let i = 0;
+    for (; i < a_len; i = i + 1) {
+        set(result, i, get(a, i));
+    }
+    for (; i < b_len; i = i + 1) {
+        set(result, i, get(b, i - a_len));
+    }
+    return result;
+}
 
 export let collector = iter::collector {
     init = arraylist::new,

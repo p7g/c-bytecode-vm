@@ -35,7 +35,7 @@ static const struct cb_builtin_module_spec builtins[] = {
 	{"_inet", cb_inet_build_spec, cb_inet_instantiate},
 	{"_math", cb_math_build_spec, cb_math_instantiate},
 	{"_bytes", cb_bytes_build_spec, cb_bytes_instantiate},
-	{"socket", cb_socket_build_spec, cb_socket_instantiate},
+	{"_socket", cb_socket_build_spec, cb_socket_instantiate},
 };
 const struct cb_builtin_module_spec *cb_builtin_modules = builtins;
 const size_t cb_builtin_module_count = sizeof(builtins) / sizeof(builtins[0]);

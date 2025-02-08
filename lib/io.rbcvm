@@ -1,0 +1,83 @@
+import bytes;
+import iter;
+import math;
+import string;
+
+let MIN_READ = 2048;
+
+export struct BufferedReader {
+    read,
+    buffer,
+}
+
+export function buffer(read) {
+    return BufferedReader {
+        read = read,
+        buffer = bytes::new(0),
+    };
+}
+
+export function read(reader, amount) {
+    let buflen;
+
+    if (bytes::length(reader.buffer) < amount) {
+        reader.buffer = bytes::concat(reader.buffer,
+                reader.read(math::max(MIN_READ, amount)));
+    }
+
+    let end = math::min(amount, bytes::length(reader.buffer));
+    let result = bytes::slice(reader.buffer, 0, end);
+    reader.buffer = bytes::slice(reader.buffer, end);
+    return result;
+}
+
+export function unread(reader, bytes) {
+    reader.buffer = bytes::concat(bytes, reader.buffer);
+}
+
+# TODO: add max size
+export function readto(reader, sequence) {
+    let seqlen = bytes::length(sequence);
+    let buf = read(reader, MIN_READ);
+    let i = 0;
+
+    for (; i < bytes::length(buf); i = i + 1) {
+        let match = true;
+        for (let j = 0; j < seqlen; j = j + 1) {
+            if (i + j > bytes::length(buf)) {
+                buf = bytes::concat(buf, read(reader, MIN_READ));
+                if (i + j > bytes::length(buf)) {
+                    return buf;
+                }
+            }
+
+            if (bytes::get(buf, i + j) != bytes::get(sequence, j)) {
+                match = false;
+                break;
+            }
+        }
+
+        if (match) {
+            let result = bytes::slice(buf, 0, i + seqlen);
+            unread(reader, bytes::slice(buf, i + seqlen));
+            return result;
+        }
+    }
+
+    return buf;
+}
+
+export function lines(reader) {
+    let seq = string::bytes("\n");
+    return function lines_next() {
+        let bytes = readto(reader, seq);
+        if (bytes::length(bytes) == 0) {
+            return iter::STOP;
+        }
+        let end = bytes::length(bytes) - 1;
+        if (bytes::length(bytes) >= 2 && bytes::get(bytes, end - 1) == ord('\r')) {
+            end = end - 1;
+        }
+        return bytes::slice(bytes, 0, end);
+    };
+}
