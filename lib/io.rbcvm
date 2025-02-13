@@ -5,34 +5,35 @@ import string;
 
 let MIN_READ = 2048;
 
-export struct BufferedReader {
+export struct BufferedIO {
     read,
-    buffer,
+    read_buffer,
+    write,
 }
 
-export function buffer(read) {
-    return BufferedReader {
+export function buffer(read, write) {
+    return BufferedIO {
         read = read,
-        buffer = bytes::new(0),
+        read_buffer = bytes::new(0),
+        write = write,
     };
 }
 
 export function read(reader, amount) {
     let buflen;
 
-    if (bytes::length(reader.buffer) < amount) {
-        reader.buffer = bytes::concat(reader.buffer,
-                reader.read(math::max(MIN_READ, amount)));
+    if (bytes::length(reader.read_buffer) == 0) {
+        reader.read_buffer = reader.read(math::max(MIN_READ, amount));
     }
 
-    let end = math::min(amount, bytes::length(reader.buffer));
-    let result = bytes::slice(reader.buffer, 0, end);
-    reader.buffer = bytes::slice(reader.buffer, end);
+    let end = math::min(amount, bytes::length(reader.read_buffer));
+    let result = bytes::slice(reader.read_buffer, 0, end);
+    reader.read_buffer = bytes::slice(reader.read_buffer, end);
     return result;
 }
 
 export function unread(reader, bytes) {
-    reader.buffer = bytes::concat(bytes, reader.buffer);
+    reader.read_buffer = bytes::concat(bytes, reader.read_buffer);
 }
 
 # TODO: add max size
@@ -67,17 +68,18 @@ export function readto(reader, sequence) {
     return buf;
 }
 
-export function lines(reader) {
-    let seq = string::bytes("\n");
+export function lines(reader, line_ending="\n") {
+    let seq = string::bytes(line_ending);
     return function lines_next() {
         let bytes = readto(reader, seq);
         if (bytes::length(bytes) == 0) {
             return iter::STOP;
         }
-        let end = bytes::length(bytes) - 1;
-        if (bytes::length(bytes) >= 2 && bytes::get(bytes, end - 1) == ord('\r')) {
-            end = end - 1;
-        }
+        let end = bytes::length(bytes) - bytes::length(seq);
         return bytes::slice(bytes, 0, end);
     };
+}
+
+export function write(writer, data) {
+    writer.write(data);
 }
