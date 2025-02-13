@@ -8,7 +8,7 @@ export let IPPROTO_UDP = _socket::IPPROTO_UDP;
 export let SOCK_DGRAM = _socket::SOCK_DGRAM;
 export let SOCK_STREAM = _socket::SOCK_STREAM;
 
-export let address = _socket::adress;
+export let address = _socket::address;
 export let addrinfo = _socket::addrinfo;
 export let accept = _socket::accept;
 export let bind = _socket::bind;
