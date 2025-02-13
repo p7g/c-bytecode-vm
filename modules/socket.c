@@ -13,14 +13,38 @@
 #include "intrinsics.h"
 #include "module.h"
 #include "str.h"
+#include "userdata.h"
 #include "value.h"
 
 #define CONVERT_TO_C_INT(OUT, VAL) ({ \
 		if (expect_c_int(#OUT, (VAL), &OUT)) \
 			return 1; \
 	})
+#define EXPECT_SOCKET(VAL) ({ \
+		struct cb_value _val = (VAL); \
+		CB_EXPECT_TYPE(CB_VALUE_USERDATA, _val); \
+		struct cb_userdata *_data = _val.val.as_userdata; \
+		if (_data->gc_header.deinit != socketdata_deinit) { \
+			cb_error_set(cb_value_from_fmt("%s: Expected socket", \
+						__func__)); \
+		} \
+		*(int *) cb_userdata_ptr(_data); \
+	})
 #define STRUCT_ADDR_HOST(S) ((S)->fields[0])
 #define STRUCT_ADDR_PORT(S) ((S)->fields[1])
+
+static void socketdata_deinit(void *data)
+{
+	close(*(int *) data);
+}
+
+static struct cb_userdata *make_socket(int fd)
+{
+	struct cb_userdata *data = cb_userdata_new(sizeof(int),
+			socketdata_deinit);
+	*(int *) cb_userdata_ptr(data) = fd;
+	return data;
+}
 
 static struct cb_struct_spec *get_address_struct_spec(void)
 {
@@ -216,8 +240,9 @@ static int socket_impl(size_t argc, struct cb_value *argv, struct cb_value *resu
 		return 1;
 	}
 
-	result->type = CB_VALUE_INT;
-	result->val.as_int = fd;
+	struct cb_userdata *data = make_socket(fd);
+	result->type = CB_VALUE_USERDATA;
+	result->val.as_userdata = data;
 	return 0;
 }
 
@@ -278,7 +303,7 @@ static int connect_impl(size_t argc, struct cb_value *argv,
 	struct sockaddr_storage addr;
 	int addrlen = sizeof addr;
 
-	CONVERT_TO_C_INT(fd, argv[0]);
+	fd = EXPECT_SOCKET(argv[0]);
 	if (parse_address(argv[1], &addr, &addrlen))
 		return 1;
 
@@ -298,7 +323,7 @@ static int send_impl(size_t argc, struct cb_value *argv,
 	struct cb_bytes *buf;
 	ssize_t buf_len;
 
-	CONVERT_TO_C_INT(fd, argv[0]);
+	fd = EXPECT_SOCKET(argv[0]);
 	CB_EXPECT_TYPE(CB_VALUE_BYTES, argv[1]);
 	buf = argv[1].val.as_bytes;
 	buf_len = cb_bytes_len(buf);
@@ -325,7 +350,7 @@ static int recv_impl(size_t argc, struct cb_value *argv,
 	char *data;
 	struct cb_bytes *bytes;
 
-	CONVERT_TO_C_INT(fd, argv[0]);
+	fd = EXPECT_SOCKET(argv[0]);
 	CONVERT_TO_C_INT(amount, argv[1]);
 
 	data = malloc(amount * sizeof(char));
@@ -346,7 +371,7 @@ static int bind_impl(size_t argc, struct cb_value *argv,
 	struct sockaddr_storage addr;
 	int addrlen;
 
-	CONVERT_TO_C_INT(fd, argv[0]);
+	fd = EXPECT_SOCKET(argv[0]);
 	if (parse_address(argv[1], &addr, &addrlen))
 		return 1;
 
@@ -364,7 +389,7 @@ static int listen_impl(size_t argc, struct cb_value *argv,
 {
 	int fd, backlog;
 
-	CONVERT_TO_C_INT(fd, argv[0]);
+	fd = EXPECT_SOCKET(argv[0]);
 	CONVERT_TO_C_INT(backlog, argv[1]);
 
 	if (listen(fd, backlog) == -1) {
@@ -384,7 +409,7 @@ static int accept_impl(size_t argc, struct cb_value *argv,
 	unsigned addrlen = sizeof addr;
 	struct cb_value addr_val;
 
-	CONVERT_TO_C_INT(fd, argv[0]);
+	fd = EXPECT_SOCKET(argv[0]);
 
 	int newfd = accept(fd, (struct sockaddr *) &addr, &addrlen);
 	if (newfd == -1) {
@@ -396,7 +421,8 @@ static int accept_impl(size_t argc, struct cb_value *argv,
 		return 1;
 
 	struct cb_array *arr = cb_array_new(2);
-	arr->values[0] = cb_int(newfd);
+	arr->values[0].type = CB_VALUE_USERDATA;
+	arr->values[0].val.as_userdata = make_socket(newfd);
 	arr->values[1] = addr_val;
 
 	result->type = CB_VALUE_ARRAY;
@@ -407,8 +433,7 @@ static int accept_impl(size_t argc, struct cb_value *argv,
 static int close_impl(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
-	int fd;
-	CONVERT_TO_C_INT(fd, argv[0]);
+	int fd = EXPECT_SOCKET(argv[0]);
 	if (close(fd) == -1) {
 		cb_error_from_errno();
 		return 1;
