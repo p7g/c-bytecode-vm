@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739035991778,
+  "lastUpdate": 1739488651568,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -1146,6 +1146,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "spectral_norm",
             "value": 5222,
+            "unit": "ms"
+          },
+          {
+            "name": "binary_trees",
+            "value": 0,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "5bb7255538c8492cba9c41b1998ba4409728680d",
+          "message": "GC socket and close on deinit",
+          "timestamp": "2025-02-13T18:12:57-05:00",
+          "tree_id": "bbfb87c67b28fad6a144939f2e267099e329a58c",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/5bb7255538c8492cba9c41b1998ba4409728680d"
+        },
+        "date": 1739488650517,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 154834,
+            "unit": "ms"
+          },
+          {
+            "name": "nbody",
+            "value": 2566,
+            "unit": "ms"
+          },
+          {
+            "name": "spectral_norm",
+            "value": 5143,
             "unit": "ms"
           },
           {
