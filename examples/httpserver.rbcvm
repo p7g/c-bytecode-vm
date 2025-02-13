@@ -1,0 +1,46 @@
+import fn;
+import http;
+import io;
+import iter;
+import socket;
+import string;
+
+let sock;
+iter::foreach(
+    socket::getaddrinfo(null, "8000", socket::AI_PASSIVE),
+    function (addrinfo) {
+        try {
+            let maybesock = socket::socket(addrinfo.family, addrinfo.socktype,
+                    addrinfo.protocol);
+            socket::bind(maybesock, addrinfo.addr);
+            sock = maybesock;
+            return iter::STOP;
+        } catch (e) {
+            println("failed", addrinfo, e);
+        }
+    },
+);
+
+if (!sock) {
+    throw "couldn't create socket";
+}
+
+socket::listen(sock, 20);
+
+while (true) {
+    let [fd, addr] = socket::accept(sock);
+
+    println("Got connection", addr.host, addr.port);
+    let io = io::buffer(fn::curry(socket::recv, fd), fn::curry(socket::send, fd));
+
+    let req = http::recv_request(io);
+    let body = http::recv_body(req);
+    println(req, string::from_bytes(body));
+
+    let resp = http::create_response(200, io);
+    http::set_header(resp.headers, "Content-Length", tostring(5));
+    http::send_response(resp);
+    http::send_body(resp, string::bytes("world"));
+
+    socket::close(fd);
+}

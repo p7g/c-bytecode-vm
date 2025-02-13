@@ -1,0 +1,263 @@
+import array;
+import bytes;
+import hashmap;
+import io;
+import iter;
+import math;
+import string;
+
+let EOL = "\r\n";
+
+struct Error { message }
+struct ParseError { message }
+
+struct Header { name, value }
+
+struct Request {
+    method,
+    path,
+    http_version,
+    headers,
+    _remaining_content,
+    _io,
+}
+
+struct Response {
+    status_code,
+    headers,
+    _remaining_content,
+    _io,
+}
+
+function parse_headers(next_line) {
+    let headers = hashmap::new();
+    let line;
+    while ((line = next_line())) {
+        let kv = string::split(line, ':', 1);
+        if (array::length(kv) != 2) {
+            throw ParseError { message = "Invalid header" };
+        }
+        let [name, value] = kv;
+        name = string::strip(name);
+        value = string::strip(value);
+        let name_lower = string::to_lowercase(name);
+       hashmap::set(headers, name_lower, Header {
+            name = name,
+            value = value,
+        });
+    }
+    return headers;
+}
+
+export function recv_request(reader) {
+    let next_line = iter::map(io::lines(reader, EOL), string::from_bytes);
+
+    let start_line_parts = string::split(next_line(), ' ', 2);
+    if (array::length(start_line_parts) != 3) {
+        throw ParseError { message = "Invalid start line" };
+    }
+    let [method, path, http_version] = start_line_parts;
+    # TODO: validate method and http_version
+    let headers = parse_headers(next_line);
+
+    return Request {
+        method = method,
+        path = path,
+        http_version = http_version,
+        headers = headers,
+        _remaining_content = string::parse_integer(
+            get_header(headers, "Content-Length", "0"),
+        ),
+        _io = reader,
+    };
+}
+
+export function recv_response(reader) {
+    let next_line = iter::map(io::lines(reader, EOL), string::from_bytes);
+
+    let start_line_parts = string::split(next_line(), ' ', 2);
+    if (array::length(start_line_parts) != 3) {
+        throw ParseError { message = "Invalid start line" };
+    }
+    let [http_version, status_code, message] = start_line_parts;
+    # TODO: validate status_code and http_version
+    let headers = parse_headers(next_line);
+
+    return Response {
+        status_code = string::parse_integer(status_code),
+        headers = headers,
+        _remaining_content = string::parse_integer(
+            get_header(headers, "Content-Length", "0"),
+        ),
+        _io = reader,
+    };
+}
+
+export function recv_body(r, limit=4096) {
+    if (r._remaining_content == 0) {
+        return bytes::new(0);
+    }
+
+    let read_amount = r._remaining_content;
+    if (limit == 0) {
+        throw Error { message = "limit must be greater than 0" };
+    } else if (limit != -1) {
+        read_amount = math::min(read_amount, limit);
+    }
+
+    let data = io::read(r._io, math::min(r._remaining_content, limit));
+
+    if (bytes::length(data) == 0) {
+        throw Error { message = "Incomplete read" };
+    }
+
+    return data;
+}
+
+export function get_header(headers, name, default=null) {
+    let header = hashmap::get(headers, string::to_lowercase(name));
+    if (header == null) {
+        return default;
+    }
+    return header.value;
+}
+
+export function set_header(headers, name, value) {
+    let name_lower = string::to_lowercase(name);
+
+    let header = hashmap::get(headers, name_lower);
+    if (header) {
+        header.value = value;
+    } else {
+        hashmap::set(headers, name_lower, Header {
+            name = name,
+            value = value,
+        });
+    }
+}
+
+export function create_response(status_code, writer) {
+    return Response {
+        status_code = status_code,
+        headers = hashmap::new(),
+        _remaining_content = 0,
+        _io = writer,
+    };
+}
+
+let MESSAGES_500 = [
+    "Internal Server Error",            # 500
+    "Not Implemented",                  # 501
+    "Bad Gateway",                      # 502
+    "Service Unavailable",              # 503
+    "Gateway Timeout",                  # 504
+    "HTTP Version Not Supported",       # 505
+    "Variant Also Negotiates",          # 506
+    "Insufficient Storage",             # 507
+    "Loop Detected",                    # 508
+    "",
+    "Not Extended",                     # 510
+    "Network Authentication Required",  # 511,
+];
+let MESSAGES_400 = [
+    "Bad Request",                    # 400
+    "Unauthorized",                   # 401
+    "Payment Required",               # 402
+    "Forbidden",                      # 403
+    "Not Found",                      # 404
+    "Method Not Allowed",             # 405
+    "Not Acceptable",                 # 406
+    "Proxy Authentication Required",  # 407
+    "Request Timeout",                # 408
+    "Conflict",                       # 409
+    # TODO: fill out more...
+];
+let MESSAGES_300 = [
+    "Multiple Choices",    # 300
+    "Moved Permanently",   # 301
+    "Found",               # 302
+    "See Other",           # 303
+    "Not Modified",        # 304
+    "",
+    "",
+    "Temporary Redirect",  # 307
+    "Permanent Redirect",  # 308
+];
+let MESSAGES_200 = [
+    "OK",                             # 200
+    "Created",                        # 201
+    "Accepted",                       # 202
+    "Non-Authoritative Information",  # 203
+    "No Content",                     # 204
+    "Reset Content",                  # 205
+    "Partial Content",                # 206
+];
+let MESSAGES_100 = [
+    "Continue",             # 100
+    "Switching Protocols",  # 101
+];
+
+function get_status_message(code) {
+    if (code >= 500) {
+        return array::get(MESSAGES_500, code - 500, "");
+    } else if (code >= 400) {
+        return array::get(MESSAGES_400, code - 400, "");
+    } else if (code >= 300) {
+        return array::get(MESSAGES_300, code - 300, "");
+    } else if (code >= 200) {
+        return array::get(MESSAGES_200, code - 200, "");
+    } else if (code >= 100) {
+        return array::get(MESSAGES_100, code - 100, "");
+    } else {
+        return "";
+    }
+}
+
+export function send_response(resp) {
+    let nlines = hashmap::size(resp.headers) + 2;
+    let lines = array::new(nlines);
+    lines[0] = string::concat("HTTP/1.1 ", tostring(resp.status_code), " ",
+            get_status_message(resp.status_code), "\r\n");
+    iter::foreach(
+        iter::enumerate(hashmap::values(resp.headers), 1),
+        function add_header([i, header]) {
+            # TODO: encode header value
+            lines[i] = string::concat(header.name, ": ", header.value, "\r\n");
+        },
+    );
+    lines[nlines - 1] = "\r\n";
+
+    let content = string::bytes(apply(string::concat, lines));
+    io::write(resp._io, content);
+}
+
+export function create_request(method, path, writer) {
+    return Request {
+        method = method,
+        path = path,
+        http_version = "HTTP/1.1",
+        headers = hashmap::new(),
+        _remaining_content = 0,
+        _io = writer,
+    };
+}
+
+export function send_request(req) {
+    let nlines = hashmap::size(req.headers) + 2;
+    let lines = array::new(nlines);
+    lines[0] = string::concat(req.method, " ", req.path, " HTTP/1.1\r\n");
+    iter::foreach(
+        iter::enumerate(hashmap::values(req.headers), 1),
+        function add_header([i, header]) {
+            lines[i] = string::concat(header.name, ": ", header.value, "\r\n");
+        },
+    );
+    lines[nlines - 1] = "\r\n";
+
+    let content = string::bytes(apply(string::concat, lines));
+    io::write(req._io, content);
+}
+
+export function send_body(r, data) {
+    io::write(r._io, data);
+}
