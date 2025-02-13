@@ -162,7 +162,10 @@ export function reversed(self) {
 
 doc.add("function", "reversed(array)", "Create a new array with the elements of `array` reversed.");
 
-export function slice(self, start, end) {
+export function slice(self, start, end=null) {
+    if (end == null) {
+        end = length(self);
+    }
     let sub = new(end - start);
     for (let i = start; i < end; i = i + 1) {
         sub[i - start] = self[i];
@@ -172,8 +175,8 @@ export function slice(self, start, end) {
 
 doc.add(
   "function",
-  "slice(array, start, end)",
-  "Returns a slice of `array` starting at index `start` and ending at index `end`.",
+  "slice(array, start, end=...)",
+  "Returns a slice of `array` starting at index `start` and ending at index `end`. `end` defaults to the end of the array.",
 );
 
 export function copy(self) {
