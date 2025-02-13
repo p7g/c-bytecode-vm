@@ -24,11 +24,16 @@
 /* Directories */
 static size_t ident_opendir, ident_closedir, ident_readdir;
 
+static DIR **dir_ptr(struct cb_userdata *data)
+{
+	return (DIR **) &data->userdata;
+}
+
 static void deinit_dir(void *ptr)
 {
 	struct cb_userdata *dir = ptr;
-	if (*cb_userdata_ptr(dir))
-		closedir((DIR *) *cb_userdata_ptr(dir));
+	if (*dir_ptr(dir))
+		closedir(*dir_ptr(dir));
 }
 
 static int wrapped_opendir(size_t argc, struct cb_value *argv,
@@ -47,7 +52,7 @@ static int wrapped_opendir(size_t argc, struct cb_value *argv,
 	}
 
 	dirval = cb_userdata_new(sizeof(DIR *), deinit_dir);
-	*cb_userdata_ptr(dirval) = dir;
+	*dir_ptr(dirval) = dir;
 
 	result->type = CB_VALUE_USERDATA;
 	result->val.as_userdata = dirval;
@@ -69,10 +74,10 @@ static int wrapped_closedir(size_t argc, struct cb_value *argv,
 	}
 
 	data = argv[0].val.as_userdata;
-	dir = *cb_userdata_ptr(data);
+	dir = *dir_ptr(data);
 	if (dir)
 		closedir(dir);
-	*cb_userdata_ptr(data) = NULL;
+	*dir_ptr(data) = NULL;
 
 	return 0;
 }
@@ -92,7 +97,7 @@ static int wrapped_readdir(size_t argc, struct cb_value *argv,
 	}
 
 	data = argv[0].val.as_userdata;
-	dir = *cb_userdata_ptr(data);
+	dir = *dir_ptr(data);
 
 	if (!(ent = readdir(dir))) {
 		result->type = CB_VALUE_NULL;
@@ -153,11 +158,16 @@ static int wrapped_stat(size_t argc, struct cb_value *argv,
 	return 0;
 }
 
+static FILE **file_ptr(struct cb_userdata *data)
+{
+	return (FILE **) &data->userdata;
+}
+
 static void deinit_file(void *ptr)
 {
 	struct cb_userdata *data = ptr;
-	if (*cb_userdata_ptr(data))
-		fclose((FILE *) *cb_userdata_ptr(data));
+	if (*file_ptr(data))
+		fclose(*file_ptr(data));
 }
 
 static int wrapped_fopen(size_t argc, struct cb_value *argv,
@@ -177,7 +187,7 @@ static int wrapped_fopen(size_t argc, struct cb_value *argv,
 		result->type = CB_VALUE_USERDATA;
 		data = result->val.as_userdata = cb_userdata_new(
 				sizeof(FILE *), deinit_file);
-		*cb_userdata_ptr(data) = f;
+		*file_ptr(data) = f;
 	}
 	return 0;
 }
@@ -195,10 +205,10 @@ static int wrapped_fclose(size_t argc, struct cb_value *argv,
 	}
 
 	data = argv[0].val.as_userdata;
-	f = *cb_userdata_ptr(data);
+	f = *file_ptr(data);
 	if (f)
 		fclose(f);
-	*cb_userdata_ptr(data) = NULL;
+	*file_ptr(data) = NULL;
 
 	return 0;
 }
@@ -229,7 +239,7 @@ static int wrapped_fread(size_t argc, struct cb_value *argv,
 	}
 
 	data = file.val.as_userdata;
-	f = *cb_userdata_ptr(data);
+	f = *file_ptr(data);
 	if (!f) {
 		cb_error_set(cb_value_from_string(
 				"fread: Cannot read from closed file"));
@@ -278,7 +288,7 @@ static int wrapped_fgets(size_t argc, struct cb_value *argv,
 	}
 
 	data = file.val.as_userdata;
-	f = *cb_userdata_ptr(data);
+	f = *file_ptr(data);
 	if (!f) {
 		cb_error_set(cb_value_from_string(
 				"fgets: Cannot read from closed file"));
@@ -318,7 +328,7 @@ static int wrapped_fgetc(size_t argc, struct cb_value *argv,
 	}
 
 	data = argv[0].val.as_userdata;
-	f = *cb_userdata_ptr(data);
+	f = *file_ptr(data);
 	if (!f) {
 		cb_error_set(cb_value_from_string(
 				"fgetc: Can't read from closed file"));
@@ -349,7 +359,7 @@ static int wrapped_feof(size_t argc, struct cb_value *argv,
 	}
 
 	data = argv[0].val.as_userdata;
-	f = *cb_userdata_ptr(data);
+	f = *file_ptr(data);
 	if (!f) {
 		cb_error_set(cb_value_from_string("feof: File is closed"));
 		return 1;
@@ -374,7 +384,7 @@ static int wrapped_ferror(size_t argc, struct cb_value *argv,
 	}
 
 	data = argv[0].val.as_userdata;
-	f = *cb_userdata_ptr(data);
+	f = *file_ptr(data);
 	if (!f) {
 		cb_error_set(cb_value_from_string("ferror: File is closed"));
 		return 1;

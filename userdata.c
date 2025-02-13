@@ -4,9 +4,9 @@
 #include "cb_util.h"
 #include "userdata.h"
 
-CB_INLINE void **cb_userdata_ptr(struct cb_userdata *data)
+CB_INLINE void *cb_userdata_ptr(struct cb_userdata *data)
 {
-	return (void **) &data->userdata;
+	return (void *) &data->userdata;
 }
 
 struct cb_userdata *cb_userdata_new(size_t size,

@@ -12,7 +12,7 @@ struct cb_userdata {
 	unsigned char userdata[];
 };
 
-void **cb_userdata_ptr(struct cb_userdata *ud);
+void *cb_userdata_ptr(struct cb_userdata *ud);
 struct cb_userdata *cb_userdata_new(size_t size,
 		cb_userdata_deinit_fn *deinit_fn);
 
