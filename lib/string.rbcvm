@@ -279,3 +279,9 @@ doc.add(
   "join(strings, sep)",
   "Join all `strings` together with `sep` in between each.",
 );
+
+export function to_lowercase(string) {
+    return iter::collect(iter::map(chars(string), char::to_lowercase), collector);
+}
+
+doc.add("function", "to_lowercase(string)", "Convert `string` to lower case.");
