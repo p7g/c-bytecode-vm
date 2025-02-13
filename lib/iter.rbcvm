@@ -1,6 +1,8 @@
 import _array;
 import _arraylist_impl;
 import docs;
+import math;
+import op;
 
 let doc = docs::module("iter", "Lazy iterators.");
 
@@ -95,7 +97,7 @@ doc.add(
 
 export function collect(it, collector=_array_collector) {
   return collector.finalize(
-    fold(ensure_iterable(it), collector.init(), collector.reduce),
+    fold(collector.reduce, ensure_iterable(it), collector.init()),
   );
 }
 
@@ -105,8 +107,8 @@ doc.add(
   "Evaluate an iterator, returning an array of the values it yields.",
 );
 
-export function map(_it, fn) {
-  let it = ensure_iterable(_it);
+export function map(it, fn) {
+  it = ensure_iterable(it);
   return function() {
     let val = it();
     if (val == STOP) {
@@ -229,18 +231,18 @@ export function flat(_it) {
 
 doc.add("function", "flat(it)", "Flattens an iterator of iterators.");
 
-export function fold1(it, reducer) {
+export function fold1(reducer, it) {
   it = ensure_iterable(it);
-  return fold(it, it(), reducer);
+  return fold(reducer, it, it());
 }
 
 doc.add(
   "function",
-  "fold1(it, reducer)",
+  "fold1(reducer, it)",
   "Reduce the iterator, using the first value as the initial value of the accumulator.",
 );
 
-export function fold(it, init, reducer) {
+export function fold(reducer, it, init) {
   foreach(it, function (item) {
     init = reducer(init, item);
   });
@@ -249,17 +251,12 @@ export function fold(it, init, reducer) {
 
 doc.add(
   "function",
-  "fold(it, init, reducer)",
+  "fold(reducer, it, init)",
   "Reduce the iterator, using `init` as the initial value of the accumulator.",
 );
 
 export function max(it) {
-  return fold(it, null, function (greatest, item) {
-    if (greatest == null || item > greatest) {
-      return item;
-    }
-    return greatest;
-  });
+  return fold1(math::max, it);
 }
 
 doc.add(
@@ -269,12 +266,7 @@ doc.add(
 );
 
 export function min(it) {
-  return fold(it, null, function (least, item) {
-    if (least == null || item < least) {
-      return item;
-    }
-    return least;
-  });
+  return fold(math::min, it);
 }
 
 doc.add(
@@ -322,3 +314,9 @@ doc.add(
   "intersperse(it, val)",
   "Yield `val` in between each element of `it`.",
 );
+
+export function sum(_it) {
+    return fold1(op::add, _it);
+}
+
+doc.add("function", "sum(it)", "Sum the elements of `it`.");
