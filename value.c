@@ -228,7 +228,9 @@ cb_str cb_value_to_string(struct cb_value val)
 
 		blen = cb_bytes_len(bs);
 		/* room for "<<>>" plus comma-space between each elem */
-		len = 4 + (blen - 1) * 2;
+		len = 4;
+		if (blen > 0)
+			len += (blen - 1) * 2;
 		for (i = 0; i < blen; i += 1)
 			len += snprintf(NULL, 0, "%d", cb_bytes_get(bs, i));
 		cb_str_init(&buf, len);
@@ -244,6 +246,8 @@ cb_str cb_value_to_string(struct cb_value val)
 		}
 		*ptr++ = '>';
 		*ptr++ = '>';
+		*ptr++ = 0;
+		assert(ptr == start + len + 1);
 		break;
 	}
 
