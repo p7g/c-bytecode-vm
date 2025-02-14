@@ -20,8 +20,17 @@ ifeq ($(TARGET),debug)
 	CFLAGS+=-DCB_DEBUG_VM
 endif
 
-cbcvm: *.c *.h modules/*.c modules/*.h
-	$(CC) $(CFLAGS) -o cbcvm *.c modules/*.c $(LDFLAGS)
+SRC = $(wildcard *.c modules/*.c)
+OBJ := $(patsubst %.c,%.o,$(SRC))
+DEP := $(patsubst %.o,%.d,$(OBJ))
+
+cbcvm: $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+-include $(DEP)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -MMD -o $@ -c $<
 
 # Generate a release binary using profile-guided optimization
 profile-opt:
@@ -33,6 +42,7 @@ profile-opt:
 
 clean:
 	[ -f cbcvm ] && rm cbcvm || true
+	-rm $(OBJ) $(DEP)
 	find . \( -name '*.gcda' -o -name '*.gcno' -o -name 'gmon.out' \) -delete
 
 .PHONY: clean profile-opt
