@@ -1,3 +1,4 @@
+import char;
 import test;
 
 export function test_unicode_char_in_string() {
@@ -6,4 +7,13 @@ export function test_unicode_char_in_string() {
 
 export function test_unicode_char() {
     test::assert('…' == '…');
+}
+
+export function test_char_case_conversion() {
+    let lower = 'ß';
+    let upper = 'ẞ';
+    test::assert(char::to_uppercase(lower) == upper);
+    test::assert(char::to_lowercase(upper) == lower);
+    test::assert(char::to_uppercase(upper) == upper);
+    test::assert(char::to_lowercase(lower) == lower);
 }

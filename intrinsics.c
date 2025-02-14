@@ -5,6 +5,8 @@
 #include <string.h>
 #include <time.h>
 
+#include "utf8proc/utf8proc.h"
+
 #include "agent.h"
 #include "bytes.h"
 #include "disassemble.h"
@@ -233,10 +235,18 @@ static int ord(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 static int chr(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
+	int64_t intval;
+
 	CB_EXPECT_TYPE(CB_VALUE_INT, argv[0]);
+	intval = argv[0].val.as_int;
+	if (intval > INT32_MAX || intval < INT32_MIN
+			|| !utf8proc_codepoint_valid(intval)) {
+		cb_error_set(cb_value_from_fmt("Invalid codepoint"));
+		return 1;
+	}
 
 	result->type = CB_VALUE_CHAR;
-	result->val.as_char = argv[0].val.as_int & 0xFF;
+	result->val.as_char = argv[0].val.as_int;
 
 	return 0;
 }
@@ -297,6 +307,7 @@ static int read_file(size_t argc, struct cb_value *argv,
 
 #undef X
 
+	/* TODO: validate utf-8 */
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
 	result->val.as_string->string = cb_str_take_cstr(buf, len);

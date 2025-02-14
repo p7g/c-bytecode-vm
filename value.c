@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "utf8proc/utf8proc.h"
+
 #include "agent.h"
 #include "alloc.h"
 #include "bytes.h"
@@ -210,12 +212,14 @@ cb_str cb_value_to_string(struct cb_value val)
 		snprintf(cb_strptr(&buf), len + 1, "null");
 		break;
 
-	case CB_VALUE_CHAR:
-		cb_str_init(&buf, 1);
-		/* FIXME: unicode */
-		cb_strptr(&buf)[0] = val.val.as_char & 0xFF;
-		cb_strptr(&buf)[1] = 0;
+	case CB_VALUE_CHAR: {
+		cb_str_init(&buf, 4);
+		ssize_t written = utf8proc_encode_char(val.val.as_char,
+				(unsigned char *) cb_strptr(&buf));
+		cb_strptr(&buf)[written] = 0;
+		buf.len = written;
 		break;
+	}
 
 	case CB_VALUE_STRING:
 		buf = cb_strdup(val.val.as_string->string);

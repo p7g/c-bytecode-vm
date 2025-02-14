@@ -12,6 +12,7 @@
 
 #include "modules/arrays.h"
 #include "modules/bytesmodule.h"
+#include "modules/chars.h"
 #include "modules/errno.h"
 #include "modules/fs.h"
 #include "modules/inet.h"
@@ -34,7 +35,8 @@
 	X(inet, _inet) \
 	X(math, _math) \
 	X(bytes, _bytes) \
-	X(socket, _socket)
+	X(socket, _socket) \
+	X(chars, _char)
 
 #define MOD(NAME, PUB_NAME) { \
 		.name = #PUB_NAME, \
