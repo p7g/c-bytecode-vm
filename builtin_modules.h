@@ -18,6 +18,8 @@
 
 struct cb_builtin_module_spec {
 	const char *name;
+	size_t name_len;
+	size_t name_id;
 	void (*build_spec)(cb_modspec *);
 	void (*instantiate)(struct cb_module *);
 };
