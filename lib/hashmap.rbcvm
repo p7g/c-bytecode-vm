@@ -9,11 +9,11 @@ let INITIAL_CAPACITY = toint(2 ** 3);
 let LOAD_FACTOR = 0.7;
 let TOMBSTONE = struct {};
 
-struct HashMap {
-  cap, load, hash_fn, buckets
+export struct HashMap {
+  cap, load, hash_fn, buckets, first_insert, last_insert
 }
 
-struct Bucket { key, value }
+struct Bucket { key, value, prev, next }
 
 let default_hash = hash::primitive;
 
@@ -28,12 +28,11 @@ function grow(self) {
   self.buckets = array::new(cap);
   self.load = 0;
 
-  array::foreach(old_buckets, function(bucket) {
-    if (!bucket || bucket == TOMBSTONE) {
-      return;
-    }
+  let bucket = self.first_insert;
+  self.first_insert = self.last_insert = null;
+  for (let bucket = self.first_insert; bucket; bucket = bucket.next) {
     set(self, bucket.key, bucket.value);
-  });
+  }
 }
 
 function next_hash(self, hash) {
@@ -75,6 +74,8 @@ export function new(options=DEFAULT_OPTIONS) {
     load=0,
     hash_fn=options.hash_function,
     buckets=array::new(options.initial_capacity),
+    first_insert=null,
+    last_insert=null,
   };
 }
 
@@ -86,6 +87,7 @@ doc.add(
 
 export function clear(self) {
   self.buckets = array::new(self.capacity);
+  self.first_insert = self.last_insert = null;
   self.load = 0;
 }
 
@@ -124,7 +126,14 @@ export function set(self, key, value) {
   if (bucket && bucket != TOMBSTONE) {
     bucket.value = value;
   } else {
-    self.buckets[hashed] = Bucket { key=key, value=value };
+    let bucket = Bucket { key=key, value=value, prev=self.last_insert };
+    self.buckets[hashed] = bucket;
+    if (!self.first_insert) {
+      self.first_insert = self.last_insert = bucket;
+    } else {
+      self.last_insert.next = bucket;
+      self.last_insert = bucket;
+    }
     self.load = self.load + 1;
 
     if (self.load / self.cap > LOAD_FACTOR) {
@@ -154,6 +163,8 @@ export function delete(self, key) {
     hashed = next_hash(self, hashed);
   }
 
+  bucket.next.prev = bucket.prev;
+  bucket.prev.next = bucket.next;
   self.buckets[hashed] = TOMBSTONE;
   self.load = self.load - 1;
   return true;
@@ -179,22 +190,15 @@ export function has(self, key) {
 doc.add("function", "has(map, key)", "Check if `map` has a value for `key`.");
 
 export function entries(self) {
-  let len = array::length(self.buckets);
-  let i = 0;
+  let bucket = self.first_insert;
 
   return function next() {
-    if (i >= len) {
+    if (bucket == null) {
       return iter::STOP;
     }
-    let bucket = null;
-    while (i < len) {
-      let bucket = self.buckets[i];
-      i = i + 1;
-      if (bucket && bucket != TOMBSTONE) {
-        return [bucket.key, bucket.value];
-      }
-    }
-    return iter::STOP;
+    let result = [bucket.key, bucket.value];
+    bucket = bucket.next;
+    return result;
   };
 }
 
