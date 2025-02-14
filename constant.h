@@ -32,7 +32,7 @@ struct cb_const {
 	union {
 		intptr_t as_int;
 		double as_double;
-		uint32_t as_char;
+		int32_t as_char;
 		size_t as_string;  /* always interned */
 		struct cb_const_array *as_array;
 		struct cb_const_struct *as_struct;

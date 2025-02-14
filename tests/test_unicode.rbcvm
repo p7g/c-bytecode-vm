@@ -3,3 +3,7 @@ import test;
 export function test_unicode_char_in_string() {
     test::assert("…" == "…");
 }
+
+export function test_unicode_char() {
+    test::assert('…' == '…');
+}

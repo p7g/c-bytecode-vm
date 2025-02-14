@@ -123,7 +123,6 @@ int cb_disassemble_one(cb_instruction instruction, size_t offset)
 		return 0;
 
 	/* one arg */
-	case OP_CONST_CHAR:
 	case OP_JUMP:
 	case OP_JUMP_IF_TRUE:
 	case OP_JUMP_IF_FALSE:

@@ -83,7 +83,7 @@ struct cb_value {
 		intptr_t as_int;
 		double as_double;
 		int as_bool;
-		uint32_t as_char;
+		int32_t as_char;
 		size_t as_interned_string;
 		/* heap allocated */
 		struct cb_string *as_string;

@@ -339,14 +339,6 @@ DO_OP_CONST_STRING: {
 	DISPATCH();
 }
 
-DO_OP_CONST_CHAR: {
-	struct cb_value val;
-	val.type = CB_VALUE_CHAR;
-	val.val.as_char = (uint32_t) ARG;
-	PUSH(val);
-	DISPATCH();
-}
-
 DO_OP_CONST_TRUE: {
 	struct cb_value val;
 	val.type = CB_VALUE_BOOL;

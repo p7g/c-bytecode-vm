@@ -30,7 +30,6 @@ int cb_opcode_stack_effect(const cb_instruction instruction)
 	case OP_CONST_FALSE:
 	case OP_CONST_NULL:
 	case OP_CONST_STRING:
-	case OP_CONST_CHAR:
 	case OP_JUMP:
 	case OP_DUP:
 	case OP_LOAD_LOCAL:

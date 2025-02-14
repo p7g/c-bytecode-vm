@@ -2340,15 +2340,27 @@ static int compile_string_expression(struct cstate *state)
 static int compile_char_expression(struct cstate *state)
 {
 	struct token tok;
-	size_t c;
+	const unsigned char *text;
+
+	struct cb_const const_;
+	const_.type = CB_CONST_CHAR;
 
 	tok = EXPECT(TOK_CHAR);
-	/* FIXME: support unicode */
-	c = tok_start(state, &tok)[1];
-	if (c == '\\')
-		c = TRANSLATE_ESCAPE(tok_start(state, &tok)[2]);
+	text = tok_start(state, &tok) + 1;
+	if (text[0] == '\\') {
+		/* FIXME: support unicode */
+		const_.val.as_char = TRANSLATE_ESCAPE(tok_start(state, &tok)[2]);
+	} else {
+		ssize_t result = utf8proc_iterate(text,
+				tok.end - tok.start - 2, &const_.val.as_char);
+		if (result < 0) {
+			ERROR_AT(tok, "%s", utf8proc_errmsg(result));
+			return 1;
+		}
+	}
 
-	APPEND1(OP_CONST_CHAR, c);
+	size_t const_id = cstate_add_const(state, const_);
+	APPEND1(OP_LOAD_CONST, const_id);
 
 	return 0;
 }
