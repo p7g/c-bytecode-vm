@@ -10,20 +10,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "utf8proc/utf8proc.h"
+
 #include "agent.h"
 #include "builtin_modules.h"
 #include "cb_util.h"
 #include "code.h"
 #include "compiler.h"
 #include "constant.h"
+#include "disassemble.h"
 #include "error.h"
 #include "eval.h"
 #include "hashmap.h"
 #include "module.h"
 #include "opcode.h"
 #include "struct.h"
-
-#include "disassemble.h"
 
 #define INITIAL_BYTECODE_SIZE 32
 #define LENGTH(ARR) (sizeof(ARR) / sizeof(ARR[0]))
@@ -108,15 +109,19 @@ struct token {
 struct lex_state {
 	size_t name;
 	size_t current_line, current_column;
-	const char *ptr;
+	const utf8proc_uint8_t *input;
+	size_t input_pos, input_len;
 };
 
-static void lex_state_init(struct lex_state *state, size_t name)
+static void lex_state_init(struct lex_state *state, size_t name,
+		const utf8proc_uint8_t *input, size_t input_len)
 {
 	state->name = name;
 	state->current_line = 1;
 	state->current_column = 1;
-	state->ptr = NULL;
+	state->input = input;
+	state->input_pos = 0;
+	state->input_len = input_len;
 }
 
 #define KW(S, T) { S, sizeof(S) - 1, T }
@@ -161,20 +166,15 @@ static const char *token_type_name(enum token_type t)
 }
 
 /* Read the next token from the given input string */
-static int next_token(struct lex_state *state, const char *input,
-		struct token *dest)
+static int next_token(struct lex_state *state, struct token *dest)
 {
-	const char *start_of_token;
-	int is_double, c;
+	const utf8proc_uint8_t *start_of_token;
+	int is_double;
+	utf8proc_int32_t c;
 	unsigned i, len;
 
 	assert(state != NULL);
-	assert(input != NULL);
 	assert(dest != NULL);
-	if (state->ptr == NULL) {
-		state->current_line = state->current_column = 1;
-		state->ptr = input;
-	}
 
 /* Print an error message and location data */
 #define ERROR(message, ...) do { \
@@ -185,8 +185,27 @@ static int next_token(struct lex_state *state, const char *input,
 				state->current_column, \
 			##__VA_ARGS__); \
 	} while (0)
-#define NEXT() (state->current_column += 1, *state->ptr++)
-#define PEEK() (*state->ptr)
+#define GETCHAR(OUT) ({ \
+		utf8proc_ssize_t result = utf8proc_iterate( \
+				state->input + state->input_pos, \
+				state->input_len - state->input_pos, &(OUT)); \
+		if (result < 0) { \
+			ERROR("%s", utf8proc_errmsg(result)); \
+			return 1; \
+		} \
+		result; \
+	})
+#define NEXT() ({ \
+		utf8proc_int32_t _c; \
+		state->current_column += 1; \
+		state->input_pos += GETCHAR(_c); \
+		_c; \
+	})
+#define PEEK() ({ \
+		utf8proc_int32_t _c; \
+		GETCHAR(_c); \
+		_c; \
+	})
 #define TOKEN(TYPE) ({ dest->type = (TYPE); goto end; })
 #define OR2(SND, A, B) ({ \
 		if (PEEK() == (SND)) { \
@@ -197,14 +216,18 @@ static int next_token(struct lex_state *state, const char *input,
 		} \
 	})
 
-	start_of_token = state->ptr;
+	start_of_token = state->input + state->input_pos;
 
 	while (PEEK()) {
-		start_of_token = state->ptr;
+		start_of_token = state->input + state->input_pos;
 		dest->line = state->current_line;
 		dest->column = state->current_column;
 
-		switch ((c = NEXT())) {
+		c = NEXT();
+		if (c == -1)
+			break;
+
+		switch (c) {
 		/* Skip whitespace, but count newlines */
 		case '\n':
 			state->current_line += 1;
@@ -284,8 +307,7 @@ static int next_token(struct lex_state *state, const char *input,
 			for (i = 0; i < LENGTH(KEYWORDS); i += 1) {
 				if (len != KEYWORDS[i].len)
 					continue;
-				if (!strncmp(start_of_token,
-							KEYWORDS[i].name,
+				if (!memcmp(start_of_token, KEYWORDS[i].name,
 							len))
 					TOKEN(KEYWORDS[i].type);
 			}
@@ -296,7 +318,8 @@ static int next_token(struct lex_state *state, const char *input,
 			if (strchr(VALID_ESCAPES, PEEK())) { \
 				(void) NEXT(); \
 			} else { \
-				ERROR("Unrecognized escape sequence '%c'", PEEK()); \
+				utf8proc_int32_t peeked = PEEK(); \
+				ERROR("Unrecognized escape sequence '%c'", peeked); \
 				return 1; \
 			} \
 		} \
@@ -339,8 +362,8 @@ static int next_token(struct lex_state *state, const char *input,
 #undef ERROR
 
 end:
-	dest->end = state->ptr - input;
-	dest->start = start_of_token - input;
+	dest->end = state->input_pos;
+	dest->start = start_of_token - state->input;
 	return 0;
 }
 
@@ -615,7 +638,6 @@ static cb_instruction *bytecode_finalize(struct cb_bytecode *bc, size_t *len)
 }
 
 struct parse_state {
-	const char *input;
 	int did_peek;
 	struct token peeked;
 	struct lex_state lex_state;
@@ -676,14 +698,14 @@ struct loop_state {
 	unsigned try_depth;
 };
 
-static struct parse_state *parse_state_new(const char *input, size_t name)
+static struct parse_state *parse_state_new(const utf8proc_uint8_t *input,
+		size_t input_len, size_t name)
 {
 	struct parse_state *ps;
 
 	ps = malloc(sizeof(struct parse_state));
-	ps->input = input;
 	ps->did_peek = 0;
-	lex_state_init(&ps->lex_state, name);
+	lex_state_init(&ps->lex_state, name, input, input_len);
 
 	return ps;
 }
@@ -710,10 +732,10 @@ static void module_state_free(struct module_state *state)
 	free(state);
 }
 
-static void cstate_init(struct cstate *const state, const char *input,
-		size_t name)
+static void cstate_init(struct cstate *const state,
+		const utf8proc_uint8_t *input, size_t input_len, size_t name)
 {
-	state->parse_state = parse_state_new(input, name);
+	state->parse_state = parse_state_new(input, input_len, name);
 	state->module_state = NULL;
 	state->function_state = NULL;
 	state->loop_state = NULL;
@@ -831,15 +853,17 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 	return 0;
 }
 
-static CB_INLINE const char *tok_start(struct cstate *state, struct token *tok)
+static CB_INLINE const utf8proc_uint8_t *tok_start(struct cstate *state,
+		struct token *tok)
 {
-	return state->parse_state->input + tok->start;
+	return state->parse_state->lex_state.input + tok->start;
 }
 
 static CB_INLINE size_t intern_ident(struct cstate *state, struct token *tok)
 {
 	assert(tok->type == TOK_IDENT);
-	return cb_agent_intern_string(tok_start(state, tok), tok_len(tok));
+	return cb_agent_intern_string((const char *) tok_start(state, tok),
+			tok_len(tok));
 }
 
 static struct token *peek(struct parse_state *state, int *ok)
@@ -849,7 +873,7 @@ static struct token *peek(struct parse_state *state, int *ok)
 		return &state->peeked;
 	}
 	state->did_peek = 1;
-	*ok = !next_token(&state->lex_state, state->input, &state->peeked);
+	*ok = !next_token(&state->lex_state, &state->peeked);
 	return &state->peeked;
 }
 
@@ -861,7 +885,7 @@ static struct token next(struct parse_state *state, int *ok)
 		state->did_peek = 0;
 		return state->peeked;
 	} else {
-		*ok = !next_token(&state->lex_state, state->input, &tok);
+		*ok = !next_token(&state->lex_state, &tok);
 		return tok;
 	}
 }
@@ -1826,7 +1850,7 @@ static int compile_import_statement(struct cstate *state)
 		if (cb_strlen(cb_agent_get_string(
 					state->parse_state->lex_state.name))
 				== sizeof("<script>") - 1
-				&& !strncmp("<script>", cb_strptr(&_name),
+				&& !memcmp("<script>", cb_strptr(&_name),
 					sizeof("<script>") - 1)) {
 			filename = malloc(1);
 			*filename = 0;
@@ -2289,7 +2313,7 @@ static int compile_string_expression(struct cstate *state)
 	struct token tok;
 	size_t id, len, toklen, i;
 	char *str;
-	const char *lit;
+	const utf8proc_uint8_t *lit;
 
 	tok = EXPECT(TOK_STRING);
 	toklen = tok_len(&tok) - 2;
@@ -2774,7 +2798,7 @@ static int compile_expression(struct cstate *state)
 	return compile_expression_inner(state, 0);
 }
 
-static int read_file(FILE *f, char **out)
+static int read_file(FILE *f, char **out, size_t *filesize_out)
 {
 	int result;
 	size_t filesize;
@@ -2800,6 +2824,8 @@ static int read_file(FILE *f, char **out)
 	*out = malloc(sizeof(char) * filesize + 1);
 	fread(*out, sizeof(char), filesize, f);
 	(*out)[filesize] = 0;
+	if (filesize_out)
+		*filesize_out = filesize;
 
 	goto epilogue;
 
@@ -2830,12 +2856,14 @@ size_t name_from_path(const char *path)
 	return name;
 }
 
-int cb_compile_string(cb_modspec *module, const char *source)
+int cb_compile_string(cb_modspec *module, const char *source,
+		size_t source_len)
 {
 	struct cstate state;
 	int result;
 
-	cstate_init(&state, source, cb_modspec_name(module));
+	cstate_init(&state, (const unsigned char *) source, source_len,
+			cb_modspec_name(module));
 	result = compile_into_module(&state, module);
 	cstate_deinit(&state);
 
@@ -2845,17 +2873,19 @@ int cb_compile_string(cb_modspec *module, const char *source)
 int cb_compile_file(cb_modspec *module, FILE *f)
 {
 	char *input;
+	size_t input_size;
 	int result;
 
-	X(read_file(f, &input));
+	X(read_file(f, &input, &input_size));
 
-	result = cb_compile_string(module, input);
+	result = cb_compile_string(module, input, input_size);
 	free(input);
 
 	return result;
 }
 
-struct cb_code *cb_repl_compile(cb_modspec *modspec, char *source)
+struct cb_code *cb_repl_compile(cb_modspec *modspec, const char *source,
+		size_t source_len)
 {
 	static struct module_state *module_state = NULL;
 
@@ -2870,7 +2900,8 @@ struct cb_code *cb_repl_compile(cb_modspec *modspec, char *source)
 		module_state = module_state_new(modspec);
 
 	struct cstate state;
-	cstate_init(&state, source, cb_modspec_name(modspec));
+	cstate_init(&state, (const unsigned char *) source, source_len,
+			cb_modspec_name(modspec));
 
 	state.module_state = module_state;
 

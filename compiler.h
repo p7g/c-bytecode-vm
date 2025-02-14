@@ -10,7 +10,8 @@
 typedef size_t cb_instruction;
 
 int cb_compile_file(cb_modspec *module, FILE *f);
-int cb_compile_string(cb_modspec *module, const char *source);
-struct cb_code *cb_repl_compile(cb_modspec *modspec, char *source);
+int cb_compile_string(cb_modspec *module, const char *source, size_t source_len);
+struct cb_code *cb_repl_compile(cb_modspec *modspec, const char *source,
+		size_t source_len);
 
 #endif

@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -50,7 +52,7 @@ int cb_repl(void)
 		if (!*line)
 			continue;
 		add_history(line);
-		code = cb_repl_compile(modspec, line);
+		code = cb_repl_compile(modspec, line, strlen(line));
 		free(line);
 		if (!code)
 			continue;
@@ -66,7 +68,7 @@ int cb_repl(void)
 	}
 
 	/* Clean up state */
-	cb_repl_compile(NULL, NULL);
+	cb_repl_compile(NULL, NULL, 0);
 	if (did_init_vm)
 		cb_vm_deinit();
 
