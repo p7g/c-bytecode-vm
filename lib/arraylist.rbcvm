@@ -5,6 +5,8 @@ import iter;
 
 let doc = docs::module("arraylist", "A growable array.");
 
+export let ArrayList = _arraylist_impl::ArrayList;
+
 export let from_array = _arraylist_impl::from_array;
 
 doc.add(

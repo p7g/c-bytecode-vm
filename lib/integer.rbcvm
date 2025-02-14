@@ -1,0 +1,26 @@
+import array;
+import math;
+import string;
+
+let HEX = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+    'A', 'B', 'C', 'D', 'E', 'F',
+];
+
+export function hex(n) {
+    if (n == 0) {
+        return "0";
+    }
+
+    let ndigits = 1 + math::floor(math::log(tofloat(n)) / math::log(16.0));
+    let chars = array::new(ndigits);
+    let i = ndigits - 1;
+    while (n) {
+        let rem = n % 16;
+        n = n / 16;
+        chars[i] = HEX[rem];
+        i = i - 1;
+    }
+
+    return string::from_chars(chars);
+}

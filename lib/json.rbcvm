@@ -2,8 +2,12 @@ import array;
 import arraylist;
 import char;
 import docs;
+import fn;
 import hashmap;
+import integer;
+import iter;
 import string;
+import structs;
 
 let doc = docs::module("json", "A partial implementation of a JSON parser.");
 
@@ -21,6 +25,7 @@ let T_NULL = 10;
 
 export struct UnexpectedTokenError { message }
 export struct InvalidJsonError { message }
+export struct UnserializeableError { message }
 
 doc.add(
   "struct",
@@ -32,10 +37,11 @@ doc.add(
   "InvalidJsonError",
   "Error raised when the input string is not able to be parsed.",
 );
-
-function raise(code, context) {
-  throw Error { code = code, context = context };
-}
+doc.add(
+    "struct",
+    "UnserializeableError",
+    "Error raised when trying to serialize something that can't be represented in JSON.",
+);
 
 struct Token {
   type, value
@@ -125,7 +131,7 @@ function tokenize(input) {
         str = string_concat(str, tostring(c));
         i = i + 1;
       } else {
-        raise(UnexpectedTokenError { message = c });
+        throw UnexpectedTokenError { message = c };
       }
 
       if (chars[i] == '.') {
@@ -133,7 +139,7 @@ function tokenize(input) {
         i = i + 1;
         str = string_concat(str, ".");
       } else if (is_float) {
-        raise(UnexpectedTokenError { message = chars[i] });
+        throw UnexpectedTokenError { message = chars[i] };
       }
 
       while (i < len && char::is_digit(chars[i])) {
@@ -143,7 +149,7 @@ function tokenize(input) {
 
       token = Token{type=T_NUMBER, value=str};
     } else {
-      raise(UnexpectedTokenError { message = char });
+      throw UnexpectedTokenError { message = char };
     }
 
     arraylist::push(tokens, token);
@@ -176,9 +182,9 @@ function parse_value(next, peek) {
       if (!is_first) {
         let comma = next();
         if (comma.type != T_COMMA) {
-          raise(UnexpectedTokenError {
-            message = string_concat("Expected comma, found '", comma.value, "'"),
-          });
+          throw UnexpectedTokenError {
+              message = string_concat("Expected comma, found '", comma.value, "'"),
+          };
         }
       } else {
         is_first = false;
@@ -187,16 +193,16 @@ function parse_value(next, peek) {
       let key = parse_value(next, peek);
 
       if (typeof(key) != "string") {
-        raise(UnexpectedTokenError {
-          message = string_concat("Expected string, found ", key),
-        });
+        throw UnexpectedTokenError {
+            message = string_concat("Expected string, found ", key),
+        };
       }
 
       let colon = next();
       if (colon.type != T_COLON) {
-        raise(UnexpectedTokenError {
-          message = string_concat("Expected colon, found '", comma.value, "'"),
-        });
+        throw UnexpectedTokenError {
+            message = string_concat("Expected colon, found '", comma.value, "'"),
+        };
       }
 
       let map_value = parse_value(next, peek);
@@ -214,9 +220,9 @@ function parse_value(next, peek) {
       if (!is_first) {
         let comma = next();
         if (comma.type != T_COMMA) {
-          raise(UnexpectedTokenError {
-            message = string_concat("Expected comma, found '", comma.value, "'"),
-          });
+          throw UnexpectedTokenError {
+              message = string_concat("Expected comma, found '", comma.value, "'"),
+          };
         }
       } else {
         is_first = false;
@@ -230,9 +236,9 @@ function parse_value(next, peek) {
 
     ret = arraylist::to_array(values);
   } else {
-    raise(UnexpectedTokenError {
-      message = string_concat("Unexpected token ", tostring(value)),
-    });
+    throw UnexpectedTokenError {
+        message = string_concat("Unexpected token ", tostring(value)),
+    };
   }
 
   return ret;
@@ -256,12 +262,137 @@ export function parse(input) {
   let data = parse_value(next, peek);
 
   if (i != len) {
-    raise(InvalidJsonError {
-      message = string_concat("Expected EOF, found ", tostring(tokens[i - 1].value)),
-    });
+    throw InvalidJsonError {
+        message = string_concat("Expected EOF, found ", tostring(tokens[i - 1].value)),
+    };
   }
 
   return data;
 }
 
 doc.add("function", "parse(input)", "Parse the string `input` as JSON.");
+
+function serialize_string(str) {
+    let chars = string::chars(str),
+        parts = arraylist::new();
+    let charslen = array::length(chars);
+    arraylist::push(parts, "\"");
+    for (let i = 0; i < charslen; i = i + 1) {
+        let c = chars[i];
+        let code = ord(c);
+        if (c == '"') {
+            arraylist::push(parts, "\\\"");
+        } else if (c == '\\') {
+            arraylist::push(parts, "\\\\");
+        } else if (c == '\n') {
+            arraylist::push(parts, "\\n");
+        } else if (c == '\r') {
+            arraylist::push(parts, "\\r");
+        } else if (c == '\t') {
+            arraylist::push(parts, "\\t");
+        } else if (code > 20 && code < 0x10FFFF) {
+            arraylist::push(parts, tostring(c));
+        } else {
+            arraylist::push(
+                parts,
+                string::concat("\\u", string::padleft(integer::hex(code), '0', 4)),
+            );
+        }
+    }
+    arraylist::push(parts, "\"");
+    return fn::apply(string::concat, arraylist::to_array(parts));
+}
+
+function serialize_array(arr) {
+    let arrlen = array::length(arr);
+    let partslen = 2;
+    if (arrlen != 0) {
+        partslen = partslen + array::length(arr) * 2 - 1;
+    }
+    let parts = array::new(partslen);
+    parts[0] = "[";
+    for (let i = 0; i < arrlen; i = i + 1) {
+        parts[2 * i + 1] = serialize(arr[i]);
+        parts[2 * i + 2] = ",";
+    }
+    parts[partslen - 1] = "]";
+    return fn::apply(string::concat, parts);
+}
+
+function serialize_object_from_entries(entries, sizehint=8) {
+    let parts = arraylist::with_capacity(
+        sizehint * 3  # key, colon, value
+        + sizehint - 1  # comma between each element
+        + 2  # braces
+    );
+    arraylist::push(parts, "{");
+    iter::foreach(iter::enumerate(entries), function ([i, kv]) {
+        let [key, value] = kv;
+        if (i != 0) {
+            arraylist::push(parts, ",");
+        }
+        arraylist::push(parts, serialize_string(tostring(key)));
+        arraylist::push(parts, ":");
+        arraylist::push(parts, serialize(value));
+    });
+    arraylist::push(parts, "}");
+    return fn::apply(string::concat, arraylist::to_array(parts));
+}
+
+function serialize_hashmap(map) {
+    return serialize_object_from_entries(hashmap::entries(map),
+            hashmap::size(map));
+}
+
+function serialize_struct(obj) {
+    # Some special cases:
+    let spec = structs::spec(obj);
+    if (spec == arraylist::ArrayList) {
+        return serialize_array(arraylist::to_array(obj));
+    } else if (spec == hashmap::HashMap) {
+        return serialize_hashmap(obj);
+    }
+
+    let fields = structs::fields(spec);
+    let nfields = array::length(fields);
+
+    let entries = array::new(nfields);
+    for (let i = 0; i < nfields; i = i + 1) {
+        let fieldname = fields[i];
+        let value = structs::get(obj, fieldname);
+        entries[i] = [fieldname, value];
+    }
+
+    return serialize_object_from_entries(entries, nfields);
+}
+
+export function serialize(obj) {
+    let ty = typeof(obj);
+    if (ty == "null") {
+        return "null";
+    } else if (ty == "integer") {
+        return tostring(obj);
+    } else if (ty == "double") {
+        return tostring(obj);
+    } else if (ty == "boolean") {
+        if (obj) {
+            return "true";
+        } else {
+            return "false";
+        }
+    } else if (ty == "char") {
+        return serialize_string(tostring(obj));
+    } else if (ty == "string") {
+        return serialize_string(obj);
+    } else if (ty == "array") {
+        return serialize_array(obj);
+    } else if (ty == "struct") {
+        return serialize_struct(obj);
+    } else {
+        throw UnserializeableError {
+            message = string::concat(ty, " object is not JSON serializeable"),
+        };
+    }
+}
+
+doc.add("function", "serialize(obj)", "Serialize an object to JSON.");

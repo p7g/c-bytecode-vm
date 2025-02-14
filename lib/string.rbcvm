@@ -285,3 +285,31 @@ export function to_lowercase(string) {
 }
 
 doc.add("function", "to_lowercase(string)", "Convert `string` to lower case.");
+
+export function padleft(string, padchar, len) {
+    let npad = len - length(string);
+    if (npad <= 0) {
+        return string;
+    }
+    return concat(from_chars(array::new(npad, padchar)), string);
+}
+
+doc.add(
+    "function",
+    "padleft(string, padchar, len)",
+    "Pad `string` to length `len` by adding `padchar` to the left.",
+);
+
+export function padright(string, padchar, len) {
+    let npad = len - length(string);
+    if (npad <= 0) {
+        return string;
+    }
+    return concat(string, from_chars(array::new(npad, padchar)));
+}
+
+doc.add(
+    "function",
+    "padright(string, padchar, len)",
+    "Pad `string` to length `len` by adding `padchar` to the right.",
+);

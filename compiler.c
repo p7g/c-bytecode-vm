@@ -27,7 +27,7 @@
 
 #define INITIAL_BYTECODE_SIZE 32
 #define LENGTH(ARR) (sizeof(ARR) / sizeof(ARR[0]))
-#define VALID_ESCAPES "nrt\"'"
+#define VALID_ESCAPES "nrt\"'\\0"
 #define STRUCT_MAX_FIELDS 64
 
 #define TOKEN_TYPE_LIST(X) \
@@ -296,7 +296,7 @@ static int next_token(struct lex_state *state, const char *input,
 			if (strchr(VALID_ESCAPES, PEEK())) { \
 				(void) NEXT(); \
 			} else { \
-				ERROR("Unrecognized escape sequence"); \
+				ERROR("Unrecognized escape sequence '%c'", PEEK()); \
 				return 1; \
 			} \
 		} \
@@ -2273,6 +2273,12 @@ static int compile_double_expression(struct cstate *state)
 			break; \
 		case '\'': \
 			_c = '\''; \
+			break; \
+		case '\\': \
+			_c = '\\'; \
+			break; \
+		case '0': \
+			_c = '\0'; \
 			break; \
 		} \
 		_c; \
