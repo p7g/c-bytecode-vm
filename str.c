@@ -71,14 +71,14 @@ int cb_strcmp(cb_str a, cb_str b)
 		return -1;
 	else if (cb_strlen(a) > cb_strlen(b))
 		return 1;
-	return strncmp(cb_strptr(&a), cb_strptr(&b), cb_strlen(a));
+	return memcmp(cb_strptr(&a), cb_strptr(&b), cb_strlen(a));
 }
 
 int cb_str_eq_cstr(cb_str s, const char *cstr, size_t len)
 {
 	if (len != cb_strlen(s))
 		return 0;
-	return !strncmp(cb_strptr(&s), cstr, cb_strlen(s));
+	return !memcmp(cb_strptr(&s), cstr, cb_strlen(s));
 }
 
 void cb_str_free(cb_str s)

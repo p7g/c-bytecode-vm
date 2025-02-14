@@ -297,7 +297,7 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 		j = strlen(path);
 		assert(j + 1 < MAX_IMPORT_PATH_LEN);
 		path[j++] = '/';
-		strncpy(path + j, cb_strptr(&import_name), min(
+		memcpy(path + j, cb_strptr(&import_name), min(
 				MAX_IMPORT_PATH_LEN - j,
 				cb_strlen(import_name)));
 		CHECK_LEN;

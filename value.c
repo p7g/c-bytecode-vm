@@ -430,14 +430,20 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 	if (a == b)
 		return 1;
 	if (a->type == CB_VALUE_INTERNED_STRING && b->type == CB_VALUE_STRING) {
-		cb_str str = cb_agent_get_string(a->val.as_interned_string);
-		return !strcmp(cb_strptr(&b->val.as_string->string),
-				cb_strptr(&str));
+		cb_str astr = cb_agent_get_string(a->val.as_interned_string),
+		       bstr = b->val.as_string->string;
+		if (cb_strlen(astr) != cb_strlen(bstr))
+			return 0;
+		return !memcmp(cb_strptr(&bstr), cb_strptr(&bstr),
+				cb_strlen(astr));
 	} else if (b->type == CB_VALUE_INTERNED_STRING
 			&& a->type == CB_VALUE_STRING) {
-		cb_str str = cb_agent_get_string(b->val.as_interned_string);
-		return !strcmp(cb_strptr(&a->val.as_string->string),
-				cb_strptr(&str));
+		cb_str astr = cb_agent_get_string(b->val.as_interned_string),
+		       bstr = a->val.as_string->string;
+		if (cb_strlen(astr) != cb_strlen(bstr))
+			return 0;
+		return !memcmp(cb_strptr(&astr), cb_strptr(&bstr),
+				cb_strlen(astr));
 	}
 	if (a->type != b->type)
 		return 0;
