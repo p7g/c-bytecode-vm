@@ -4,11 +4,13 @@ import math;
 import string;
 
 let MIN_READ = 2048;
+let MIN_WRITE = 2048;
 
 export struct BufferedIO {
     read,
     read_buffer,
     write,
+    write_buffer,
 }
 
 export function buffer(read, write) {
@@ -16,6 +18,7 @@ export function buffer(read, write) {
         read = read,
         read_buffer = bytes::new(0),
         write = write,
+        write_buffer = bytes::new(0),
     };
 }
 
@@ -81,5 +84,14 @@ export function lines(reader, line_ending="\n") {
 }
 
 export function write(writer, data) {
-    writer.write(data);
+    writer.write_buffer = bytes::concat(writer.write_buffer, data);
+    if (bytes::length(writer.write_buffer) >= MIN_WRITE) {
+        writer.write(data);
+        writer.write_buffer = bytes::new(0);
+    }
+}
+
+export function flush(writer) {
+    writer.write(writer.write_buffer);
+    writer.write_buffer = bytes::new(0);
 }

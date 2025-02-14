@@ -229,6 +229,7 @@ export function send_response(resp) {
 
     let content = string::bytes(apply(string::concat, lines));
     io::write(resp._io, content);
+    io::flush(resp._io);
 }
 
 export function create_request(method, path, writer) {
@@ -256,8 +257,10 @@ export function send_request(req) {
 
     let content = string::bytes(apply(string::concat, lines));
     io::write(req._io, content);
+    io::flush(req._io);
 }
 
 export function send_body(r, data) {
     io::write(r._io, data);
+    io::flush(r._io);
 }
