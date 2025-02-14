@@ -44,8 +44,11 @@ int run_file(const char *filename)
 
 	module = cb_modspec_new(cb_agent_intern_string("<main>", 6));
 	cb_agent_add_modspec(module);
-	if (cb_compile_file(module, f))
+	if (cb_compile_file(module, f)) {
+		cb_gc_enable();
+		while (cb_gc_collect());
 		return 1;
+	}
 	code = cb_modspec_code(module);
 	cb_gc_hold_key *code_hold = cb_code_gc_hold(code);
 

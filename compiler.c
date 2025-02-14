@@ -1059,18 +1059,22 @@ static int compile(struct cstate *state, enum token_type end_tok)
 static int compile_into_module(struct cstate *state,
 		cb_modspec *modspec)
 {
+	int result;
+
 	state->module_state = module_state_new(modspec);
 
-	X(compile(state, TOK_EOF));
+	if ((result = compile(state, TOK_EOF)))
+		goto end;
 
 	APPEND(OP_HALT);
 
 	cb_modspec_set_code(modspec, create_code(state));
 
+end:
 	module_state_free(state->module_state);
 	state->module_state = NULL;
 
-	return 0;
+	return result;
 }
 
 static int compile_statement(struct cstate *state)
@@ -2823,23 +2827,26 @@ size_t name_from_path(const char *path)
 int cb_compile_string(cb_modspec *module, const char *source)
 {
 	struct cstate state;
+	int result;
 
 	cstate_init(&state, source, cb_modspec_name(module));
-	X(compile_into_module(&state, module));
+	result = compile_into_module(&state, module);
 	cstate_deinit(&state);
 
-	return 0;
+	return result;
 }
 
 int cb_compile_file(cb_modspec *module, FILE *f)
 {
 	char *input;
+	int result;
 
 	X(read_file(f, &input));
-	X(cb_compile_string(module, input));
+
+	result = cb_compile_string(module, input);
 	free(input);
 
-	return 0;
+	return result;
 }
 
 struct cb_code *cb_repl_compile(cb_modspec *modspec, char *source)
