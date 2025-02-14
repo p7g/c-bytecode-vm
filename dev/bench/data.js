@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739488747438,
+  "lastUpdate": 1739491763485,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -1234,6 +1234,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "spectral_norm",
             "value": 5403,
+            "unit": "ms"
+          },
+          {
+            "name": "binary_trees",
+            "value": 0,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "7daaa3e58fea4209be78bb2172d7985d0190bfee",
+          "message": "fix memory leaks on compilation failure",
+          "timestamp": "2025-02-13T19:04:43-05:00",
+          "tree_id": "93d34db400331d8e75e08a02b4eaa0c0573d9fdb",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/7daaa3e58fea4209be78bb2172d7985d0190bfee"
+        },
+        "date": 1739491762442,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 163266,
+            "unit": "ms"
+          },
+          {
+            "name": "nbody",
+            "value": 2594,
+            "unit": "ms"
+          },
+          {
+            "name": "spectral_norm",
+            "value": 5253,
             "unit": "ms"
           },
           {
