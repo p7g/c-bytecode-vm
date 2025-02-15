@@ -3,6 +3,7 @@ import bytes;
 import char;
 import docs;
 import inet;
+import iter;
 import math;
 import string;
 import test;
@@ -29,12 +30,12 @@ doc.add(
 export function decode_size(payload) {
     let len = string::length(payload);
     let npadding = 0;
-    for (let i = len - 1; i >= 0; i = i - 1) {
-        if (string::char_at(payload, i) != '=') {
-            break;
+    # FIXME: not ideal
+    iter::foreach(string::iter(payload), function (c) {
+        if (c == '=') {
+            npadding = npadding + 1;
         }
-        npadding = npadding + 1;
-    }
+    });
 
     let size = 3 * math::floor((len - npadding) / 4);
     if (npadding == 1) {

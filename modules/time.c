@@ -52,7 +52,7 @@ static int wrapped_clock_gettime(size_t argc, struct cb_value *argv,
 	}
 
 	if (clock_gettime(clock_id, &ts)) {
-		cb_error_set(cb_value_from_string(strerror(errno)));
+		cb_error_from_errno();
 		return 1;
 	}
 

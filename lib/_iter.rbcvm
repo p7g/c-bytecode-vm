@@ -1,0 +1,25 @@
+import _array;
+import _arraylist_impl;
+
+export let STOP = struct {};
+export struct collector { init, reduce, finalize }
+
+export function array_iter(array) {
+  let i = 0;
+  let len = _array::length(array);
+  return function array_iterator() {
+    if (i == len) {
+      return STOP;
+    }
+
+    let item = array[i];
+    i = i + 1;
+    return item;
+  };
+}
+
+export let array_collector = collector {
+  init = _arraylist_impl::new,
+  reduce = _arraylist_impl::push,
+  finalize = _arraylist_impl::to_array,
+};

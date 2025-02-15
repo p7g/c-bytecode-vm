@@ -1,6 +1,6 @@
 import _array;
+import _iter;
 import docs;
-import iter;
 
 let doc = docs::module("array", "Functions for working with arrays.");
 
@@ -14,11 +14,11 @@ doc.add(
 export let length = _array::length;
 doc.add("function", "length(array)", "Get the length of array `array`.");
 
-export let iter = iter::_array_iter;
+export let iter = _iter::array_iter;
 
 doc.add("function", "iter(array)", "Create an iterator from array `array`.");
 
-export let collector = iter::_array_collector;
+export let collector = _iter::array_collector;
 
 doc.add("object", "collector", "A collector for converting an iterator into an array.");
 

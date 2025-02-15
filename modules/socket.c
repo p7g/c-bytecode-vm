@@ -25,8 +25,10 @@
 		CB_EXPECT_TYPE(CB_VALUE_USERDATA, _val); \
 		struct cb_userdata *_data = _val.val.as_userdata; \
 		if (_data->gc_header.deinit != socketdata_deinit) { \
-			cb_error_set(cb_value_from_fmt("%s: Expected socket", \
-						__func__)); \
+			struct cb_value err; \
+			(void) cb_value_from_fmt(&err, "%s: Expected socket", \
+					__func__); \
+			cb_error_set(err); \
 		} \
 		*(int *) cb_userdata_ptr(_data); \
 	})
@@ -64,7 +66,9 @@ static int expect_c_int(const char *name, struct cb_value val, int *out)
 	int64_t intval = val.val.as_int;
 
 	if (intval > INT_MAX || intval < INT_MIN) {
-		cb_error_set(cb_value_from_fmt("%s is out of bounds", name));
+		struct cb_value err;
+		(void) cb_value_from_fmt(&err, "%s is out of bounds", name);
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -86,7 +90,9 @@ static int expect_uint16(const char *name, struct cb_value val, uint16_t *out)
 	int64_t intval = val.val.as_int;
 
 	if (intval > UINT16_MAX || intval < 0) {
-		cb_error_set(cb_value_from_fmt("%s is out of bounds", name));
+		struct cb_value err;
+		(void) cb_value_from_fmt(&err, "%s is out of bounds", name);
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -128,8 +134,16 @@ static int sockaddr_val(struct sockaddr *sa, struct cb_value *result)
 	}
 
 	result->type = CB_VALUE_STRUCT;
+	struct cb_value ipstrval;
+	ssize_t strvalid = cb_value_from_string(&ipstrval, ipstr);
+	if (strvalid < 0) {
+		struct cb_value err;
+		cb_value_from_string(&err, cb_str_errmsg(strvalid));
+		cb_error_set(err);
+		return 1;
+	}
 	result->val.as_struct = cb_struct_make(get_address_struct_spec(),
-			cb_value_from_string(ipstr), cb_int(ntohs(port)));
+			ipstrval, cb_int(ntohs(port)));
 	return 0;
 }
 
@@ -216,7 +230,9 @@ static int getaddrinfo_impl(size_t argc, struct cb_value *argv,
 
 	int status = getaddrinfo(node, service, &hints, &server);
 	if (status) {
-		cb_error_set(cb_value_from_string(gai_strerror(status)));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, gai_strerror(status));
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -251,7 +267,9 @@ static int inet_pton_wrapped(int family, const char *addrstr, void *addr)
 	int status;
 	if ((status = inet_pton(family, addrstr, addr)) != 1) {
 		if (status == 0) {
-			cb_error_set(cb_value_from_string("Failed to parse address"));
+			struct cb_value err;
+			(void) cb_value_from_string(&err, "Failed to parse address");
+			cb_error_set(err);
 		} else {
 			cb_error_from_errno();
 		}

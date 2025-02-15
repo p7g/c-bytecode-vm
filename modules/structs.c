@@ -102,8 +102,10 @@ static int get_struct_field(size_t argc, struct cb_value *argv,
 				cb_strlen(fname)), NULL);
 	if (fvalue == NULL) {
 		as_str = cb_value_to_string(argv[0]);
-		cb_error_set(cb_value_from_fmt("Value '%s' has no field '%s'",
-				cb_strptr(&as_str), cb_strptr(&fname)));
+		struct cb_value err;
+		cb_value_from_fmt(&err, "Value '%s' has no field '%s'",
+				cb_strptr(&as_str), cb_strptr(&fname));
+		cb_error_set(err);
 		cb_str_free(as_str);
 		return 1;
 	}
@@ -127,8 +129,10 @@ static int set_struct_field(size_t argc, struct cb_value *argv,
 			NULL);
 	if (retval) {
 		as_str = cb_value_to_string(argv[0]);
-		cb_error_set(cb_value_from_fmt("Value '%s' has no field '%s'",
-				cb_strptr(&as_str), cb_strptr(&fname)));
+		struct cb_value err;
+		cb_value_from_fmt(&err, "Value '%s' has no field '%s'",
+				cb_strptr(&as_str), cb_strptr(&fname));
+		cb_error_set(err);
 		cb_str_free(as_str);
 		return 1;
 	}

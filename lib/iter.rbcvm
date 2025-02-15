@@ -1,48 +1,28 @@
-import _array;
-import _arraylist_impl;
+import _iter;
 import docs;
+import list;
 import math;
 import op;
 
 let doc = docs::module("iter", "Lazy iterators.");
 
-export let STOP = struct {};
+export let STOP = _iter::STOP;
 doc.add("object", "STOP", "A sentinel value indicating that an iterator has been exhausted.");
-
-export function _array_iter(array) {
-  let i = 0;
-  let len = _array::length(array);
-  return function array_iterator() {
-    if (i == len) {
-      return STOP;
-    }
-
-    let item = array[i];
-    i = i + 1;
-    return item;
-  };
-}
 
 function ensure_iterable(it) {
   if (typeof(it) == "array") {
-    return _array_iter(it);
+    return _iter::array_iter(it);
   }
   return it;
 }
 
-export struct collector { init, reduce, finalize }
+export let collector = _iter::collector;
 
 doc.add(
   "struct",
   "collector",
   "An struct defining the required functions to convert an iterator into an arbitrary collection.",
 );
-
-export let _array_collector = collector {
-  init = _arraylist_impl::new,
-  reduce = _arraylist_impl::push,
-  finalize = _arraylist_impl::to_array,
-};
 
 export function count(n) {
   let i = n;
@@ -95,7 +75,7 @@ doc.add(
   "Call the function `fn` for every element of `it`. This evaluates the iterator.",
 );
 
-export function collect(it, collector=_array_collector) {
+export function collect(it, collector=_iter::array_collector) {
   return collector.finalize(
     fold(collector.reduce, ensure_iterable(it), collector.init()),
   );
@@ -320,3 +300,77 @@ export function sum(_it) {
 }
 
 doc.add("function", "sum(it)", "Sum the elements of `it`.");
+
+export struct Peekable {
+    iter,
+    peek,
+}
+
+export function peekable(it) {
+    it = ensure_iterable(it);
+    let peeked = list::new();
+
+    function next() {
+        if (list::length(peeked) > 0) {
+            return list::unshift(peeked);
+        }
+        return it();
+    }
+
+    function peek(n = 1) {
+        if (list::length(peeked) >= i) {
+            return list::get(peeked, i);
+        }
+
+        let el;
+        for (let i = 0; i < n; i = i + 1) {
+            el = it();
+            if (el == STOP) {
+                break;
+            }
+            list::append(peeked, el);
+        }
+
+        return el;
+    }
+
+    return Peekable {
+        iter = next,
+        peek = peek,
+    };
+}
+
+doc.add(
+    "function",
+    "peekable(it)",
+    "",
+);
+
+export function slice(it, start, end=null) {
+    it = ensure_iterable(it);
+    let i = 0;
+    return function slice_next() {
+        while (i < start) {
+            if (it() == STOP) {
+                return STOP;
+            }
+            i = i + 1;
+        }
+
+        if (end != null && i >= end) {
+            return STOP;
+        }
+
+        let value = it();
+        if (value != STOP) {
+            i = i + 1;
+        }
+        return value;
+    };
+}
+
+doc.add(
+    "function",
+    "slice(it, start, end=...)",
+    "",
+);

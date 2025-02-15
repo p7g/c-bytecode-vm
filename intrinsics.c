@@ -116,7 +116,14 @@ static int typeof_(size_t argc, struct cb_value *argv, struct cb_value *result)
 		.val.as_string = cb_string_new(),
 	};
 
-	result->val.as_string->string = cb_str_from_cstr(type, strlen(type));
+	ssize_t strvalid = cb_str_from_cstr(type, strlen(type),
+			&result->val.as_string->string);
+	if (strvalid < 0) {
+		struct cb_value err;
+		cb_value_from_string(&err, cb_str_errmsg(strvalid));
+		cb_error_set(err);
+		return 1;
+	}
 
 	return 0;
 }
@@ -125,22 +132,31 @@ static int string_chars(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	cb_str str;
-	size_t len;
+	size_t pos, ncodepoints, len;
 
 	str = CB_EXPECT_STRING(argv[0]);
 
 	len = cb_strlen(str);
+	ncodepoints = cb_str_ncodepoints(str);
 	result->type = CB_VALUE_ARRAY;
-	result->val.as_array = cb_array_new(len);
-	result->val.as_array->len = len;
+	result->val.as_array = cb_array_new(ncodepoints);
 
-	for (unsigned i = 0; i < len; i += 1) {
-		result->val.as_array->values[i] = (struct cb_value) {
-			.type = CB_VALUE_CHAR,
-			.val.as_char = cb_str_at(str, i),
-		};
+	pos = 0;
+	for (unsigned i = 0; i < ncodepoints; i += 1) {
+		struct cb_value *val = &result->val.as_array->values[i];
+		val->type = CB_VALUE_CHAR;
+
+		ssize_t result = cb_str_read_char(str, pos, &val->val.as_char);
+		if (result < 0) {
+			struct cb_value err;
+			cb_value_from_string(&err, cb_str_errmsg(result));
+			cb_error_set(err);
+			return 1;
+		}
+		pos += result;
 	}
 
+	assert(pos == len);
 	return 0;
 }
 
@@ -148,30 +164,40 @@ static int string_from_chars(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	struct cb_value arr;
-	char *str;
-	size_t len;
+	unsigned char *str;
+	size_t pos, len;
 
 	arr = argv[0];
 	CB_EXPECT_TYPE(CB_VALUE_ARRAY, arr);
 
 	len = arr.val.as_array->len;
-	str = malloc(len + 1);
+	str = malloc(len * 4 + 1);
+	pos = 0;
 
 	for (unsigned i = 0; i < len; i += 1) {
-		if (arr.val.as_array->values[i].type != CB_VALUE_CHAR) {
-			cb_error_set(cb_value_from_string(
-					"string_from_chars: Expected array of chars\n"));
+		struct cb_value charval = arr.val.as_array->values[i];
+		if (charval.type != CB_VALUE_CHAR) {
+			struct cb_value err;
+			cb_value_from_string(&err,
+					"string_from_chars: Expected array of chars\n");
+			cb_error_set(err);
 			free(str);
 			return 1;
 		}
-		/* FIXME: unicode */
-		str[i] = arr.val.as_array->values[i].val.as_char & 0xFF;
+		pos += utf8proc_encode_char(charval.val.as_char, str + pos);
 	}
-	str[len] = 0;
+	str[pos] = 0;
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
-	result->val.as_string->string = cb_str_take_cstr(str, len);
+	ssize_t strvalid = cb_str_take_cstr((char *) str, len,
+			&result->val.as_string->string);
+	if (strvalid < 0) {
+		struct cb_value err;
+		cb_value_from_string(&err, cb_str_errmsg(strvalid));
+		cb_error_set(err);
+		return 1;
+	}
 
 	return 0;
 }
@@ -218,7 +244,14 @@ static int string_concat(size_t argc, struct cb_value *argv,
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
-	result->val.as_string->string = cb_str_take_cstr(buf, len);
+	ssize_t strvalid = cb_str_take_cstr(buf, len,
+			&result->val.as_string->string);
+	if (strvalid < 0) {
+		struct cb_value err;
+		cb_value_from_string(&err, cb_str_errmsg(strvalid));
+		cb_error_set(err);
+		return 1;
+	}
 
 	return 0;
 }
@@ -241,7 +274,9 @@ static int chr(size_t argc, struct cb_value *argv, struct cb_value *result)
 	intval = argv[0].val.as_int;
 	if (intval > INT32_MAX || intval < INT32_MIN
 			|| !utf8proc_codepoint_valid(intval)) {
-		cb_error_set(cb_value_from_fmt("Invalid codepoint"));
+		struct cb_value err;
+		cb_value_from_fmt(&err, "Invalid codepoint");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -307,10 +342,16 @@ static int read_file(size_t argc, struct cb_value *argv,
 
 #undef X
 
-	/* TODO: validate utf-8 */
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
-	result->val.as_string->string = cb_str_take_cstr(buf, len);
+	ssize_t strvalid = cb_str_take_cstr(buf, len,
+			&result->val.as_string->string);
+	if (strvalid < 0) {
+		struct cb_value err;
+		cb_value_from_string(&err, cb_str_errmsg(strvalid));
+		cb_error_set(err);
+		return 1;
+	}
 
 	return 0;
 }
@@ -384,8 +425,14 @@ static int argv(size_t argc, struct cb_value *argv_, struct cb_value *result)
 		current = &result->val.as_array->values[i];
 		current->type = CB_VALUE_STRING;
 		current->val.as_string = cb_string_new();
-		current->val.as_string->string = cb_str_from_cstr(_argv[i],
-				strlen(_argv[i]));
+		ssize_t strvalid = cb_str_from_cstr(_argv[i], strlen(_argv[i]),
+				&current->val.as_string->string);
+		if (strvalid < 0) {
+			struct cb_value err;
+			cb_value_from_string(&err, cb_str_errmsg(strvalid));
+			cb_error_set(err);
+			return 1;
+		}
 	}
 
 	return 0;
@@ -399,8 +446,10 @@ static int upvalues(size_t argc, struct cb_value *argv, struct cb_value *result)
 	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
 
 	if (argv[0].val.as_function->type != CB_FUNCTION_USER) {
-		cb_error_set(cb_value_from_string(
-				"__upvalues: Cannot get upvalues of native function"));
+		struct cb_value err;
+		cb_value_from_string(&err,
+				"__upvalues: Cannot get upvalues of native function");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -455,8 +504,10 @@ static int toint(size_t argc, struct cb_value *argv, struct cb_value *result)
 	else if (arg.type == CB_VALUE_CHAR)
 		result->val.as_int = (intptr_t) arg.val.as_char;
 	else {
-		cb_error_set(cb_value_from_fmt("int: Cannot convert value of type %s to int",
-				cb_value_type_friendly_name(arg.type)));
+		struct cb_value err;
+		cb_value_from_fmt(&err, "int: Cannot convert value of type %s to int",
+				cb_value_type_friendly_name(arg.type));
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -477,8 +528,10 @@ static int __dis(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
 	if (argv[0].val.as_function->type != CB_FUNCTION_USER) {
-		cb_error_set(cb_value_from_string(
-				"__dis: Cannot disassemble native function"));
+		struct cb_value err;
+		cb_value_from_string(&err,
+				"__dis: Cannot disassemble native function");
+		cb_error_set(err);
 		return 1;
 	}
 

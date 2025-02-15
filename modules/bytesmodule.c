@@ -16,7 +16,9 @@ static int bytes_new(size_t argc, struct cb_value *argv,
 	len = argv[0].val.as_int;
 
 	if (len < 0) {
-		cb_error_set(cb_value_from_string("new: Invalid size"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "new: Invalid size");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -39,13 +41,16 @@ static int bytes_copy(size_t argc, struct cb_value *argv,
 	n = argv[2].val.as_int;
 
 	if (n < 0) {
-		cb_error_set(cb_value_from_string("copy: Invalid amount"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "copy: Invalid amount");
+		cb_error_set(err);
 		return 1;
 	}
 
 	if (cb_bytes_copy(from, to, (size_t) n)) {
-		cb_error_set(cb_value_from_string(
-					"copy: Amount out of bounds"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "copy: Amount out of bounds");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -68,7 +73,9 @@ static int bytes_get(size_t argc, struct cb_value *argv,
 
 	val = cb_bytes_get(bs, pos);
 	if (val < 0) {
-		cb_error_set(cb_value_from_string("get: Index out of range"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "get: Index out of range");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -93,7 +100,9 @@ static int bytes_set(size_t argc, struct cb_value *argv,
 
 	/* truncate the value to fit */
 	if (cb_bytes_set(bs, pos, (uint8_t) val)) {
-		cb_error_set(cb_value_from_string("set: Index out of range"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "set: Index out of range");
+		cb_error_set(err);
 		return 1;
 	}
 

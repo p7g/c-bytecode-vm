@@ -68,8 +68,9 @@ static int wrapped_closedir(size_t argc, struct cb_value *argv,
 
 	CB_EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
 	if (!IS_DIR(argv[0])) {
-		cb_error_set(cb_value_from_string(
-					"closedir: Not a directory object"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "closedir: Not a directory object");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -91,8 +92,9 @@ static int wrapped_readdir(size_t argc, struct cb_value *argv,
 
 	CB_EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
 	if (!IS_DIR(argv[0])) {
-		cb_error_set(cb_value_from_string(
-					"readdir: Not a directory object"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "readdir: Not a directory object");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -104,8 +106,14 @@ static int wrapped_readdir(size_t argc, struct cb_value *argv,
 	} else {
 		result->type = CB_VALUE_STRING;
 		result->val.as_string = cb_string_new();
-		result->val.as_string->string = cb_str_from_cstr(ent->d_name,
-				strlen(ent->d_name));
+		ssize_t strvalid = cb_str_from_cstr(ent->d_name,
+				strlen(ent->d_name), &result->val.as_string->string);
+		if (strvalid < 0) {
+			struct cb_value err;
+			cb_value_from_string(&err, cb_str_errmsg(strvalid));
+			cb_error_set(err);
+			return 1;
+		}
 	}
 
 	return 0;
@@ -200,7 +208,9 @@ static int wrapped_fclose(size_t argc, struct cb_value *argv,
 
 	CB_EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
 	if (!IS_FILE(argv[0])) {
-		cb_error_set(cb_value_from_string("fclose: Not a file object"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "fclose: Not a file object");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -230,19 +240,25 @@ static int wrapped_fread(size_t argc, struct cb_value *argv,
 	CB_EXPECT_TYPE(CB_VALUE_INT, n);
 	CB_EXPECT_TYPE(CB_VALUE_USERDATA, file);
 	if (n.val.as_int < 0) {
-		cb_error_set(cb_value_from_string("fread: Invalid size"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "fread: Invalid size");
+		cb_error_set(err);
 		return 1;
 	}
 	if (!IS_FILE(file)) {
-		cb_error_set(cb_value_from_string("fread: Not a file object"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "fread: Not a file object");
+		cb_error_set(err);
 		return 1;
 	}
 
 	data = file.val.as_userdata;
 	f = *file_ptr(data);
 	if (!f) {
-		cb_error_set(cb_value_from_string(
-				"fread: Cannot read from closed file"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err,
+				"fread: Cannot read from closed file");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -250,8 +266,10 @@ static int wrapped_fread(size_t argc, struct cb_value *argv,
 	fits_buf = cb_bytes_len(buf) >= (size_t) n.val.as_int;
 
 	if (!fits_buf) {
-		cb_error_set(cb_value_from_string(
-				"fread: Buffer is too small to hold content"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err,
+				"fread: Buffer is too small to hold content");
+		cb_error_set(err);
 		return 1;
 	}
 	nread = fread(buf->data, sizeof(char), n.val.as_int, f);
@@ -270,6 +288,7 @@ static int wrapped_fgets(size_t argc, struct cb_value *argv,
 	struct cb_bytes *buf;
 	size_t nread;
 	int fits_buf;
+	struct cb_value err;
 
 	bufv = argv[0];
 	n = argv[1];
@@ -279,19 +298,21 @@ static int wrapped_fgets(size_t argc, struct cb_value *argv,
 	CB_EXPECT_TYPE(CB_VALUE_INT, n);
 	CB_EXPECT_TYPE(CB_VALUE_USERDATA, file);
 	if (n.val.as_int < 0) {
-		cb_error_set(cb_value_from_string("fgets: Invalid size"));
+		(void) cb_value_from_string(&err, "fgets: Invalid size");
+		cb_error_set(err);
 		return 1;
 	}
 	if (!IS_FILE(file)) {
-		cb_error_set(cb_value_from_string("fgets: Not a file object"));
+		(void) cb_value_from_string(&err, "fgets: Not a file object");
+		cb_error_set(err);
 		return 1;
 	}
 
 	data = file.val.as_userdata;
 	f = *file_ptr(data);
 	if (!f) {
-		cb_error_set(cb_value_from_string(
-				"fgets: Cannot read from closed file"));
+		(void) cb_value_from_string(&err, "fgets: Cannot read from closed file");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -299,8 +320,9 @@ static int wrapped_fgets(size_t argc, struct cb_value *argv,
 	fits_buf = cb_bytes_len(buf) >= (size_t) n.val.as_int;
 
 	if (!fits_buf) {
-		cb_error_set(cb_value_from_string(
-				"fgets: Buffer is too small to hold content"));
+		(void) cb_value_from_string(&err,
+				"fgets: Buffer is too small to hold content");
+		cb_error_set(err);
 		return 1;
 	}
 	if (NULL == fgets(cb_bytes_ptr(buf), n.val.as_int, f)) {
@@ -323,15 +345,18 @@ static int wrapped_fgetc(size_t argc, struct cb_value *argv,
 
 	CB_EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
 	if (!IS_FILE(argv[0])) {
-		cb_error_set(cb_value_from_string("fgetc: Not a file object"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "fgetc: Not a file object");
+		cb_error_set(err);
 		return 1;
 	}
 
 	data = argv[0].val.as_userdata;
 	f = *file_ptr(data);
 	if (!f) {
-		cb_error_set(cb_value_from_string(
-				"fgetc: Can't read from closed file"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "fgetc: Can't read from closed file");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -354,14 +379,18 @@ static int wrapped_feof(size_t argc, struct cb_value *argv,
 
 	CB_EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
 	if (!IS_FILE(argv[0])) {
-		cb_error_set(cb_value_from_string("feof: Not a file object"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "feof: Not a file object");
+		cb_error_set(err);
 		return 1;
 	}
 
 	data = argv[0].val.as_userdata;
 	f = *file_ptr(data);
 	if (!f) {
-		cb_error_set(cb_value_from_string("feof: File is closed"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "feof: File is closed");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -378,15 +407,18 @@ static int wrapped_ferror(size_t argc, struct cb_value *argv,
 
 	CB_EXPECT_TYPE(CB_VALUE_USERDATA, argv[0]);
 	if (!IS_FILE(argv[0])) {
-		cb_error_set(cb_value_from_string(
-					"ferror: Not a file object"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "ferror: Not a file object");
+		cb_error_set(err);
 		return 1;
 	}
 
 	data = argv[0].val.as_userdata;
 	f = *file_ptr(data);
 	if (!f) {
-		cb_error_set(cb_value_from_string("ferror: File is closed"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "ferror: File is closed");
+		cb_error_set(err);
 		return 1;
 	}
 

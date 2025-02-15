@@ -15,7 +15,6 @@ export let from_chars = string_from_chars;
 export let bytes = string_bytes;
 export let concat = string_concat;
 export let length = _string::len;
-export let char_at = _string::char_at;
 export let from_bytes = _string::from_bytes;
 
 doc.add("function", "chars(string)", "Get the characters of `string` as an array.");
@@ -23,7 +22,6 @@ doc.add("function", "from_chars(chars)", "Create a string from the array of char
 doc.add("function", "bytes(string)", "Get the bytes of `string` as an array.");
 doc.add("function", "concat(a, ...)", "Concatenate all strings passed as arguments with no separator.");
 doc.add("function", "length(string)", "Get the length of `string`.");
-doc.add("function", "char_at(string, idx)", "Get the `idx`th character of `string`.");
 doc.add("function", "from_bytes(bytes)", "Convert a byte array to a string.");
 
 export struct Error {
@@ -31,15 +29,13 @@ export struct Error {
 }
 
 export function iter(str) {
-  let cs = chars(str);
   let i = 0;
-  let len = array::length(cs);
   return function string_iterator() {
-    if (i >= len) {
-      return iter::STOP;
+    let {c, nread} = _string::next_char(str, i);
+    if (c == null) {
+        return iter::STOP;
     }
-    let c = cs[i];
-    i = i + 1;
+    i = i + nread;
     return c;
   };
 }
@@ -128,12 +124,19 @@ export function startswith(self, other) {
     if (otherlen > length(self)) {
         return false;
     }
-    for (let i = 0; i < otherlen; i = i + 1) {
-        if (char_at(self, i) != char_at(other, i)) {
-            return false;
+
+    let match = true;
+    iter::foreach(iter::zip(iter(self), iter(other)), function ([a, b]) {
+        # "a" should never be null
+        if (b == null) {
+            return iter::STOP;
         }
-    }
-    return true;
+        if (a != b) {
+            match = false;
+            return iter::STOP;
+        }
+    });
+    return match;
 }
 
 doc.add("function", "startswith(string, prefix)", "Check if `prefix` is a prefix of `string`.");
@@ -144,12 +147,17 @@ export function endswith(self, other) {
     if (otherlen > selflen) {
         return false;
     }
-    for (let i = 0; i < otherlen; i = i + 1) {
-        if (char_at(self, selflen - i) != char_at(other, otherlen - i)) {
-            return false;
+
+    let selfend = iter::slice(iter(self), selflen - otherlen);
+
+    let match = true;
+    iter::foreach(iter::zip(selfend, iter(other)), function ([a, b]) {
+        if (a != b) {
+            match = false;
+            return iter::STOP;
         }
-    }
-    return true;
+    });
+    return match;
 }
 
 doc.add("function", "endswith(string, suffix)", "Check if `suffix` is a suffix of `string`.");
@@ -158,13 +166,14 @@ export function index(self, c) {
     if (typeof(c) != "char") {
         throw Error { message = "index: Only finding index of char is implemented" };
     }
-    let len = length(self);
-    for (let i = 0; i < len; i = i + 1) {
-        if (char_at(self, i) == c) {
-            return i;
+    let index = -1;
+    iter::foreach(iter::enumerate(iter(self)), function ([i, c2]) {
+        if (c == c2) {
+            index = i;
+            return iter::STOP;
         }
-    }
-    return -1;
+    });
+    return index;
 }
 
 doc.add("function", "index(string, c)", "Find the first index where `c` is found in `string`.");
@@ -173,12 +182,13 @@ export function rindex(self, c) {
     if (typeof(c) != "char") {
         throw Error { message = "index: Only finding index of char is implemented" };
     }
-    for (let i = length(self) - 1; i >= 0; i = i - 1) {
-        if (char_at(self, i) == c) {
-            return i;
+    let lastindex = -1;
+    iter::foreach(iter::enumerate(iter(self)), function ([i, c2]) {
+        if (c == c2) {
+            lastindex = i;
         }
-    }
-    return -1;
+    });
+    return lastindex;
 }
 
 doc.add("function", "rindex(string, c)", "Find the last index where `c` is found in `string`.");

@@ -21,7 +21,9 @@ static int array_new(size_t argc, struct cb_value *argv,
 	CB_EXPECT_TYPE(CB_VALUE_INT, len_val);
 	len = len_val.val.as_int;
 	if (len < 0) {
-		cb_error_set(cb_value_from_string("array_new: Invalid length"));
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "array_new: Invalid length");
+		cb_error_set(err);
 		return 1;
 	}
 

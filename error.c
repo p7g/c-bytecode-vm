@@ -42,7 +42,9 @@ void cb_error_set(struct cb_value value)
 
 void cb_error_from_errno(void)
 {
-	cb_error_set(cb_value_from_string(strerror(errno)));
+	struct cb_value err;
+	cb_value_from_string(&err, strerror(errno));
+	cb_error_set(err);
 }
 
 void cb_error_recover(void)

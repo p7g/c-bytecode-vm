@@ -186,12 +186,14 @@ cb_str cb_value_to_string(struct cb_value val)
 		len = snprintf(NULL, 0, "%" PRIdPTR, val.val.as_int);
 		cb_str_init(&buf, len);
 		snprintf(cb_strptr(&buf), len + 1, "%" PRIdPTR, val.val.as_int);
+		cb_str_check_utf8(&buf);
 		break;
 
 	case CB_VALUE_DOUBLE:
 		len = snprintf(NULL, 0, "%.12g", val.val.as_double);
 		cb_str_init(&buf, len);
 		snprintf(cb_strptr(&buf), len + 1, "%.12g", val.val.as_double);
+		cb_str_check_utf8(&buf);
 		break;
 
 	case CB_VALUE_BOOL:
@@ -204,12 +206,14 @@ cb_str cb_value_to_string(struct cb_value val)
 			cb_str_init(&buf, len);
 			snprintf(cb_strptr(&buf), len + 1, "false");
 		}
+		cb_str_check_utf8(&buf);
 		break;
 
 	case CB_VALUE_NULL:
 		len = 4;
 		cb_str_init(&buf, len);
 		snprintf(cb_strptr(&buf), len + 1, "null");
+		cb_str_check_utf8(&buf);
 		break;
 
 	case CB_VALUE_CHAR: {
@@ -218,6 +222,7 @@ cb_str cb_value_to_string(struct cb_value val)
 				(unsigned char *) cb_strptr(&buf));
 		cb_strptr(&buf)[written] = 0;
 		buf.len = written;
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
@@ -252,6 +257,7 @@ cb_str cb_value_to_string(struct cb_value val)
 		*ptr++ = '>';
 		*ptr++ = 0;
 		assert(ptr == start + len + 1);
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
@@ -292,6 +298,7 @@ cb_str cb_value_to_string(struct cb_value val)
 				cb_strlen(s));
 		cb_strptr(&buf)[len - 2] = '>';
 		cb_strptr(&buf)[len - 1] = 0;
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
@@ -304,6 +311,7 @@ cb_str cb_value_to_string(struct cb_value val)
 			len = sizeof("[...]") - 1;
 			cb_str_init(&buf, len);
 			memcpy(cb_strptr(&buf), "[...]", len);
+			cb_str_check_utf8(&buf);
 			break;
 		}
 
@@ -331,6 +339,7 @@ cb_str cb_value_to_string(struct cb_value val)
 		*ptr++ = ']';
 		assert(ptr == cb_strptr(&buf) + len);
 		repr_leave(&val.val.as_array->gc_header);
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
@@ -352,6 +361,7 @@ cb_str cb_value_to_string(struct cb_value val)
 			ptr = cb_strptr(&buf);
 			memcpy(ptr, name, name_len);
 			memcpy(ptr + name_len, "{...}", 5);
+			cb_str_check_utf8(&buf);
 			break;
 		}
 
@@ -389,6 +399,7 @@ cb_str cb_value_to_string(struct cb_value val)
 		*ptr++ = '}';
 		assert(ptr == cb_strptr(&buf) + len);
 		repr_leave(&val.val.as_struct->gc_header);
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
@@ -409,6 +420,7 @@ cb_str cb_value_to_string(struct cb_value val)
 		ptr += name_len;
 		*ptr++ = '>';
 		assert(ptr == cb_strptr(&buf) + len);
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
@@ -416,6 +428,7 @@ cb_str cb_value_to_string(struct cb_value val)
 		size_t size = sizeof("<userdata>") - 1;
 		cb_str_init(&buf, size);
 		memcpy(cb_strptr(&buf), "<userdata>", size);
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
@@ -816,7 +829,7 @@ CB_INLINE struct cb_value cb_bool(int v)
 	return out;
 }
 
-CB_INLINE struct cb_value cb_char(uint32_t v)
+CB_INLINE struct cb_value cb_char(int32_t v)
 {
 	struct cb_value out;
 	out.type = CB_VALUE_CHAR;
@@ -824,17 +837,16 @@ CB_INLINE struct cb_value cb_char(uint32_t v)
 	return out;
 }
 
-struct cb_value cb_value_from_string(const char *str)
+ssize_t cb_value_from_string(struct cb_value *val, const char *str)
 {
-	struct cb_value retval;
 	struct cb_string *sobj = cb_string_new();
-	sobj->string = cb_str_from_cstr(str, strlen(str));
-	retval.type = CB_VALUE_STRING;
-	retval.val.as_string = sobj;
-	return retval;
+	ssize_t result = cb_str_from_cstr(str, strlen(str), &sobj->string);
+	val->type = CB_VALUE_STRING;
+	val->val.as_string = sobj;
+	return result;
 }
 
-struct cb_value cb_value_from_fmt(const char *fmt, ...)
+ssize_t cb_value_from_fmt(struct cb_value *val, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -846,9 +858,9 @@ struct cb_value cb_value_from_fmt(const char *fmt, ...)
 	str[len] = 0;
 	va_end(args);
 
-	struct cb_value ret = cb_value_from_string(str);
+	ssize_t result = cb_value_from_string(val, str);
 	free(str);
-	return ret;
+	return result;
 }
 
 struct cb_bytes *cb_bytes_new(size_t size)

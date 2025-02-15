@@ -29,7 +29,9 @@ static int left_shift(size_t argc, struct cb_value *argv,
 	result->type = CB_VALUE_INT;
 
 	if (b < 0) {
-		cb_error_set(cb_value_from_fmt("Shift amount must be positive or 0"));
+		struct cb_value err;
+		(void) cb_value_from_fmt(&err, "Shift amount must be positive or 0");
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -43,8 +45,10 @@ static int left_shift(size_t argc, struct cb_value *argv,
 		a = -a;
 
 	if (b > __builtin_clzl(a) - 1) {
-		cb_error_set(cb_value_from_fmt("Left shift of %ld by %ld would overflow",
-					a, b));
+		struct cb_value err;
+		(void) cb_value_from_fmt(&err,
+				"Left shift of %ld by %ld would overflow", a, b);
+		cb_error_set(err);
 		return 1;
 	} else {
 		a <<= b;
@@ -69,7 +73,9 @@ static int right_shift(size_t argc, struct cb_value *argv,
 	result->type = CB_VALUE_INT;
 
 	if (b < 0) {
-		cb_error_set(cb_value_from_fmt("Shift amount must be positive or 0"));
+		struct cb_value err;
+		(void) cb_value_from_fmt(&err, "Shift amount must be positive or 0");
+		cb_error_set(err);
 		return 1;
 	}
 

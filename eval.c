@@ -146,8 +146,10 @@ int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 	cb_native_function *native_func;
 
 	if (fn.type != CB_VALUE_FUNCTION) {
-		cb_error_set(cb_value_from_fmt("Value of type '%s' is not callable",
-			cb_value_type_friendly_name(fn.type)));
+		struct cb_value err;
+		cb_value_from_fmt(&err, "Value of type '%s' is not callable",
+				cb_value_type_friendly_name(fn.type));
+		cb_error_set(err);
 		return -1;
 	}
 
@@ -266,7 +268,9 @@ static int cb_eval(struct cb_frame *frame)
 		} \
 	})
 #define ERROR(MSG, ...) ({ \
-		cb_error_set(cb_value_from_fmt((MSG), ##__VA_ARGS__)); \
+		struct cb_value err; \
+		cb_value_from_fmt(&err, (MSG), ##__VA_ARGS__); \
+		cb_error_set(err); \
 		retval = 1; \
 		RET_WITH_TRACE(); \
 	})

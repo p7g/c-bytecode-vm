@@ -37,8 +37,10 @@ static int get_export_names(size_t argc, struct cb_value *argv,
 	id = cb_agent_get_string_id(cb_strptr(&modname), cb_strlen(modname));
 
 	if (id == -1 || !(spec = cb_agent_get_modspec_by_name(id))) {
-		cb_error_set(cb_value_from_fmt("export_names: No module '%s'",
-				cb_strptr(&modname)));
+		struct cb_value err;
+		cb_value_from_fmt(&err, "export_names: No module '%s'",
+				cb_strptr(&modname));
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -70,26 +72,31 @@ static int get_export(size_t argc, struct cb_value *argv,
 
 	spec = cb_agent_get_modspec_by_name(modname_id);
 	if (!spec) {
-		cb_error_set(cb_value_from_fmt("get: No module '%s'",
-				cb_strptr(&modname)));
+		struct cb_value err;
+		cb_value_from_fmt(&err, "get: No module '%s'", cb_strptr(&modname));
+		cb_error_set(err);
 		return 1;
 	}
 
 	export_name_id = cb_agent_get_string_id(cb_strptr(&export_name),
 			cb_strlen(export_name));
 	if (export_name_id == -1) {
-		cb_error_set(cb_value_from_fmt(
+		struct cb_value err;
+		cb_value_from_fmt(&err,
 				"get: Module '%s' has no export '%s'",
-				cb_strptr(&modname), cb_strptr(&export_name)));
+				cb_strptr(&modname), cb_strptr(&export_name));
+		cb_error_set(err);
 		return 1;
 	}
 
 	mod = &cb_vm_state.modules[cb_modspec_id(spec)];
 	assert(mod->global_scope);
 	if (!cb_hashmap_get(mod->global_scope, export_name_id, result)) {
-		cb_error_set(cb_value_from_fmt(
+		struct cb_value err;
+		cb_value_from_fmt(&err,
 				"get: Module '%s' has no export '%s'",
-				cb_strptr(&modname), cb_strptr(&export_name)));
+				cb_strptr(&modname), cb_strptr(&export_name));
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -110,8 +117,7 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 		path = cb_strdup_cstr(CB_EXPECT_STRING(argv[1]));
 		f = fopen(path, "rb");
 		if (!f) {
-			cb_error_set(cb_value_from_fmt("import: %s",
-						strerror(errno)));
+			cb_error_from_errno();
 			goto err;
 		}
 	} else {
@@ -131,7 +137,9 @@ static int import(size_t argc, struct cb_value *argv, struct cb_value *result)
 	}
 
 	if (cb_compile_file(modspec, f)) {
-		cb_error_set(cb_value_from_string("Compile error"));
+		struct cb_value err;
+		cb_value_from_string(&err, "Compile error");
+		cb_error_set(err);
 		goto err;
 	}
 

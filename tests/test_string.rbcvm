@@ -1,4 +1,5 @@
 import test;
+import string;
 
 export function test_string_equality() {
     test::assert("a" != "b");
@@ -24,4 +25,22 @@ export function test_string_ordering_uninterned() {
 
     test::assert(aa < bb);
     test::assert(aa < aaa);
+}
+
+export function test_string_startswith() {
+    test::assert(string::startswith("hello", "h"));
+    test::assert(string::startswith("hello", "hell"));
+    test::assert(string::startswith("hello", "hello"));
+    test::assert(string::startswith("hello", ""));
+    test::assert(!string::startswith("hello", "world"));
+    test::assert(!string::startswith("hello", "hellooo"));
+}
+
+export function test_string_endswith() {
+    test::assert(string::endswith("hello", "o"));
+    test::assert(string::endswith("hello", "ello"));
+    test::assert(string::endswith("hello", "hello"));
+    test::assert(string::endswith("hello", ""));
+    test::assert(!string::endswith("hello", "world"));
+    test::assert(!string::endswith("hello", "hhhello"));
 }

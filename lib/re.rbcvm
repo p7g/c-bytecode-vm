@@ -5,31 +5,31 @@ import arraylist;
 import docs;
 import hash;
 import hashmap;
+import iter;
 import string;
 
 let doc = docs::module("re", "Primitive regular expressions.");
 
 function insert_explicit_concat_operator(exp) {
-    let len = string::length(exp);
     let output = arraylist::new();
+    let tokens = iter::peekable(string::iter(exp));
 
-    for (let i = 0; i < len; i = i + 1) {
-        let token = string::char_at(exp, i);
+    iter::foreach(tokens.iter, function (token) {
         arraylist::push(output, token);
 
         if (token == '(' || token == '|') {
-            continue;
+            return;
         }
 
-        if (i < len - 1) {
-            let lookahead = string::char_at(exp, i + 1);
-            if (string::contains("*?+|)", lookahead)) {
-                continue;
+        let lookahead = tokens.peek();
+        if (lookahead != iter::STOP) {
+            if (string::contains("*?+|", lookahead)) {
+                return;
             }
 
             arraylist::push(output, '.');
         }
-    }
+    });
 
     return string::from_chars(arraylist::to_array(output));
 }
@@ -193,8 +193,7 @@ function to_nfa(postfix_exp) {
     let stack = arraylist::new();
     let len = string::length(postfix_exp);
 
-    for (let i = 0; i < len; i = i + 1) {
-        let token = string::char_at(postfix_exp, i);
+    iter::foreach(string::iter(postfix_exp), function (token) {
         if (token == '*') {
             arraylist::push(stack, closure(arraylist::pop(stack)));
         } else if (token == '|') {
@@ -212,7 +211,7 @@ function to_nfa(postfix_exp) {
         } else {
             arraylist::push(stack, from_symbol(token));
         }
-    }
+    });
 
     return arraylist::pop(stack);
 }

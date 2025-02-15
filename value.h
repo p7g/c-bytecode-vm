@@ -125,9 +125,9 @@ struct cb_value cb_cfunc_new(size_t name, size_t arity,
 struct cb_value cb_int(int64_t);
 struct cb_value cb_double(double);
 struct cb_value cb_bool(int);
-struct cb_value cb_char(uint32_t);
-struct cb_value cb_value_from_string(const char *str);
-struct cb_value cb_value_from_fmt(const char *fmt, ...);
+struct cb_value cb_char(int32_t);
+ssize_t cb_value_from_string(struct cb_value *val, const char *str);
+ssize_t cb_value_from_fmt(struct cb_value *val, const char *fmt, ...);
 struct cb_bytes *cb_bytes_new(size_t size);
 struct cb_value cb_bytes_new_value(size_t size);
 

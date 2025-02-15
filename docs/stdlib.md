@@ -2,15 +2,16 @@
 
 Index:
 - [docs](#docs-module)
-- [iter](#iter-module)
 - [array](#array-module)
+- [list](#list-module)
+- [math](#math-module)
+- [op](#op-module)
+- [iter](#iter-module)
 - [arraylist](#arraylist-module)
 - [assoclist](#assoclist-module)
 - [bytes](#bytes-module)
 - [char](#char-module)
-- [math](#math-module)
 - [fn](#fn-module)
-- [op](#op-module)
 - [string](#string-module)
 - [test](#test-module)
 - [base64](#base64-module)
@@ -19,7 +20,6 @@ Index:
 - [hash](#hash-module)
 - [hashmap](#hashmap-module)
 - [json](#json-module)
-- [list](#list-module)
 - [obj](#obj-module)
 - [path](#path-module)
 - [re](#re-module)
@@ -53,9 +53,272 @@ The interface for a documentation generator.
 
 Create an object to document members of a module.
 
+## array module
+
+Functions for working with arrays.
+
+### function `get(array, index, fallback=null)`
+
+If `index` is out of `array`'s bounds, return `fallback`. Otherwise return the element of `array` at `index`.
+
+### function `copy(array)`
+
+Create a shallow copy of `array`.
+
+### function `slice(array, start, end=...)`
+
+Returns a slice of `array` starting at index `start` and ending at index `end`. `end` defaults to the end of the array.
+
+### function `reversed(array)`
+
+Create a new array with the elements of `array` reversed.
+
+### function `reverse(array)`
+
+Reverse `array` in place.
+
+### function `foldl(array, init, reducer)`
+
+Reduce `array` from the left, using the first value of `array` as the initial
+value for the accumulator.
+
+### function `foldl(array, init, reducer)`
+
+Reduce `array` from the left, using `init` as the initial value for the
+accumulator.
+
+### function `map(array, func)`
+
+Create a new array where each element is the result of calling `func` on the
+corresponding element of `array`.
+
+### function `contains(array, thing)`
+
+Returns true if any element of `array` is equal to `thing`.
+
+### function `foreach(array, func)`
+
+Call `func` with the element, index, and array for each element of `array`.
+
+### function `find(array, predicate)`
+
+Find the element for which `predicate` returns true. If there is none, returns null.
+
+### function `find_index(array, predicate)`
+
+Find the index of the element for which `predicate` returns true. If there is none, returns -1.
+
+### object `collector`
+
+A collector for converting an iterator into an array.
+
+### function `iter(array)`
+
+Create an iterator from array `array`.
+
+### function `length(array)`
+
+Get the length of array `array`.
+
+### function `new(len, init=null)`
+
+Create a new array of length `len`. Each element is initialized to `init`.
+
+## list module
+
+A doubly-linked list implementation.
+
+### function `foldl(list, init, reducer)`
+
+Reduce the list from the left.
+
+### function `to_array(list)`
+
+Create a new array with the elements of `list`.
+
+### function `map(list, func)`
+
+Create a new linked list where every element is calculated by calling `func` on the old element.
+
+### object `collector`
+
+A collector to convert an iterator into a list.
+
+### function `reverse(list)`
+
+Make a new linked list that is the reverse of `list`.
+
+### function `find(list, func)`
+
+Return the first element of `list` that satisfies the predicate `func`.
+
+If none is found, this function returns `null`.
+
+### function `foreach(list, func)`
+
+Call `func` for every element of `list`.
+
+### function `get(list, i)`
+
+Get the `i`th element from `list`. Throw if `i` is out of bounds.
+
+Note that this function is `O(n)`.
+
+### function `unshift(list)`
+
+Remove and return the first element from `list`. If `list` is empty throw an Error.
+
+### function `pop(list)`
+
+Remove and return the last element from `list`. If `list` is empty throw an Error.
+
+### function `append(list, value)`
+
+Append `value` to the end of `list`.
+
+### function `prepend(list, value)`
+
+Insert `value` at the front of `list`
+
+### function `length(list)`
+
+Get the length of the list.
+
+### function `iter(list)`
+
+Create an iterator over `list`.
+
+### function `new()`
+
+Create a new, empty linked list.
+
+## math module
+
+Math functions.
+
+### function `log10(n)`
+
+Computes base-10 log of `n`.
+
+### function `log2(n)`
+
+Computes base-2 log of `n`.
+
+### function `log(n)`
+
+Computes base-e log of `n`.
+
+### function `min(a, b)`
+
+Return the lesser of `a` and `b`.
+
+### function `max(a, b)`
+
+Return the greater of `a` and `b`.
+
+### function `floor(n)`
+
+Round `n` down to the previous integer value.
+
+### function `ceil(n)`
+
+Round `n` up to the next integer value.
+
+### function `shr(a, b)`
+
+Shift `a` to the right by `b` bits.
+
+### function `shl(a, b)`
+
+Shift `a` to the left by `b` bits.
+
+### function `sqrt(n)`
+
+Calculate the square root of `n`.
+
+### function `abs(n)`
+
+Calculate the absolute value of `n`.
+
+## op module
+
+Functions that wrap operators.
+
+### function `bxor(a, b)`
+
+Performs `a ^ b`.
+
+### function `bor(a, b)`
+
+Performs `a | b`.
+
+### function `band(a, b)`
+
+Performs `a & b`.
+
+### function `mod(a, b)`
+
+Performs `a % b`.
+
+### function `div(a, b)`
+
+Performs `a / b`.
+
+### function `mul(a, b)`
+
+Performs `a * b`.
+
+### function `neg(a)`
+
+Performs `-a`.
+
+### function `sub(a, b)`
+
+Performs `a - b`.
+
+### function `add(a, b)`
+
+Performs `a + b`.
+
+### function `gte(a, b)`
+
+Performs `a >= b`.
+
+### function `gt(a, b)`
+
+Performs `a > b`.
+
+### function `lte(a, b)`
+
+Performs `a <= b`.
+
+### function `lt(a, b)`
+
+Performs `a < b`.
+
+### function `ne(a, b)`
+
+Performs `a != b`.
+
+### function `eq(a, b)`
+
+Performs `a == b`.
+
 ## iter module
 
 Lazy iterators.
+
+### function `slice(it, start, end=...)`
+
+
+
+### function `peekable(it)`
+
+
+
+### function `sum(it)`
+
+Sum the elements of `it`.
 
 ### function `intersperse(it, val)`
 
@@ -73,11 +336,11 @@ Find the smallest item in the iterator (using `<`).
 
 Find the largest item in the iterator (using `>`).
 
-### function `fold(it, init, reducer)`
+### function `fold(reducer, it, init)`
 
 Reduce the iterator, using `init` as the initial value of the accumulator.
 
-### function `fold1(it, reducer)`
+### function `fold1(reducer, it)`
 
 Reduce the iterator, using the first value as the initial value of the accumulator.
 
@@ -137,77 +400,6 @@ An struct defining the required functions to convert an iterator into an arbitra
 ### object `STOP`
 
 A sentinel value indicating that an iterator has been exhausted.
-
-## array module
-
-Functions for working with arrays.
-
-### function `get(array, index, fallback=null)`
-
-If `index` is out of `array`'s bounds, return `fallback`. Otherwise return the element of `array` at `index`.
-
-### function `copy(array)`
-
-Create a shallow copy of `array`.
-
-### function `slice(array, start, end)`
-
-Returns a slice of `array` starting at index `start` and ending at index `end`.
-
-### function `reversed(array)`
-
-Create a new array with the elements of `array` reversed.
-
-### function `reverse(array)`
-
-Reverse `array` in place.
-
-### function `foldl(array, init, reducer)`
-
-Reduce `array` from the left, using the first value of `array` as the initial
-value for the accumulator.
-
-### function `foldl(array, init, reducer)`
-
-Reduce `array` from the left, using `init` as the initial value for the
-accumulator.
-
-### function `map(array, func)`
-
-Create a new array where each element is the result of calling `func` on the
-corresponding element of `array`.
-
-### function `contains(array, thing)`
-
-Returns true if any element of `array` is equal to `thing`.
-
-### function `foreach(array, func)`
-
-Call `func` with the element, index, and array for each element of `array`.
-
-### function `find(array, predicate)`
-
-Find the element for which `predicate` returns true. If there is none, returns null.
-
-### function `find_index(array, predicate)`
-
-Find the index of the element for which `predicate` returns true. If there is none, returns -1.
-
-### object `collector`
-
-A collector for converting an iterator into an array.
-
-### function `iter(array)`
-
-Create an iterator from array `array`.
-
-### function `length(array)`
-
-Get the length of array `array`.
-
-### function `new(len, init=null)`
-
-Create a new array of length `len`. Each element is initialized to `init`.
 
 ## arraylist module
 
@@ -410,54 +602,6 @@ Return true if `c` is an ASCII letter.
 
 Return true if `c` is an ASCII digit.
 
-## math module
-
-Math functions.
-
-### function `log10(n)`
-
-Computes base-10 log of `n`.
-
-### function `log2(n)`
-
-Computes base-2 log of `n`.
-
-### function `log(n)`
-
-Computes base-e log of `n`.
-
-### function `min(a, b)`
-
-Return the lesser of `a` and `b`.
-
-### function `max(a, b)`
-
-Return the greater of `a` and `b`.
-
-### function `floor(n)`
-
-Round `n` down to the previous integer value.
-
-### function `ceil(n)`
-
-Round `n` up to the next integer value.
-
-### function `shr(a, b)`
-
-Shift `a` to the right by `b` bits.
-
-### function `shl(a, b)`
-
-Shift `a` to the left by `b` bits.
-
-### function `sqrt(n)`
-
-Calculate the square root of `n`.
-
-### function `abs(n)`
-
-Calculate the absolute value of `n`.
-
 ## fn module
 
 Functional programming utilities.
@@ -492,73 +636,21 @@ Return `x`.
 
 Call `func`, passing as arguments the elements of the array `args`.
 
-## op module
-
-Functions that wrap operators.
-
-### function `bxor(a, b)`
-
-Performs `a ^ b`.
-
-### function `bor(a, b)`
-
-Performs `a | b`.
-
-### function `band(a, b)`
-
-Performs `a & b`.
-
-### function `mod(a, b)`
-
-Performs `a % b`.
-
-### function `div(a, b)`
-
-Performs `a / b`.
-
-### function `mul(a, b)`
-
-Performs `a * b`.
-
-### function `neg(a)`
-
-Performs `-a`.
-
-### function `sub(a, b)`
-
-Performs `a - b`.
-
-### function `add(a, b)`
-
-Performs `a + b`.
-
-### function `gte(a, b)`
-
-Performs `a >= b`.
-
-### function `gt(a, b)`
-
-Performs `a > b`.
-
-### function `lte(a, b)`
-
-Performs `a <= b`.
-
-### function `lt(a, b)`
-
-Performs `a < b`.
-
-### function `ne(a, b)`
-
-Performs `a != b`.
-
-### function `eq(a, b)`
-
-Performs `a == b`.
-
 ## string module
 
 Functions for working with strings.
+
+### function `padright(string, padchar, len)`
+
+Pad `string` to length `len` by adding `padchar` to the right.
+
+### function `padleft(string, padchar, len)`
+
+Pad `string` to length `len` by adding `padchar` to the left.
+
+### function `to_lowercase(string)`
+
+Convert `string` to lower case.
 
 ### function `join(strings, sep)`
 
@@ -568,17 +660,17 @@ Join all `strings` together with `sep` in between each.
 
 Break a string into an array of parts, where each part is separated by `on`.
 
-### function `strip(string, lpred=char.is_whitespace, rpred=null)`
+### function `strip(string, lpred=char::is_whitespace, rpred=null)`
 
 Remove characters from both ends of the string while predicates remain true.
 If only `lpred` is passed it's used for the start and end of the string.
 If `rpred` is also passed, it's used for the end of the string.
 
-### function `rstrip(string, pred=char.is_whitespace)`
+### function `rstrip(string, pred=char::is_whitespace)`
 
 Remove characters from the end of the string while `pred` remains true.
 
-### function `lstrip(string, pred=char.is_whitespace)`
+### function `lstrip(string, pred=char::is_whitespace)`
 
 Remove characters from the start of the string while `pred` remains true.
 
@@ -626,10 +718,6 @@ Create an iterator over the characters in `str`.
 ### function `from_bytes(bytes)`
 
 Convert a byte array to a string.
-
-### function `char_at(string, idx)`
-
-Get the `idx`th character of `string`.
 
 ### function `length(string)`
 
@@ -794,7 +882,7 @@ Get an iterator over the keys in `map`.
 
 ### function `size(map)`
 
-Count the number of values in `map`.
+Return the number of values in `map`.
 
 ### function `iter(map)`
 
@@ -836,9 +924,17 @@ Create a collector for converting an iterator of entries into a hashmap.
 
 A partial implementation of a JSON parser.
 
+### function `serialize(obj)`
+
+Serialize an object to JSON.
+
 ### function `parse(input)`
 
 Parse the string `input` as JSON.
+
+### struct `UnserializeableError`
+
+Error raised when trying to serialize something that can't be represented in JSON.
 
 ### struct `InvalidJsonError`
 
@@ -847,66 +943,6 @@ Error raised when the input string is not able to be parsed.
 ### struct `UnexpectedTokenError`
 
 Error raised when an unexpected token is encountered.
-
-## list module
-
-A linked list implementation.
-
-### function `foldl(list, init, reducer)`
-
-Reduce the list from the left.
-
-### function `to_array(list)`
-
-Create a new array with the elements of `list`.
-
-### function `map(list, func)`
-
-Create a new linked list where every element is calculated by calling `func` on the old element.
-
-### object `collector`
-
-A collector to convert an iterator into a list.
-
-### function `reverse(list)`
-
-Make a new linked list that is the reverse of `list`.
-
-### function `find(list, func)`
-
-Return the first element of `list` that satisfies the predicate `func`.
-
-If none is found, this function returns `null`.
-
-### function `foreach(list, func)`
-
-Call `func` for every element of `list`.
-
-### function `append(list, value)`
-
-Return a new list with `value` added to the end.
-
-Like `length`, this function is O(n).
-
-### function `prepend(list, value)`
-
-Return a new list with `value` added to the front.
-
-This function is O(1) (i.e. takes the same time regardless of the length of the list).
-
-### function `length(list)`
-
-Get the length of the list.
-
-Note that this is O(n) (i.e. requires traversing the entire list).
-
-### function `iter(list)`
-
-Create an iterator over `list`.
-
-### function `new()`
-
-Create a new, empty linked list.
 
 ## obj module
 

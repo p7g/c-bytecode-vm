@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
 #if __APPLE__
 #include <mach-o/dyld.h>
@@ -159,7 +160,7 @@ ssize_t cb_agent_get_string_id(const char *str, size_t len)
 	return -1;
 }
 
-size_t cb_agent_intern_string(const char *str, size_t len)
+ssize_t cb_agent_intern_string(const char *str, size_t len)
 {
 	size_t id;
 
@@ -183,9 +184,9 @@ size_t cb_agent_intern_string(const char *str, size_t len)
 				agent.string_table_size * sizeof(cb_str));
 	}
 
-	agent.string_table[id] = cb_str_from_cstr(str, len);
+	ssize_t result = cb_str_from_cstr(str, len, &agent.string_table[id]);
 
-	return id;
+	return result < 0 ? result : (ssize_t) id;
 }
 
 /* Strings returned from this function should not be freed */
@@ -273,10 +274,12 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 #define min(A, B) ({ typeof((A)) _a = (A), _b = (B); _a < _b ? _a : _b; })
 #define CHECK_LEN ({ \
 		if (path[MAX_IMPORT_PATH_LEN - 1] != 0) { \
-			cb_error_set(cb_value_from_fmt( \
+			struct cb_value err; \
+			cb_value_from_fmt(&err, \
 					"Import path for '%.*s' is too long\n", \
 					(int) cb_strlen(import_name), \
-					cb_strptr(&import_name))); \
+					cb_strptr(&import_name)); \
+			cb_error_set(err); \
 			return NULL; \
 		} \
 	})
@@ -340,9 +343,11 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 		snprintf(buf, 7, "(none)");
 	buf[buf_len] = 0;
 
-	cb_error_set(cb_value_from_fmt("Import '%.*s' not found, checked in: %s",
+	struct cb_value err;
+	cb_value_from_fmt(&err, "Import '%.*s' not found, checked in: %s",
 			(int) cb_strlen(import_name), cb_strptr(&import_name),
-			buf));
+			buf);
+	cb_error_set(err);
 	free(buf);
 	return NULL;
 

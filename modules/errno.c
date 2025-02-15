@@ -53,7 +53,14 @@ static int wrapped_strerror(size_t argc, struct cb_value *argv,
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
-	result->val.as_string->string = cb_str_from_cstr(msg, strlen(msg));
+	ssize_t strvalid = cb_str_from_cstr(msg, strlen(msg),
+			&result->val.as_string->string);
+	if (strvalid < 0) {
+		struct cb_value err;
+		cb_value_from_string(&err, cb_str_errmsg(strvalid));
+		cb_error_set(err);
+		return 1;
+	}
 	return 0;
 }
 
