@@ -9,10 +9,14 @@ import module;
 import path;
 import string;
 import sys;
+import json;
 
 let tests_by_file = hashmap::new();
 
 iter::foreach(fs::directory_entries("tests"), function collect_test_modules(path) {
+    if (!string::startswith(path, "test")) {
+        return;
+    }
     path = path::join("tests", path);
     if (fs::isfile(path) && path::ext(path) == "rbcvm") {
         let tests = arraylist::new();
@@ -30,7 +34,7 @@ let ntests = 0;
 iter::foreach(hashmap::values(tests_by_file), function count_tests(tests) {
     ntests = ntests + array::length(tests);
 });
-println("Collected", ntests, "tests");
+println("Collected", ntests, "tests from", hashmap::size(tests_by_file), "modules");
 
 let failed = arraylist::new();
 
