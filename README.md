@@ -2,7 +2,8 @@
 
 # c-bytecode-vm
 
-[![TODOs](https://badgen.net/https/api.tickgit.com/badgen/github.com/p7g/c-bytecode-vm)](https://www.tickgit.com/browse?repo=github.com/p7g/c-bytecode-vm)
+[![TODOs](https://img.shields.io/github/search?query=repo%3Ap7g%2Fc-bytecode-vm%20AND%20TODO&label=TODOs)](https://github.com/search?type=code&q=repo%3Ap7g%2Fc-bytecode-vm+TODO)
+[![FIXMEs](https://img.shields.io/github/search?query=repo%3Ap7g%2Fc-bytecode-vm%20AND%20FIXME&label=FIXMEs&color=red)](https://github.com/search?type=code&q=repo%3Ap7g%2Fc-bytecode-vm+FIXME)
 
 [Standard libary documentation](https://p7g.github.io/c-bytecode-vm/docs/stdlib)
 |
