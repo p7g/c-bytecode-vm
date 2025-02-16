@@ -22,15 +22,15 @@ function do_hash(self, key) {
 }
 
 function grow(self) {
-  let cap = self.cap = self.cap * 2;
+  self.cap = self.cap * 2;
 
   let old_buckets = self.buckets;
-  self.buckets = array::new(cap);
+  self.buckets = array::new(self.cap);
   self.load = 0;
 
   let bucket = self.first_insert;
   self.first_insert = self.last_insert = null;
-  for (let bucket = self.first_insert; bucket; bucket = bucket.next) {
+  for (; bucket; bucket = bucket.next) {
     set(self, bucket.key, bucket.value);
   }
 }
@@ -163,8 +163,16 @@ export function delete(self, key) {
     hashed = next_hash(self, hashed);
   }
 
-  bucket.next.prev = bucket.prev;
-  bucket.prev.next = bucket.next;
+  if (bucket.next) {
+    bucket.next.prev = bucket.prev;
+  } else {
+    self.last_insert = bucket.prev;
+  }
+  if (bucket.prev) {
+    bucket.prev.next = bucket.next;
+  } else {
+    self.first_insert = bucket.next;
+  }
   self.buckets[hashed] = TOMBSTONE;
   self.load = self.load - 1;
   return true;

@@ -1,4 +1,5 @@
 import hashmap;
+import iter;
 import test;
 
 export function test_basics() {
@@ -29,4 +30,60 @@ export function test_basics() {
     test::assert(hashmap::has(m, 1), "has 1");
     test::assert(hashmap::get(m, 1) == "one", "1 is one");
     test::assert(hashmap::size(m) == 3);
+}
+
+function iterlength(it) {
+    let n = 0;
+    iter::foreach(it, function () {
+        n = n + 1;
+    });
+    return n;
+}
+
+export function test_iteration_after_delete_first() {
+    let map = hashmap::make(function (set) {
+        set(1, "1");
+        set(2, "2");
+        set(3, "3");
+    });
+
+    test::assert(hashmap::size(map) == 3);
+    test::assert(iterlength(hashmap::keys(map)) == 3);
+
+    hashmap::delete(map, 1);
+
+    test::assert(hashmap::size(map) == 2);
+    test::assert(iterlength(hashmap::keys(map)) == 2);
+}
+
+export function test_iteration_after_delete_middle() {
+    let map = hashmap::make(function (set) {
+        set(1, "1");
+        set(2, "2");
+        set(3, "3");
+    });
+
+    test::assert(hashmap::size(map) == 3);
+    test::assert(iterlength(hashmap::keys(map)) == 3);
+
+    hashmap::delete(map, 2);
+
+    test::assert(hashmap::size(map) == 2);
+    test::assert(iterlength(hashmap::keys(map)) == 2);
+}
+
+export function test_iteration_after_delete_last() {
+    let map = hashmap::make(function (set) {
+        set(1, "1");
+        set(2, "2");
+        set(3, "3");
+    });
+
+    test::assert(hashmap::size(map) == 3);
+    test::assert(iterlength(hashmap::keys(map)) == 3);
+
+    hashmap::delete(map, 3);
+
+    test::assert(hashmap::size(map) == 2);
+    test::assert(iterlength(hashmap::keys(map)) == 2);
 }
