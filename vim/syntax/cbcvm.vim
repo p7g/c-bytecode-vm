@@ -1,0 +1,114 @@
+let s:cpo_save = &cpo
+set cpo&vim
+
+syn case match
+
+syn keyword cbcvmCommentTodo TODO FIXME NOTE XXX contained
+syn match cbcvmComment "#.*" contains=@Spell,cbcvmCommentTodo
+syn match cbcvmSpecial "\\."
+syn region cbcvmString start=+"+ skip=+\\\\\|\\"+ end=+"+ contains=cbcvmSpecial
+syn region cbcvmCharacter start=+'+ skip=+\\\\\|\\'+ end=+'+ contains=cbcvmSpecial
+
+" Borrowed from vim's javascript syntax highlighting
+syn match cbcvmNumber "\<0x[0-9a-fA-F]\+\>"
+syn match cbcvmNumber "\<[1-9]\d*\(\.\d*\)\?\>"
+syn match cbcvmNumber "\<0\(\.\d*\)\?\>"
+
+syn keyword cbcvmConditional if else
+syn keyword cbcvmRepeat for while 
+syn keyword cbcvmBranch break continue
+syn keyword cbcvmStatement return import
+syn keyword cbcvmBoolean true false
+syn keyword cbcvmKeyword let
+syn keyword cbcvmNull null
+syn keyword cbcvmException try catch throw
+syn keyword cbcvmFunction function
+syn keyword cbcvmModifier export
+syn keyword cbcvmInclude import
+syn keyword cbcvmStructure struct
+syn keyword cbcvmIntrinsics print println tostring typeof string_chars
+            \ string_from_chars string_bytes string_concat ord chr truncate32
+            \ tofloat read_file read_file_bytes argv __upvalues apply now toint
+            \ __gc_collect __dis
+syn match cbcvmBraces "[{}\[\]]"
+syn match cbcvmParens "[()]"
+
+syn match cbcvmStructField /\.\h\w*/hs=s+1 contains=ALLBUT,cbcvmIntrinsics transparent
+syn match cbcvmModuleMember /::\h\w*/hs=s+1 contains=ALLBUT,cbcvmIntrinsics transparent
+
+" FIXME: what does this do?
+syn sync fromstart
+syn sync maxlines=100
+syn sync ccomment cbcvmComment
+
+hi def link cbcvmComment Comment
+hi def link cbcvmCommentTodo Todo
+hi def link cbcvmSpecial Special
+hi def link cbcvmString String
+hi def link cbcvmCharacter Character
+hi def link cbcvmNumber Number
+hi def link cbcvmConditional Conditional
+hi def link cbcvmRepeat Repeat
+hi def link cbcvmBranch Conditional
+hi def link cbcvmStatement Statement
+hi def link cbcvmFunction Keyword
+hi def link cbcvmBraces Function
+hi def link cbcvmNull Keyword
+hi def link cbcvmBoolean Boolean
+hi def link cbcvmRegexpString String
+hi def link cbcvmIdentifier Identifier
+hi def link cbcvmException Exception
+hi def link cbcvmModifier StorageClass
+hi def link cbcvmInclude Include
+hi def link cbcvmKeyword Keyword
+hi def link cbcvmStructure Structure
+
+let &cpo = s:cpo_save
+unlet s:cpo_save
+
+" Comment		any comment
+" 
+" Constant	any constant
+" String		a string constant: "this is a string"
+" Character	a character constant: 'c', '\n'
+" Number		a number constant: 234, 0xff
+" Boolean		a boolean constant: TRUE, false
+" Float		a floating point constant: 2.3e10
+" 
+" Identifier	any variable name
+" Function	function name (also: methods for classes)
+" 
+" Statement	any statement
+" Conditional	if, then, else, endif, switch, etc.
+" Repeat		for, do, while, etc.
+" Label		case, default, etc.
+" Operator	"sizeof", "+", "*", etc.
+" Keyword		any other keyword
+" Exception	try, catch, throw
+" 
+" PreProc		generic Preprocessor
+" Include		preprocessor #include
+" Define		preprocessor #define
+" Macro		same as Define
+" PreCondit	preprocessor #if, #else, #endif, etc.
+" 
+" Type		int, long, char, etc.
+" StorageClass	static, register, volatile, etc.
+" Structure	struct, union, enum, etc.
+" Typedef		a typedef
+" 
+" Special		any special symbol
+" SpecialChar	special character in a constant
+" Tag		you can use CTRL-] on this
+" Delimiter	character that needs attention
+" SpecialComment	special things inside a comment
+" Debug		debugging statements
+" 
+" Underlined	text that stands out, HTML links
+" 
+" Ignore		left blank, hidden  |hl-Ignore|
+" 
+" Error		any erroneous construct
+" 
+" Todo		anything that needs extra attention; mostly the
+" 		keywords TODO FIXME and XXX
