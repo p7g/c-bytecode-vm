@@ -45,16 +45,25 @@
 	X(TOK_LEFT_PAREN) \
 	X(TOK_RIGHT_PAREN) \
 	X(TOK_PLUS) \
+	X(TOK_PLUS_EQUAL) \
 	X(TOK_PLUS_PLUS) \
 	X(TOK_MINUS) \
+	X(TOK_MINUS_EQUAL) \
 	X(TOK_MINUS_MINUS) \
 	X(TOK_STAR) \
+	X(TOK_STAR_EQUAL) \
 	X(TOK_SLASH) \
+	X(TOK_SLASH_EQUAL) \
 	X(TOK_PERCENT) \
+	X(TOK_PERCENT_EQUAL) \
 	X(TOK_STAR_STAR) \
+	X(TOK_STAR_STAR_EQUAL) \
 	X(TOK_AND) \
+	X(TOK_AND_EQUAL) \
 	X(TOK_PIPE) \
+	X(TOK_PIPE_EQUAL) \
 	X(TOK_CARET) \
+	X(TOK_CARET_EQUAL) \
 	X(TOK_AND_AND) \
 	X(TOK_PIPE_PIPE) \
 	X(TOK_SEMICOLON) \
@@ -217,6 +226,17 @@ static int next_token(struct lex_state *state, struct token *dest)
 			TOKEN(A); \
 		} \
 	})
+#define OR3(A, SND, B, TRD, C) ({ \
+		if (PEEK() == (SND)) { \
+			(void) NEXT(); \
+			TOKEN(B); \
+		} else if (PEEK() == (TRD)) { \
+			(void) NEXT(); \
+			TOKEN(C); \
+		} else { \
+			TOKEN(A); \
+		} \
+	})
 
 	start_of_token = state->input + state->input_pos;
 
@@ -245,26 +265,28 @@ static int next_token(struct lex_state *state, struct token *dest)
 			while (PEEK() != '\n') NEXT();
 			continue;
 
-		case '+': OR2('+', TOK_PLUS, TOK_PLUS_PLUS);
-		case '-': OR2('-', TOK_MINUS, TOK_MINUS_MINUS);
-		case '/': TOKEN(TOK_SLASH);
-		case '^': TOKEN(TOK_CARET);
+		case '+': OR3(TOK_PLUS,'+', TOK_PLUS_PLUS, '=', TOK_PLUS_EQUAL);
+		case '-': OR3(TOK_MINUS, '-', TOK_MINUS_MINUS, '=', TOK_MINUS_EQUAL);
+
+		case '/': OR2('=', TOK_SLASH, TOK_SLASH_EQUAL);
+		case '^': OR2('=', TOK_CARET, TOK_CARET_EQUAL);
 		case '[': TOKEN(TOK_LEFT_BRACKET);
 		case ']': TOKEN(TOK_RIGHT_BRACKET);
 		case '{': TOKEN(TOK_LEFT_BRACE);
 		case '}': TOKEN(TOK_RIGHT_BRACE);
 		case '(': TOKEN(TOK_LEFT_PAREN);
 		case ')': TOKEN(TOK_RIGHT_PAREN);
-		case '%': TOKEN(TOK_PERCENT);
+		case '%': OR2('=', TOK_PERCENT, TOK_PERCENT_EQUAL);
 		case ';': TOKEN(TOK_SEMICOLON);
 		case ',': TOKEN(TOK_COMMA);
 		case '~': TOKEN(TOK_TILDE);
 		case '.': TOKEN(TOK_DOT);
 		case ':': OR2(':', TOK_COLON, TOK_DOUBLE_COLON);
 		case '=': OR2('=', TOK_EQUAL, TOK_EQUAL_EQUAL);
-		case '*': OR2('*', TOK_STAR, TOK_STAR_STAR);
-		case '&': OR2('&', TOK_AND, TOK_AND_AND);
-		case '|': OR2('|', TOK_PIPE, TOK_PIPE_PIPE);
+		/* FIXME: support **= */
+		case '*': OR3(TOK_STAR, '*', TOK_STAR_STAR, '=', TOK_STAR_EQUAL);
+		case '&': OR3(TOK_AND, '&', TOK_AND_AND, '=', TOK_AND_EQUAL);
+		case '|': OR3(TOK_PIPE, '|', TOK_PIPE_PIPE, '=', TOK_PIPE_EQUAL);
 		case '<': OR2('=', TOK_LESS_THAN, TOK_LESS_THAN_EQUAL);
 		case '>': OR2('=', TOK_GREATER_THAN, TOK_GREATER_THAN_EQUAL);
 		case '!': OR2('=', TOK_BANG, TOK_BANG_EQUAL);
@@ -2202,6 +2224,32 @@ static int load_name(struct cstate *state, size_t name)
 	return 0;
 }
 
+static enum cb_opcode compound_assign_op(struct token *tok)
+{
+	switch (tok->type) {
+	case TOK_PLUS_EQUAL:
+		return OP_ADD;
+	case TOK_MINUS_EQUAL:
+		return OP_SUB;
+	case TOK_STAR_EQUAL:
+		return OP_MUL;
+	case TOK_STAR_STAR_EQUAL:
+		return OP_EXP;
+	case TOK_SLASH_EQUAL:
+		return OP_DIV;
+	case TOK_PERCENT_EQUAL:
+		return OP_MOD;
+	case TOK_AND_EQUAL:
+		return OP_BITWISE_AND;
+	case TOK_PIPE_EQUAL:
+		return OP_BITWISE_OR;
+	case TOK_CARET_EQUAL:
+		return OP_BITWISE_XOR;
+	default:
+		return OP_HALT;
+	}
+}
+
 static int compile_identifier_expression(struct cstate *state)
 {
 	struct token tok, export;
@@ -2246,7 +2294,14 @@ static int compile_identifier_expression(struct cstate *state)
 		return 0;
 	}
 
-	if (MATCH_P(TOK_EQUAL)) {
+	enum cb_opcode compound_op = compound_assign_op(PEEK());
+	if (compound_op != OP_HALT) {
+		NEXT();
+		X(load_name(state, name));
+		X(compile_expression(state));
+		APPEND(compound_op);
+		X(store_name(state, name));
+	} else if (MATCH_P(TOK_EQUAL)) {
 		NEXT();
 		X(compile_expression(state));
 		X(store_name(state, name));
@@ -2663,7 +2718,15 @@ static int compile_index_expression(struct cstate *state)
 	X(compile_expression(state));
 	EXPECT(TOK_RIGHT_BRACKET);
 
-	if (MATCH_P(TOK_EQUAL)) {
+	enum cb_opcode compound_op = compound_assign_op(PEEK());
+	if (compound_op != OP_HALT) {
+		NEXT();
+		APPEND(OP_DUP_2);
+		APPEND(OP_ARRAY_GET);
+		X(compile_expression(state));
+		APPEND(compound_op);
+		APPEND(OP_ARRAY_SET);
+	} else if (MATCH_P(TOK_EQUAL)) {
 		EXPECT(TOK_EQUAL);
 		X(compile_expression(state));
 		APPEND(OP_ARRAY_SET);
@@ -2692,7 +2755,16 @@ static int compile_struct_field_expression(struct cstate *state)
 	fname_tok = EXPECT(TOK_IDENT);
 	name = intern_ident(state, &fname_tok);
 
-	if (MATCH_P(TOK_EQUAL)) {
+
+	enum cb_opcode compound_op = compound_assign_op(PEEK());
+	if (compound_op != OP_HALT) {
+		NEXT();
+		APPEND(OP_DUP);
+		APPEND1(OP_LOAD_STRUCT, name);
+		X(compile_expression(state));
+		APPEND(compound_op);
+		APPEND1(OP_STORE_STRUCT, name);
+	} else if (MATCH_P(TOK_EQUAL)) {
 		EXPECT(TOK_EQUAL);
 		X(compile_expression(state));
 		APPEND1(OP_STORE_STRUCT, name);
