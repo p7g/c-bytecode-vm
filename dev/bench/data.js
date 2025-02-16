@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739644361816,
+  "lastUpdate": 1739665324960,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -1498,6 +1498,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "spectral_norm",
             "value": 5456,
+            "unit": "ms"
+          },
+          {
+            "name": "binary_trees",
+            "value": 0,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "7e1cffcb06f75b4b48efa3013a7d4d29e3253e42",
+          "message": "skip non-test modules and show test module count",
+          "timestamp": "2025-02-15T19:17:03-05:00",
+          "tree_id": "0d5f5b61047a1a5a4abb1fa3925d1b12660f3be6",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/7e1cffcb06f75b4b48efa3013a7d4d29e3253e42"
+        },
+        "date": 1739665324430,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 162703,
+            "unit": "ms"
+          },
+          {
+            "name": "nbody",
+            "value": 2613,
+            "unit": "ms"
+          },
+          {
+            "name": "spectral_norm",
+            "value": 5582,
             "unit": "ms"
           },
           {
