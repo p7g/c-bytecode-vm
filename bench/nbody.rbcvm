@@ -63,22 +63,22 @@ function advance(bodies, dt) {
             let mag = dt / (dpos_norm_sq * math::sqrt(dpos_norm_sq));
 
             let mj = b2.mass * mag;
-            b.vx = b.vx - dx * mj;
-            b.vy = b.vy - dy * mj;
-            b.vz = b.vz - dz * mj;
+            b.vx -= dx * mj;
+            b.vy -= dy * mj;
+            b.vz -= dz * mj;
 
             let mi = b.mass * mag;
-            b2.vx = b2.vx + dx * mi;
-            b2.vy = b2.vy + dy * mi;
-            b2.vz = b2.vz + dz * mi;
+            b2.vx += dx * mi;
+            b2.vy += dy * mi;
+            b2.vz += dz * mi;
         }
     }
 
     for (let i = 0; i < num_bodies; i += 1) {
         let b = bodies[i];
-        b.x = b.x + b.vx * dt;
-        b.y = b.y + b.vy * dt;
-        b.z = b.z + b.vz * dt;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        b.z += b.vz * dt;
     }
 }
 
