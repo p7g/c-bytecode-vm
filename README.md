@@ -37,8 +37,7 @@ The primitive types are the following:
 
 ### Integer
 
-A signed, 64-bit integer. The semantics are those in C, except that an error is
-raised in the event of an overflow.
+A signed 64-bit integer. Hexadecimal literals are supported (with a lowercase X).
 
 Examples:
 ```js
@@ -64,8 +63,7 @@ want to make that not work.
 
 ### Char
 
-A single character. Stored as an unsigned 32-bit integer, though there is no
-UTF-8 support at this time. This is on the list of things to do.
+A single Unicode codepoint character.
 
 Examples:
 ```c
@@ -97,9 +95,8 @@ Example: `null`
 
 ### String
 
-A sequence of C `char` values represented as a "fat pointer"; a C char pointer
-with an associated length. As previously mentioned, UTF-8 support is something
-I plan to do.
+A UTF-8-encoded string. Can be manipulated using functions in the `string`
+module.
 
 Examples:
 ```js
@@ -155,6 +152,17 @@ Accessing a struct field that does not exist results in a throw at run-time.
 An anonymous struct can be declared and instantiated in one expression:
 ```c
 println(struct { a = 123 });
+```
+
+Note that each anonymous struct declaration has its own struct spec. This means
+that two anonymous structs declared in different places will never be equal.
+For example:
+
+```c
+function makestruct() { return struct {}; }
+
+println(makestruct() == makestruct());  # true
+println(makestruct() == struct {});  # false
 ```
 
 ### Function
@@ -278,9 +286,9 @@ There is a pretty rudimentary exception system. It works much like exceptions
 in JavaScript, using try/catch and throw. You can throw any value, and
 a try/catch block will catch all errors regardless of type.
 
-In the event of an error, VM will unwind the call stack until the error state
-is recovered or it reaches the top of the stack, at which point the program
-will exit. Here's an example:
+In the event of an error, the VM will unwind the call stack until the error
+state is recovered or it reaches the top of the stack, at which point the
+program will exit. Here's an example:
 
 ```js
 try {
@@ -347,6 +355,7 @@ least for now:
 - `toint`: Converts a double to an integer, or does what `ord` does to a char.
 - `__gc_collect`: Have the garbage collector run immediately. It has a scary
   name because it seems like a scary thing to do.
+- `__dis`: Print the disassembly of the given function directly to stdout.
 
 ## Standard Library
 
