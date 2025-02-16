@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739675089824,
+  "lastUpdate": 1739679317327,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -1674,6 +1674,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "spectral_norm",
             "value": 5229,
+            "unit": "ms"
+          },
+          {
+            "name": "binary_trees",
+            "value": 0,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "29de2699c50e3be9196e357c0bd3daafc655ea94",
+          "message": "add vim plugin",
+          "timestamp": "2025-02-15T23:10:43-05:00",
+          "tree_id": "7486c6e441c91ea9578c9cb023429d3f8ef38622",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/29de2699c50e3be9196e357c0bd3daafc655ea94"
+        },
+        "date": 1739679316955,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 158459,
+            "unit": "ms"
+          },
+          {
+            "name": "nbody",
+            "value": 2859,
+            "unit": "ms"
+          },
+          {
+            "name": "spectral_norm",
+            "value": 5291,
             "unit": "ms"
           },
           {
