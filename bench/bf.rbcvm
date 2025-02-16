@@ -4,25 +4,31 @@ import fs;
 import iter;
 import string;
 
-struct Tape { get, inc, move }
+struct Tape {
+    pos,
+    data,
+
+    function get() {
+        return arraylist::get(this.data, this.pos);
+    }
+
+    function inc(n) {
+        arraylist::set(this.data, this.pos,
+            arraylist::get(this.data, this.pos) + n);
+    }
+
+    function move(n) {
+        this.pos += n;
+        if (this.pos >= arraylist::length(this.data)) {
+            arraylist::push(this.data, 0);
+        }
+    }
+}
 
 function tape_new() {
-    let pos = 0;
-    let data = arraylist::from_array(1, [0]);
-
     return Tape {
-        get = function() {
-            return arraylist::get(data, pos);
-        },
-        inc = function(n) {
-            arraylist::set(data, pos, arraylist::get(data, pos) + n);
-        },
-        move = function(n) {
-            pos += n;
-            if (pos >= arraylist::length(data)) {
-                arraylist::push(data, 0);
-            }
-        },
+        pos = 0,
+        data = arraylist::from_array(1, [0]),
     };
 }
 

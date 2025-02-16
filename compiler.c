@@ -97,6 +97,7 @@
 	X(TOK_THROW) \
 	X(TOK_TRY) \
 	X(TOK_CATCH) \
+	X(TOK_THIS) \
 	X(TOK_EOF)
 
 enum token_type {
@@ -159,6 +160,7 @@ static struct {
 	KW("throw", TOK_THROW),
 	KW("try", TOK_TRY),
 	KW("catch", TOK_CATCH),
+	KW("this", TOK_THIS),
 };
 #undef KW
 
@@ -695,6 +697,7 @@ struct function_state {
 	       free_var_len,
 	       free_var_size;
 	int arity;
+	int is_method;
 };
 
 void fstate_add_freevar(struct function_state *fstate, size_t free_var)
@@ -831,6 +834,11 @@ static int cstate_is_global(struct cstate *s)
 	return !s->function_state;
 }
 
+static int cstate_is_method(struct cstate *s)
+{
+	return !!s->function_state && s->function_state->is_method;
+}
+
 static void cstate_push_loc(struct cstate *s, unsigned line, unsigned column)
 {
 	struct loc loc;
@@ -954,12 +962,12 @@ static struct token next(struct parse_state *state, int *ok)
 	})
 #define MAYBE_CONSUME(TYPE) (MATCH_P(TYPE) ? (NEXT(), 1) : 0)
 #define EXPECT(TYPE) ({ \
-		struct token *_tok = PEEK(); \
+		struct token *_expect_tok = PEEK(); \
 		enum token_type typ = (TYPE); \
-		if (!_tok || _tok->type != typ) { \
-			enum token_type actual = _tok ? _tok->type \
+		if (!_expect_tok || _expect_tok->type != typ) { \
+			enum token_type actual = _expect_tok ? _expect_tok->type \
 							: TOK_EOF; \
-			ERROR_AT_P(_tok, "Expected '%s', got '%s'", \
+			ERROR_AT_P(_expect_tok, "Expected '%s', got '%s'", \
 					token_type_name(typ), \
 					token_type_name(actual)); \
 			return 1; \
@@ -967,9 +975,10 @@ static struct token next(struct parse_state *state, int *ok)
 		NEXT(); \
 	})
 #define ERROR_AT_P(TOK, MSG, ...) ({ \
+		struct token *_error_at_p_tok = (TOK); \
 		cb_str __name; \
-		if (TOK) { \
-			ERROR_AT(*(TOK), MSG, ##__VA_ARGS__); \
+		if (_error_at_p_tok) { \
+			ERROR_AT(*_error_at_p_tok, MSG, ##__VA_ARGS__); \
 		} else { \
 			__name = cb_agent_get_string( \
 					state->parse_state->lex_state.name); \
@@ -978,11 +987,12 @@ static struct token next(struct parse_state *state, int *ok)
 		} \
 	})
 #define ERROR_AT(TOK, MSG, ...) ({ \
+		struct token _error_at_tok = (TOK); \
 		cb_str __name = cb_agent_get_string( \
 				state->parse_state->lex_state.name); \
 		fprintf(stderr, "Error in %s at %zu:%zu: " MSG "\n", \
-				cb_strptr(&__name), (TOK).line, \
-				(TOK).column, ##__VA_ARGS__); \
+				cb_strptr(&__name), _error_at_tok.line, \
+				_error_at_tok.column, ##__VA_ARGS__); \
 	})
 
 #define OP(X) ({ \
@@ -1055,6 +1065,7 @@ static struct cb_code *create_code(struct cstate *state)
 		current += cb_opcode_stack_effect(instr);
 #ifndef NDEBUG
 		if (current < 0) {
+			printf("Negative stack effect %zd\n", current);
 			for (size_t j = 0; j < cb_bytecode_len(state->bytecode); j++) {
 				assert(!cb_disassemble_one(state->bytecode->code[j], j));
 			}
@@ -1390,7 +1401,8 @@ static int compile_let_statement(struct cstate *state, int export)
 }
 
 static int compile_const_function(struct cstate *state, size_t **free_vars_out,
-		struct cb_const_user_function *func_out, size_t *binding_id_out)
+		struct cb_const_user_function *func_out, size_t *binding_id_out,
+		int is_method)
 {
 	struct cstate inner_state;
 	struct function_state inner_fn_state;
@@ -1421,6 +1433,7 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	inner_fn_state.scope = scope_new();
 	inner_fn_state.free_variables = NULL;
 	inner_fn_state.free_var_len = inner_fn_state.free_var_size = 0;
+	inner_fn_state.is_method = is_method;
 	if (state->function_state)
 		inner_fn_state.scope->parent = state->function_state->scope;
 
@@ -1545,7 +1558,8 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	return inner_fn_state.free_var_len;
 }
 
-static int compile_function(struct cstate *state, size_t *name_out)
+static int compile_function(struct cstate *state, size_t *name_out,
+		int is_method)
 {
 	ssize_t free_var_len;
 	size_t free_var, *free_vars;
@@ -1556,7 +1570,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 
 	func = malloc(sizeof(struct cb_const_user_function));
 	free_var_len = compile_const_function(state, &free_vars, func,
-			&binding_id);
+			&binding_id, is_method);
 	if (free_var_len < 0) {
 		free(func);
 		return 1;
@@ -1570,7 +1584,8 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	const_id = cstate_add_const(state, func_const);
 	APPEND1(OP_LOAD_CONST, const_id);
 
-	if (!cstate_is_global(state) && binding_id != (size_t) -1) {
+	if (!cstate_is_global(state) && binding_id != (size_t) -1
+			&& !is_method) {
 		APPEND1(OP_STORE_LOCAL, binding_id);
 	}
 
@@ -1603,7 +1618,7 @@ static int compile_function_statement(struct cstate *state, int export)
 {
 	size_t name;
 
-	X(compile_function(state, &name));
+	X(compile_function(state, &name, 0));
 	/* FIXME: all functions have names, so this is declaring anonymous
 	   functions as "<anonymous>" */
 	if (name != (size_t) -1)
@@ -1939,9 +1954,11 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 		int has_values_inline, struct cb_struct_spec **spec_out)
 {
 	struct token name, field;
-	size_t name_id, num_fields, binding_id;
+	size_t name_id, num_fields, num_methods, binding_id;
 	int first_field;
 	int is_named;
+	int in_methods;
+	size_t methods_start;
 	size_t fields[STRUCT_MAX_FIELDS];
 
 	EXPECT(TOK_STRUCT);
@@ -1956,7 +1973,8 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 		name_id = cb_agent_intern_string("<anonymous>", 11);
 	}
 
-	num_fields = 0;
+	in_methods = 0;
+	num_methods = num_fields = 0;
 	first_field = 1;
 
 	EXPECT(TOK_LEFT_BRACE);
@@ -1964,26 +1982,43 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 		if (first_field) {
 			first_field = 0;
 		} else {
-			EXPECT(TOK_COMMA);
+			if (!in_methods)
+				EXPECT(TOK_COMMA);
 			/* support trailing comma */
 			if (MATCH_P(TOK_RIGHT_BRACE))
 				break;
 		}
-		field = EXPECT(TOK_IDENT);
-		fields[num_fields++] = intern_ident(state, &field);
-		if (num_fields == STRUCT_MAX_FIELDS) {
-			ERROR_AT(field, "Too many struct fields");
-			return -1;
-		}
-		if (has_values_inline) {
-			EXPECT(TOK_EQUAL);
-			if (compile_expression(state))
+		if (MATCH_P(TOK_FUNCTION)) {
+			if (!in_methods) {
+				in_methods = 1;
+				methods_start = num_fields;
+			}
+			if (num_fields + num_methods == STRUCT_MAX_FIELDS) {
+				ERROR_AT(NEXT(), "Too many methods");
 				return -1;
+			}
+			X(compile_function(state, &fields[num_fields + num_methods++], 1));
+		} else if (in_methods) {
+			ERROR_AT(NEXT(), "All fields must come before methods");
+			return -1;
+		} else {
+			field = EXPECT(TOK_IDENT);
+			if (num_fields == STRUCT_MAX_FIELDS) {
+				ERROR_AT(field, "Too many struct fields");
+				return -1;
+			}
+			fields[num_fields++] = intern_ident(state, &field);
+			if (has_values_inline) {
+				EXPECT(TOK_EQUAL);
+				if (compile_expression(state))
+					return -1;
+			}
 		}
 	}
 	EXPECT(TOK_RIGHT_BRACE);
 
-	struct cb_struct_spec *spec = cb_struct_spec_new(name_id, num_fields);
+	struct cb_struct_spec *spec = cb_struct_spec_new(name_id, num_fields,
+			num_methods);
 	if (spec_out)
 		*spec_out = spec;
 	for (unsigned i = 0; i < num_fields; i++) {
@@ -1994,8 +2029,16 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 	const_spec.val.as_struct_spec = spec;
 	size_t const_id = cstate_add_const(state, const_spec);
 
-	if (is_named) {
+	if (is_named || in_methods)
 		APPEND1(OP_LOAD_CONST, const_id);
+
+	if (in_methods) {
+		for (unsigned i = num_fields + num_methods - 1;
+				i >= methods_start; i--)
+			APPEND2(OP_SET_METHOD, i - methods_start, fields[i]);
+	}
+
+	if (is_named) {
 		if (cstate_is_global(state)) {
 			APPEND1(OP_DECLARE_GLOBAL, name_id);
 			APPEND1(OP_STORE_GLOBAL, name_id);
@@ -2004,6 +2047,8 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 					name_id, 0);
 			APPEND1(OP_STORE_LOCAL, binding_id);
 		}
+	} else if (in_methods) {
+		APPEND(OP_POP);
 	}
 
 	return const_id;
@@ -2541,6 +2586,19 @@ static int compile_anonymous_struct_literal(struct cstate *state)
 	return 0;
 }
 
+static int compile_this_expression(struct cstate *state)
+{
+	struct token this_tok = EXPECT(TOK_THIS);
+
+	if (!cstate_is_method(state)) {
+		ERROR_AT(this_tok, "Can't use this outside of method");
+		return 1;
+	}
+
+	APPEND(OP_LOAD_THIS);
+	return 0;
+}
+
 static int compile_expression_inner(struct cstate *, int rbp);
 
 static int compile_unary_expression(struct cstate *state)
@@ -2610,13 +2668,16 @@ static int nud(struct cstate *state)
 		X(compile_unary_expression(state));
 		break;
 	case TOK_FUNCTION:
-		X(compile_function(state, NULL));
+		X(compile_function(state, NULL, 0));
 		break;
 	case TOK_STRUCT:
 		X(compile_anonymous_struct_literal(state));
 		break;
 	case TOK_LEFT_BRACE:
 		X(compile_struct_destructuring_assignment(state));
+		break;
+	case TOK_THIS:
+		X(compile_this_expression(state));
 		break;
 
 	default:
@@ -2699,7 +2760,7 @@ static int compile_right_assoc_binary(struct cstate *state)
 	return 0;
 }
 
-static int compile_call_expression(struct cstate *state)
+static int compile_call_expression(struct cstate *state, int is_method)
 {
 	size_t num_args;
 	int first_arg;
@@ -2722,7 +2783,7 @@ static int compile_call_expression(struct cstate *state)
 	}
 	EXPECT(TOK_RIGHT_PAREN);
 
-	APPEND1(OP_CALL, num_args);
+	APPEND1(is_method ? OP_CALL_METHOD : OP_CALL, num_args);
 
 	return 0;
 }
@@ -2792,6 +2853,9 @@ static int compile_struct_field_expression(struct cstate *state)
 		APPEND(tok.type == TOK_PLUS_PLUS ? OP_INC : OP_DEC);
 		APPEND1(OP_STORE_STRUCT, name);
 		APPEND(OP_POP);
+	} else if (MATCH_P(TOK_LEFT_PAREN)) {
+		APPEND1(OP_LOAD_METHOD, name);
+		X(compile_call_expression(state, 1));
 	} else {
 		APPEND1(OP_LOAD_STRUCT, name);
 	}
@@ -2885,7 +2949,7 @@ static int led(struct cstate *state)
 		break;
 
 	case TOK_LEFT_PAREN:
-		X(compile_call_expression(state));
+		X(compile_call_expression(state, 0));
 		break;
 
 	case TOK_LEFT_BRACKET:

@@ -477,6 +477,62 @@ DO_OP_JUMP_IF_FALSE: {
 	DISPATCH();
 }
 
+DO_OP_CALL_METHOD: {
+	size_t num_args;
+	struct cb_value func_val;
+	struct cb_function *func;
+	int failed;
+	int num_opt_params;
+
+	num_args = ARG;
+	func_val = *(sp - num_args - 1);
+
+	if (func_val.type != CB_VALUE_FUNCTION)
+		ERROR("Value of type '%s' is not callable\n",
+				cb_value_type_friendly_name(func_val.type));
+
+	func = func_val.val.as_function;
+	num_opt_params = func->type == CB_FUNCTION_USER
+		? func->value.as_user.num_opt_params
+		: 0;
+	if (func->arity - num_opt_params > num_args) {
+		cb_str s = cb_agent_get_string(func->name);
+		ERROR("Too few arguments to function '%s'\n", cb_strptr(&s));
+	}
+	size_t old_sp = sp - stack;
+	if (func->type == CB_FUNCTION_NATIVE) {
+		size_t dest = sp - stack - num_args - 1;
+		failed = func->value.as_native(num_args, sp - num_args,
+				&cb_vm_state.stack[dest]);
+	} else {
+		struct cb_code *code = func->value.as_user.code;
+
+		struct cb_frame next_frame;
+		next_frame.is_function = 1;
+		next_frame.num_args = num_args;
+		next_frame.module_id = cb_modspec_id(code->modspec);
+		next_frame.code = code;
+		next_frame.bp = sp - stack - num_args - 1;
+
+		ensure_stack(code->stack_size, sp - stack);
+		failed = cb_eval(&next_frame);
+	}
+
+	stack = cb_vm_state.stack;
+	bp = stack + frame->bp;
+	sp = stack + old_sp - num_args;
+
+	PEEK(1) = PEEK(0);
+	(void) POP();
+
+	if (failed) {
+		retval = 1;
+		RET_WITH_TRACE();
+	}
+
+	DISPATCH();
+}
+
 DO_OP_CALL: {
 	size_t num_args;
 	struct cb_value func_val;
@@ -973,6 +1029,62 @@ DO_OP_ALLOCATE_LOCALS: {
 	sp += nlocals;
 	DISPATCH();
 }
+
+DO_OP_SET_METHOD: {
+	size_t index = ARG1;
+	size_t method_name = ARG2;
+	struct cb_value spec, method;
+
+	spec = POP();
+	method = POP();
+
+	assert(spec.type == CB_VALUE_STRUCT_SPEC);
+	assert(method.type == CB_VALUE_FUNCTION);
+
+	cb_struct_spec_set_method(spec.val.as_struct_spec, index, method_name,
+			method.val.as_function);
+
+	PUSH(spec);
+	DISPATCH();
+}
+
+DO_OP_LOAD_METHOD: {
+	size_t method_name = ARG;
+	struct cb_value recv = TOP();
+	if (recv.type != CB_VALUE_STRUCT)
+		ERROR("Cannot get method of non-struct type %s",
+				cb_value_type_friendly_name(recv.type));
+
+	// TODO: inline cache?
+	struct cb_struct *s = recv.val.as_struct;
+	struct cb_struct_spec *spec = s->spec;
+	struct cb_function *method = cb_struct_spec_get_method(spec, method_name);
+
+	struct cb_value funcval;
+	if (method) {
+		funcval.type = CB_VALUE_FUNCTION;
+		funcval.val.as_function = method;
+	} else {
+		struct cb_value *field = cb_struct_get_field(s, method_name, NULL);
+		if (!field) {
+			cb_str spec_name_str, method_name_str;
+			spec_name_str = cb_agent_get_string(spec->name);
+			method_name_str = cb_agent_get_string(method_name);
+			ERROR("%s struct has no method %s",
+					cb_strptr(&spec_name_str),
+					cb_strptr(&method_name_str));
+		}
+		funcval = *field;
+	}
+
+	PUSH(funcval);
+	DISPATCH();
+}
+
+DO_OP_LOAD_THIS:
+	assert(bp > cb_vm_state.stack);
+	PUSH(bp[-1]);
+	DISPATCH();
 
 DO_OP_LOAD_STRUCT: {
 	size_t fname = ARG;

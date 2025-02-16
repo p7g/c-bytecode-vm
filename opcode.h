@@ -65,6 +65,10 @@
 	X(OP_CATCH) \
 	X(OP_INC) \
 	X(OP_DEC) \
+	X(OP_LOAD_THIS) \
+	X(OP_SET_METHOD) \
+	X(OP_LOAD_METHOD) \
+	X(OP_CALL_METHOD) \
 	X(OP_MAX)
 
 enum cb_opcode {

@@ -35,7 +35,7 @@ static int make_struct_spec(size_t argc, struct cb_value *argv,
 	result->val.as_struct_spec = cb_struct_spec_new(
 			cb_agent_intern_string(cb_strptr(&name),
 				cb_strlen(name)),
-			argc - 1);
+			argc - 1, 0);
 
 	for (i = 1; i < argc; i += 1) {
 		name = CB_EXPECT_STRING(argv[i]);
