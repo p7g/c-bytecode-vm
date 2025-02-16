@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739680637714,
+  "lastUpdate": 1739681244353,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -1762,6 +1762,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "spectral_norm",
             "value": 5270,
+            "unit": "ms"
+          },
+          {
+            "name": "binary_trees",
+            "value": 0,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "8fb1c6db97e198083ebf231fe20af13d2cefb9d5",
+          "message": "highlight intrinsics functions and remove vim help paste",
+          "timestamp": "2025-02-15T23:41:29-05:00",
+          "tree_id": "cb180037f5ec9d025e02ab58f46da910c8238dc4",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/8fb1c6db97e198083ebf231fe20af13d2cefb9d5"
+        },
+        "date": 1739681243251,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 160579,
+            "unit": "ms"
+          },
+          {
+            "name": "nbody",
+            "value": 2573,
+            "unit": "ms"
+          },
+          {
+            "name": "spectral_norm",
+            "value": 5261,
             "unit": "ms"
           },
           {
