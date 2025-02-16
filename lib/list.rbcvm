@@ -49,6 +49,8 @@ export function prepend(self, value) {
   };
   if (self.first) {
     self.first.prev = node;
+  } else {
+    self.last = node;
   }
   self.first = node;
   self.length = self.length + 1;
@@ -63,6 +65,8 @@ export function append(self, value) {
   };
   if (self.last) {
     self.last.next = node;
+  } else {
+    self.first = node;
   }
   self.last = node;
   self.length = self.length + 1;
