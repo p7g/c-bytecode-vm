@@ -48,18 +48,23 @@
 	X(OP_NOT) \
 	X(OP_NEG) \
 	X(OP_DUP) \
+	X(OP_DUP_2) \
 	X(OP_ALLOCATE_LOCALS) \
 	X(OP_NEW_STRUCT) \
 	X(OP_LOAD_STRUCT) \
 	X(OP_STORE_STRUCT) \
 	X(OP_ADD_STRUCT_FIELD) \
 	X(OP_ROT_2) \
+	X(OP_ROT_3) \
+	X(OP_ROT_4) \
 	X(OP_IMPORT_MODULE) \
 	X(OP_APPLY_DEFAULT_ARG) \
 	X(OP_THROW) \
 	X(OP_PUSH_TRY) \
 	X(OP_POP_TRY) \
 	X(OP_CATCH) \
+	X(OP_INC) \
+	X(OP_DEC) \
 	X(OP_MAX)
 
 enum cb_opcode {

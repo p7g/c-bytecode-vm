@@ -1,0 +1,25 @@
+import test;
+
+export function test_identifier_post_incdec() {
+    let a = 0;
+    test::assert(a++ == 0);
+    test::assert(a == 1);
+    test::assert(a-- == 1);
+    test::assert(a == 0);
+}
+
+export function test_array_post_incdec() {
+    let a = [0];
+    test::assert(a[0]++ == 0);
+    test::assert(a[0] == 1);
+    test::assert(a[0]-- == 1);
+    test::assert(a[0] == 0);
+}
+
+export function test_struct_post_incdec() {
+    let a = struct { x = 0 };
+    test::assert(a.x++ == 0);
+    test::assert(a.x == 1);
+    test::assert(a.x-- == 1);
+    test::assert(a.x == 0);
+}

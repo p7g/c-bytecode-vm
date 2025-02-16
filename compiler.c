@@ -45,7 +45,9 @@
 	X(TOK_LEFT_PAREN) \
 	X(TOK_RIGHT_PAREN) \
 	X(TOK_PLUS) \
+	X(TOK_PLUS_PLUS) \
 	X(TOK_MINUS) \
+	X(TOK_MINUS_MINUS) \
 	X(TOK_STAR) \
 	X(TOK_SLASH) \
 	X(TOK_PERCENT) \
@@ -243,8 +245,8 @@ static int next_token(struct lex_state *state, struct token *dest)
 			while (PEEK() != '\n') NEXT();
 			continue;
 
-		case '+': TOKEN(TOK_PLUS);
-		case '-': TOKEN(TOK_MINUS);
+		case '+': OR2('+', TOK_PLUS, TOK_PLUS_PLUS);
+		case '-': OR2('-', TOK_MINUS, TOK_MINUS_MINUS);
 		case '/': TOKEN(TOK_SLASH);
 		case '^': TOKEN(TOK_CARET);
 		case '[': TOKEN(TOK_LEFT_BRACKET);
@@ -2248,6 +2250,13 @@ static int compile_identifier_expression(struct cstate *state)
 		NEXT();
 		X(compile_expression(state));
 		X(store_name(state, name));
+	} else if (MATCH_P(TOK_PLUS_PLUS) || MATCH_P(TOK_MINUS_MINUS)) {
+		struct token tok = NEXT();
+		X(load_name(state, name));
+		APPEND(OP_DUP);
+		APPEND(tok.type == TOK_PLUS_PLUS ? OP_INC : OP_DEC);
+		X(store_name(state, name));
+		APPEND(OP_POP);
 	} else {
 		X(load_name(state, name));
 	}
@@ -2658,6 +2667,15 @@ static int compile_index_expression(struct cstate *state)
 		EXPECT(TOK_EQUAL);
 		X(compile_expression(state));
 		APPEND(OP_ARRAY_SET);
+	} else if (MATCH_P(TOK_PLUS_PLUS) || MATCH_P(TOK_MINUS_MINUS)) {
+		struct token tok = NEXT();
+		APPEND(OP_DUP_2);
+		APPEND(OP_ARRAY_GET);
+		APPEND(OP_DUP);
+		APPEND(OP_ROT_4);
+		APPEND(tok.type == TOK_PLUS_PLUS ? OP_INC : OP_DEC);
+		APPEND(OP_ARRAY_SET);
+		APPEND(OP_POP);
 	} else {
 		APPEND(OP_ARRAY_GET);
 	}
@@ -2678,6 +2696,15 @@ static int compile_struct_field_expression(struct cstate *state)
 		EXPECT(TOK_EQUAL);
 		X(compile_expression(state));
 		APPEND1(OP_STORE_STRUCT, name);
+	} else if (MATCH_P(TOK_PLUS_PLUS) || MATCH_P(TOK_MINUS_MINUS)) {
+		struct token tok = NEXT();
+		APPEND(OP_DUP);
+		APPEND1(OP_LOAD_STRUCT, name);
+		APPEND(OP_DUP);
+		APPEND(OP_ROT_3);
+		APPEND(tok.type == TOK_PLUS_PLUS ? OP_INC : OP_DEC);
+		APPEND1(OP_STORE_STRUCT, name);
+		APPEND(OP_POP);
 	} else {
 		APPEND1(OP_LOAD_STRUCT, name);
 	}
@@ -2766,7 +2793,6 @@ static int led(struct cstate *state)
 		X(compile_short_circuit_binary(state));
 		break;
 
-	case TOK_EQUAL:
 	case TOK_STAR_STAR:
 		X(compile_right_assoc_binary(state));
 		break;

@@ -274,7 +274,8 @@ static int cb_eval(struct cb_frame *frame)
 		retval = 1; \
 		RET_WITH_TRACE(); \
 	})
-#define TOP() (sp[-1])
+#define PEEK(N) (sp[-(N + 1)])
+#define TOP() PEEK(0)
 #define LOCAL_IDX(N) (bp - stack + 1 + (N))
 #define LOCAL(N) (bp[N + 1])
 #define REPLACE_LOCAL(N, VAL) ({ \
@@ -366,9 +367,9 @@ DO_OP_CONST_NULL: {
 	DISPATCH();
 }
 
-#define NUMBER_BINOP(OP, INT_OP) ({ \
+#define NUMBER_BINOP(OP, INT_OP, B) ({ \
 		struct cb_value a, b, result; \
-		b = POP(); \
+		b = (B); \
 		a = POP(); \
 		if (a.type == CB_VALUE_INT && b.type == CB_VALUE_INT) { \
 			result.type = CB_VALUE_INT; \
@@ -397,21 +398,29 @@ DO_OP_CONST_NULL: {
 		PUSH(result); \
 	})
 
+DO_OP_INC:
+	NUMBER_BINOP(+, __builtin_add_overflow, cb_int(1));
+	DISPATCH();
+
+DO_OP_DEC:
+	NUMBER_BINOP(-, __builtin_sub_overflow, cb_int(1));
+	DISPATCH();
+
 DO_OP_ADD:
-	NUMBER_BINOP(+, __builtin_add_overflow);
+	NUMBER_BINOP(+, __builtin_add_overflow, POP());
 	DISPATCH();
 
 DO_OP_SUB:
-	NUMBER_BINOP(-, __builtin_sub_overflow);
+	NUMBER_BINOP(-, __builtin_sub_overflow, POP());
 	DISPATCH();
 
 DO_OP_MUL:
-	NUMBER_BINOP(*, __builtin_mul_overflow);
+	NUMBER_BINOP(*, __builtin_mul_overflow, POP());
 	DISPATCH();
 
 DO_OP_DIV:
 #define INT_DIV(a, b, result) ((*(result) = (a) / (b)), 0)
-	NUMBER_BINOP(/, INT_DIV);
+	NUMBER_BINOP(/, INT_DIV, POP());
 #undef INT_DIV
 	DISPATCH();
 
@@ -948,6 +957,15 @@ DO_OP_DUP: {
 	DISPATCH();
 }
 
+DO_OP_DUP_2: {
+	struct cb_value a, b;
+	a = PEEK(0);
+	b = PEEK(1);
+	PUSH(b);
+	PUSH(a);
+	DISPATCH();
+}
+
 DO_OP_ALLOCATE_LOCALS: {
 	size_t nlocals = ARG;
 	/* CB_VALUE_NULL is 0, so we can just set the whole thing to 0 */
@@ -1065,6 +1083,34 @@ DO_OP_ROT_2: {
 	a = POP();
 	b = POP();
 	PUSH(a);
+	PUSH(b);
+	DISPATCH();
+}
+
+DO_OP_ROT_3: {
+	struct cb_value a, b, c;
+	// C, B, A
+	// A, C, B
+	a = POP();
+	b = POP();
+	c = POP();
+	PUSH(a);
+	PUSH(c);
+	PUSH(b);
+	DISPATCH();
+}
+
+DO_OP_ROT_4: {
+	struct cb_value a, b, c, d;
+	// D, C, B, A
+	// A, D, C, B
+	a = POP();
+	b = POP();
+	c = POP();
+	d = POP();
+	PUSH(a);
+	PUSH(d);
+	PUSH(c);
 	PUSH(b);
 	DISPATCH();
 }

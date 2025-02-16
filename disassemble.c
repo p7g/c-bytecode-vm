@@ -113,12 +113,17 @@ int cb_disassemble_one(cb_instruction instruction, size_t offset)
 	case OP_NOT:
 	case OP_NEG:
 	case OP_DUP:
+	case OP_DUP_2:
 	case OP_RETURN:
 	case OP_NEW_STRUCT:
 	case OP_ROT_2:
+	case OP_ROT_3:
+	case OP_ROT_4:
 	case OP_THROW:
 	case OP_POP_TRY:
 	case OP_CATCH:
+	case OP_INC:
+	case OP_DEC:
 		printf("%s\n", cb_opcode_name(op));
 		return 0;
 

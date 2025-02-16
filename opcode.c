@@ -40,6 +40,9 @@ int cb_opcode_stack_effect(const cb_instruction instruction)
 	case OP_CATCH:
 		return 1;
 
+	case OP_DUP_2:
+		return 2;
+
 	case OP_ADD:
 	case OP_SUB:
 	case OP_MUL:
@@ -74,6 +77,8 @@ int cb_opcode_stack_effect(const cb_instruction instruction)
 	case OP_NEG:
 	case OP_NEW_STRUCT:
 	case OP_ROT_2:
+	case OP_ROT_3:
+	case OP_ROT_4:
 	case OP_STORE_LOCAL:
 	case OP_MAX:
 	case OP_BIND_LOCAL:
@@ -85,6 +90,8 @@ int cb_opcode_stack_effect(const cb_instruction instruction)
 	case OP_IMPORT_MODULE:
 	case OP_PUSH_TRY:
 	case OP_POP_TRY:
+	case OP_INC:
+	case OP_DEC:
 		return 0;
 
 	case OP_ALLOCATE_LOCALS:
