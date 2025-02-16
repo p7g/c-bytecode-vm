@@ -17,11 +17,11 @@ function offset_momentum(bodies) {
     px = py = pz = 0.0;
     let num_bodies = array::length(bodies);
 
-    for (let i = 0; i < num_bodies; i = i + 1) {
+    for (let i = 0; i < num_bodies; i += 1) {
         let b = bodies[i];
-        px = px + b.vx * b.mass;
-        py = py + b.vy * b.mass;
-        pz = pz + b.vz * b.mass;
+        px += b.vx * b.mass;
+        py += b.vy * b.mass;
+        pz += b.vz * b.mass;
     }
 
     let b = bodies[0];
@@ -33,17 +33,17 @@ function offset_momentum(bodies) {
 function energy(bodies) {
     let e = 0.0;
     let num_bodies = array::length(bodies);
-    for (let i = 0; i < num_bodies; i = i + 1) {
+    for (let i = 0; i < num_bodies; i += 1) {
         let b = bodies[i];
         let sq = b.vx ** 2 + b.vy ** 2 + b.vz ** 2;
-        e = e + 0.5 * b.mass * sq;
-        for (let j = i + 1; j < num_bodies; j = j + 1) {
+        e += 0.5 * b.mass * sq;
+        for (let j = i + 1; j < num_bodies; j += 1) {
             let b2 = bodies[j];
             let dx = b.x - b2.x;
             let dy = b.y - b2.y;
             let dz = b.z - b2.z;
             sq = dx ** 2 + dy ** 2 + dz ** 2;
-            e = e - (b.mass * b2.mass) / math::sqrt(sq);
+            e -= (b.mass * b2.mass) / math::sqrt(sq);
         }
     }
     return e;
@@ -51,9 +51,9 @@ function energy(bodies) {
 
 function advance(bodies, dt) {
     let num_bodies = array::length(bodies);
-    for (let i = 0; i < num_bodies; i = i + 1) {
+    for (let i = 0; i < num_bodies; i += 1) {
         let b = bodies[i];
-        for (let j = i + 1; j < num_bodies; j = j + 1) {
+        for (let j = i + 1; j < num_bodies; j += 1) {
             let b2 = bodies[j];
 
             let dx = b.x - b2.x;
@@ -74,7 +74,7 @@ function advance(bodies, dt) {
         }
     }
 
-    for (let i = 0; i < num_bodies; i = i + 1) {
+    for (let i = 0; i < num_bodies; i += 1) {
         let b = bodies[i];
         b.x = b.x + b.vx * dt;
         b.y = b.y + b.vy * dt;
@@ -142,7 +142,7 @@ function nbody(n) {
 
     offset_momentum(bodies);
     println(energy(bodies));
-    for (let i = 0; i < n; i = i + 1) {
+    for (let i = 0; i < n; i += 1) {
         advance(bodies, 0.01);
     }
     println(energy(bodies));

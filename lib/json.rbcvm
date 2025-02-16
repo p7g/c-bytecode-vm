@@ -61,62 +61,62 @@ function tokenize(input) {
         || char == '\n'
         || char == '\r'
         || char == '\t') {
-      i = i + 1;
+      i += 1;
       continue;
     } else if (char == '{') {
       token = Token{type=T_LEFT_BRACE, value="{"};
-      i = i + 1;
+      i += 1;
     } else if (char == '}') {
       token = Token{type=T_RIGHT_BRACE, value="}"};
-      i = i + 1;
+      i += 1;
     } else if (char == '[') {
       token = Token{type=T_LEFT_BRACKET, value="["};
-      i = i + 1;
+      i += 1;
     } else if (char == ']') {
       token = Token{type=T_RIGHT_BRACKET, value="]"};
-      i = i + 1;
+      i += 1;
     } else if (char == ':') {
       token = Token{type=T_COLON, value=":"};
-      i = i + 1;
+      i += 1;
     } else if (char == ',') {
       token = Token{type=T_COMMA, value=","};
-      i = i + 1;
+      i += 1;
     } else if (char == 't'
         && chars[i + 1] == 'r'
         && chars[i + 2] == 'u'
         && chars[i + 3] == 'e') {
       token = Token{type=T_TRUE, value="true"};
-      i = i + 4;
+      i += 4;
     } else if (char == 'f'
         && chars[i + 1] == 'a'
         && chars[i + 2] == 'l'
         && chars[i + 3] == 's'
         && chars[i + 4] == 'e') {
       token = Token{type=T_FALSE, value="false"};
-      i = i + 5;
+      i += 5;
     } else if (char == 'n'
         && chars[i + 1] == 'u'
         && chars[i + 2] == 'l'
         && chars[i + 3] == 'l') {
       token = Token{type=T_NULL, value="null"};
-      i = i + 4;
+      i += 4;
     } else if (char == '"') {
       let str = "";
-      i = i + 1;
+      i += 1;
 
       while (i < len && chars[i] != '"') {
         str = string_concat(str, tostring(chars[i]));
-        i = i + 1;
+        i += 1;
       }
 
-      i = i + 1;
+      i += 1;
       token = Token{type=T_STRING, value=str};
     } else if (char::is_digit(char) || char == '-') {
       let is_float = false;
       let c;
       let str;
       if (char == '-') {
-        i = i + 1;
+        i += 1;
         c = chars[i];
         str = tostring(char);
       } else {
@@ -125,18 +125,18 @@ function tokenize(input) {
       }
       if (c == '0') {
         is_float = true;
-        i = i + 1;
+        i += 1;
         str = string_concat(str, "0");
       } else if (char::is_digit(c) && c != '0') {
         str = string_concat(str, tostring(c));
-        i = i + 1;
+        i += 1;
       } else {
         throw UnexpectedTokenError { message = c };
       }
 
       if (chars[i] == '.') {
         is_float = true;
-        i = i + 1;
+        i += 1;
         str = string_concat(str, ".");
       } else if (is_float) {
         throw UnexpectedTokenError { message = chars[i] };
@@ -144,7 +144,7 @@ function tokenize(input) {
 
       while (i < len && char::is_digit(chars[i])) {
         str = string_concat(str, tostring(chars[i]));
-        i = i + 1;
+        i += 1;
       }
 
       token = Token{type=T_NUMBER, value=str};
@@ -255,7 +255,7 @@ export function parse(input) {
 
   function next() {
     let value = tokens[i];
-    i = i + 1;
+    i += 1;
     return value;
   }
 
@@ -277,7 +277,7 @@ function serialize_string(str) {
         parts = arraylist::new();
     let charslen = array::length(chars);
     arraylist::push(parts, "\"");
-    for (let i = 0; i < charslen; i = i + 1) {
+    for (let i = 0; i < charslen; i += 1) {
         let c = chars[i];
         let code = ord(c);
         if (c == '"') {
@@ -307,11 +307,11 @@ function serialize_array(arr) {
     let arrlen = array::length(arr);
     let partslen = 2;
     if (arrlen != 0) {
-        partslen = partslen + array::length(arr) * 2 - 1;
+        partslen += array::length(arr) * 2 - 1;
     }
     let parts = array::new(partslen);
     parts[0] = "[";
-    for (let i = 0; i < arrlen; i = i + 1) {
+    for (let i = 0; i < arrlen; i += 1) {
         parts[2 * i + 1] = serialize(arr[i]);
         parts[2 * i + 2] = ",";
     }
@@ -357,7 +357,7 @@ function serialize_struct(obj) {
     let nfields = array::length(fields);
 
     let entries = array::new(nfields);
-    for (let i = 0; i < nfields; i = i + 1) {
+    for (let i = 0; i < nfields; i += 1) {
         let fieldname = fields[i];
         let value = structs::get(obj, fieldname);
         entries[i] = [fieldname, value];

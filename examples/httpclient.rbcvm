@@ -10,7 +10,7 @@ let addrinfos = socket::getaddrinfo("localhost", "8000");
 let addrinfo;
 let sock;
 let i;
-for (i = 0; i < array::length(addrinfos); i = i + 1) {
+for (i = 0; i < array::length(addrinfos); i += 1) {
     addrinfo = addrinfos[i];
     try {
         sock = socket::socket(addrinfo.family, addrinfo.socktype,

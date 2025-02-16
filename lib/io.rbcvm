@@ -45,9 +45,9 @@ export function readto(reader, sequence) {
     let buf = read(reader, MIN_READ);
     let i = 0;
 
-    for (; i < bytes::length(buf); i = i + 1) {
+    for (; i < bytes::length(buf); i += 1) {
         let match = true;
-        for (let j = 0; j < seqlen; j = j + 1) {
+        for (let j = 0; j < seqlen; j += 1) {
             if (i + j > bytes::length(buf)) {
                 buf = bytes::concat(buf, read(reader, MIN_READ));
                 if (i + j > bytes::length(buf)) {

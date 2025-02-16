@@ -17,9 +17,9 @@ export function hex(n) {
     let i = ndigits - 1;
     while (n) {
         let rem = n % 16;
-        n = n / 16;
+        n /= 16;
         chars[i] = HEX[rem];
-        i = i - 1;
+        i -= 1;
     }
 
     return string::from_chars(chars);

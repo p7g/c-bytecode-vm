@@ -34,7 +34,7 @@ export function test_foreach() {
     let len = array::length(arr);
     let niters = 0;
     array::foreach(arr, function (n, i, a) {
-        niters = niters + 1;
+        niters += 1;
         test::assert(a[i] == n);
     });
     test::assert(niters == len);

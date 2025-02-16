@@ -24,7 +24,7 @@ export function iter(self) {
       return iter::STOP;
     }
     let val = get(self, i);
-    i = i + 1;
+    i += 1;
     return val;
   };
 }
@@ -112,7 +112,7 @@ export function find_index(self, func) {
   let len = self.length;
   let array = self.array;
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     if (func(array[i], i, self)) {
       return i;
     }

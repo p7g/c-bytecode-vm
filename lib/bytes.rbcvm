@@ -30,7 +30,7 @@ export function slice(bytes, start=0, end=-1) {
 
     let len = end - start;
     let new_bytes = new(len);
-    for (let i = 0; i < len; i = i + 1) {
+    for (let i = 0; i < len; i += 1) {
         set(new_bytes, i, get(bytes, i + start));
     }
     return new_bytes;
@@ -41,10 +41,10 @@ export function concat(a, b) {
         b_len = length(b);
     let result = new(a_len + b_len);
     let i = 0;
-    for (; i < a_len; i = i + 1) {
+    for (; i < a_len; i += 1) {
         set(result, i, get(a, i));
     }
-    for (; i < b_len; i = i + 1) {
+    for (; i < b_len; i += 1) {
         set(result, i, get(b, i - a_len));
     }
     return result;
@@ -56,7 +56,7 @@ export let collector = iter::collector {
     finalize = function collect_bytes(list) {
         let len = arraylist::length(list);
         let bytes = new(len);
-        for (let i = 0; i < len; i = i + 1) {
+        for (let i = 0; i < len; i += 1) {
             set(bytes, i, arraylist::get(list, i));
         }
         return bytes;
@@ -73,7 +73,7 @@ export function iter(bytes) {
             return iter::STOP;
         }
         let val = get(bytes, i);
-        i = i + 1;
+        i += 1;
         return val;
     };
 }

@@ -134,7 +134,7 @@ export function set(self, key, value) {
       self.last_insert.next = bucket;
       self.last_insert = bucket;
     }
-    self.load = self.load + 1;
+    self.load += 1;
 
     if (self.load / self.cap > LOAD_FACTOR) {
       grow(self);

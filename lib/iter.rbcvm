@@ -28,7 +28,7 @@ export function count(n) {
   let i = n;
   return function() {
     let val = i;
-    i = i + 1;
+    i += 1;
     return val;
   };
 }
@@ -42,7 +42,7 @@ export function range(to) {
       return STOP;
     }
     let val = i;
-    i = i + 1;
+    i += 1;
     return val;
   };
 }
@@ -53,7 +53,7 @@ export function enumerate(it, start=0) {
   let i = start;
   return map(it, function enumerate_map(item) {
     let result = [i, item];
-    i = i + 1;
+    i += 1;
     return result;
   });
 }
@@ -111,7 +111,7 @@ export function take(_it, n) {
     if (i >= n) {
       return STOP;
     }
-    i = i + 1;
+    i += 1;
     return it();
   };
 }
@@ -126,7 +126,7 @@ Note that evaluating this iterator partially evalutaes `it`.",
 
 export function drop(_it, n) {
   let it = ensure_iterable(_it);
-  for (let i = 0; i < n; i = i + 1) {
+  for (let i = 0; i < n; i += 1) {
     it();
   }
 
@@ -260,7 +260,7 @@ export function repeat(val, times) {
     if (times == 0) {
       return STOP;
     }
-    times = times - 1;
+    times -= 1;
     return val;
   };
 }
@@ -323,7 +323,7 @@ export function peekable(it) {
         }
 
         let el;
-        for (let i = 0; i < n; i = i + 1) {
+        for (let i = 0; i < n; i += 1) {
             el = it();
             if (el == STOP) {
                 break;
@@ -354,7 +354,7 @@ export function slice(it, start, end=null) {
             if (it() == STOP) {
                 return STOP;
             }
-            i = i + 1;
+            i += 1;
         }
 
         if (end != null && i >= end) {
@@ -363,7 +363,7 @@ export function slice(it, start, end=null) {
 
         let value = it();
         if (value != STOP) {
-            i = i + 1;
+            i += 1;
         }
         return value;
     };

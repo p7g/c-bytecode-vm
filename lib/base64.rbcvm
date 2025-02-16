@@ -33,7 +33,7 @@ export function decode_size(payload) {
     # FIXME: not ideal
     iter::foreach(string::iter(payload), function (c) {
         if (c == '=') {
-            npadding = npadding + 1;
+            npadding += 1;
         }
     });
 
@@ -58,7 +58,7 @@ function init_decode_table() {
     if (inited_decode_table) {
         return;
     }
-    for (let i = 0; i < 256; i = i + 1) {
+    for (let i = 0; i < 256; i += 1) {
         let ch = chr(i);
         let code = -1;
         if (char::is_alpha(ch)) {
@@ -114,8 +114,8 @@ export function decode(str) {
         bytes_set(out, j + 1, (shl(b, 4) | shr(c, 2)) & 0xff);
         bytes_set(out, j + 2, (shl(c, 6) | d) & 0xff);
 
-        j = j + 3;
-        i = i + 4;
+        j += 3;
+        i += 4;
     }
 
     let mod = (ends - i + 4) % 4;
@@ -172,8 +172,8 @@ export function encode(data, out=null) {
         buf_set(out, j + 1, ord_(cs[shr(n, 20) & 63]));
         buf_set(out, j + 2, ord_(cs[shr(n, 14) & 63]));
         buf_set(out, j + 3, ord_(cs[shr(n, 8) & 63]));
-        j = j + 4;
-        i = i + 3;
+        j += 4;
+        i += 3;
     }
 
     let pd = size % 3;

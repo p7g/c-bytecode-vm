@@ -35,7 +35,7 @@ export function test_basics() {
 function iterlength(it) {
     let n = 0;
     iter::foreach(it, function () {
-        n = n + 1;
+        n += 1;
     });
     return n;
 }

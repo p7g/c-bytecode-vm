@@ -25,7 +25,7 @@ doc.add("object", "collector", "A collector for converting an iterator into an a
 export function find_index(self, func) {
   let len = length(self);
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     if (func(self[i], i, self)) {
       return i;
     }
@@ -57,7 +57,7 @@ doc.add(
 export function foreach(self, func) {
   let len = length(self);
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     func(self[i], i, self);
   }
 }
@@ -84,7 +84,7 @@ export function map(self, func) {
   let len = length(self);
   let new_array = new(len);
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     new_array[i] = func(self[i], i, self);
   }
 
@@ -101,7 +101,7 @@ corresponding element of `array`.",
 export function foldl(self, init, reducer) {
   let len = length(self);
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     let item = self[i];
     init = reducer(init, item, i, self);
   }
@@ -120,7 +120,7 @@ export function foldl1(self, reducer) {
   let len = length(self);
   let acc = self[0];
 
-  for (let i = 1; i < len; i = i + 1) {
+  for (let i = 1; i < len; i += 1) {
     let item = self[i];
     acc = reducer(acc, item, i, self);
   }
@@ -140,7 +140,7 @@ export function reverse(self) {
   let half = len / 2;
 
   let tmp;
-  for (let i = 0; i < half; i = i + 1) {
+  for (let i = 0; i < half; i += 1) {
     tmp = self[i];
     self[i] = self[len - i - 1];
     self[len - i - 1] = tmp;
@@ -153,7 +153,7 @@ export function reversed(self) {
   let len = length(self);
   let copy = new(len);
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     copy[len - i - 1] = self[i];
   }
 
@@ -167,7 +167,7 @@ export function slice(self, start, end=null) {
         end = length(self);
     }
     let sub = new(end - start);
-    for (let i = start; i < end; i = i + 1) {
+    for (let i = start; i < end; i += 1) {
         sub[i - start] = self[i];
     }
     return sub;
@@ -183,7 +183,7 @@ export function copy(self) {
     let len = length(self);
     let copy = new(len);
 
-    for (let i = 0; i < len; i = i + 1) {
+    for (let i = 0; i < len; i += 1) {
         copy[i] = self[i];
     }
 

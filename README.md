@@ -266,7 +266,7 @@ The `for` loop is like a C for loop. The language has no native iteration
 protocol, but see the "Iteration" section below for more on that.
 
 ```js
-for (let a = 0; a < 10; a = a + 1) {}
+for (let a = 0; a < 10; a += 1) {}
 ```
 
 Any of the initializer, condition, or whatever the third part is called can be
@@ -373,7 +373,7 @@ function range(to) {
       return null;
     }
     let val = i;
-    i = i + 1;
+    i += 1;
     return val;
   };
 }

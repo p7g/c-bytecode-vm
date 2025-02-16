@@ -38,7 +38,7 @@ export function set(self, idx, value) {
 export function delete(self, index) {
   let len = self.length;
 
-  for (let i = index + 1; i < len; i = i + 1) {
+  for (let i = index + 1; i < len; i += 1) {
     set(self, i - 1, get(self, i));
   }
 
@@ -62,7 +62,7 @@ export function push(self, value) {
 
   if (next_idx >= len) {
     let new_array = _array::new(2 * len);
-    for (let i = 0; i < next_idx; i = i + 1) {
+    for (let i = 0; i < next_idx; i += 1) {
       new_array[i] = array[i];
     }
     self.array = array = new_array;
@@ -86,7 +86,7 @@ export function foreach(self, func) {
   let len = self.length;
   let array = self.array;
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     func(array[i], i, self);
   }
 }

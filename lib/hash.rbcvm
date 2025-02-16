@@ -14,11 +14,11 @@ export function fnv1a(bytes) {
   let len = bytes::length(bytes);
   let hash = FNV_OFFSET_BASIS_32;
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     let byte = bytes::get(bytes, i);
-    hash = hash ^ byte;
-    hash = hash * FNV_PRIME_32;
-    hash = hash & 0xffffffff;
+    hash ^= byte;
+    hash *= FNV_PRIME_32;
+    hash &= 0xffffffff;
   }
 
   return hash;

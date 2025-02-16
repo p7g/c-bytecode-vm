@@ -53,7 +53,7 @@ export function prepend(self, value) {
     self.last = node;
   }
   self.first = node;
-  self.length = self.length + 1;
+  self.length += 1;
 }
 
 doc.add("function", "prepend(list, value)", "Insert `value` at the front of `list`");
@@ -69,7 +69,7 @@ export function append(self, value) {
     self.first = node;
   }
   self.last = node;
-  self.length = self.length + 1;
+  self.length += 1;
 }
 
 doc.add("function", "append(list, value)", "Append `value` to the end of `list`.");
@@ -124,7 +124,7 @@ export function get(list, i) {
   let current = list.first;
   while (i > 0) {
     current = current.next;
-    i = i - 1;
+    i -= 1;
   }
   return current;
 }
@@ -139,7 +139,7 @@ Note that this function is `O(n)`.",
 
 export function foreach(self, func) {
   let current = self.first;
-  for (let i = 0; current; i = i + 1) {
+  for (let i = 0; current; i += 1) {
     func(current.value, i, self);
     current = current.next;
   }
@@ -149,7 +149,7 @@ doc.add("function", "foreach(list, func)", "Call `func` for every element of `li
 
 export function find(self, func) {
   let current = self.first;
-  for (let i = 0; current; i = i + 1) {
+  for (let i = 0; current; i += 1) {
     if (func(current.value, i, self)) {
       return current.value;
     }
@@ -217,7 +217,7 @@ doc.add("function", "to_array(list)", "Create a new array with the elements of `
 export function foldl(self, init, reducer) {
   for (let current = self, i = 0; current; current = current.cdr) {
     init = reducer(init, current.car, i, self);
-    i = i + 1;
+    i += 1;
   }
   return init;
 }

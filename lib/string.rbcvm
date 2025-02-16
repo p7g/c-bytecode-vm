@@ -35,7 +35,7 @@ export function iter(str) {
     if (c == null) {
         return iter::STOP;
     }
-    i = i + nread;
+    i += nread;
     return c;
   };
 }
@@ -89,14 +89,14 @@ export function parse_float(str) {
   }
 
   let integer_chars = iter::collect(iter::take_while(chars, fn::curry(op::ne, '.')));
-  sum = sum + parse_integer(from_chars(integer_chars), 10);
+  sum += parse_integer(from_chars(integer_chars), 10);
 
   iter::foreach(iter::enumerate(chars), function([i, c]) {
-    sum = sum + tofloat(char::to_digit(c)) / 10 ** (i + 1);
+    sum += tofloat(char::to_digit(c)) / 10 ** (i + 1);
   });
 
   if (negate) {
-    sum = sum * -1;
+    sum *= -1;
   }
 
   return sum;
@@ -202,7 +202,7 @@ doc.add("function", "contains(string, c)", "Check if `string` contains the chara
 export function lstrip(string, pred=char::is_whitespace) {
     let chars = chars(string);
     let len = array::length(chars);
-    for (let i = 0; i < len && pred(chars[i]); i = i + 1) {}
+    for (let i = 0; i < len && pred(chars[i]); i += 1) {}
     if (i == 0) {
         return string;
     }
@@ -218,7 +218,7 @@ doc.add(
 export function rstrip(string, pred=char::is_whitespace) {
     let chars = chars(string);
     let len = array::length(chars);
-    for (let i = len - 1; i >= 0 && pred(chars[i]); i = i - 1) {}
+    for (let i = len - 1; i >= 0 && pred(chars[i]); i -= 1) {}
     if (i == len - 1) {
         return string;
     }
@@ -250,11 +250,11 @@ export function split(string, on, maxsplit=-1) {
     let prev = 0;
     let nmatch = 0;
 
-    for (let i = 0; i <= len; i = i + 1) {
+    for (let i = 0; i <= len; i += 1) {
         if (i == len || chars[i] == on) {
             arraylist::push(parts, from_chars(array::slice(chars, prev, i)));
             prev = i + 1;
-            nmatch = nmatch + 1;
+            nmatch += 1;
             if (nmatch == maxsplit) {
                 arraylist::push(parts, from_chars(array::slice(chars, i + 1)));
                 break;

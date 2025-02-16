@@ -32,7 +32,7 @@ iter::foreach(fs::directory_entries("tests"), function collect_test_modules(path
 
 let ntests = 0;
 iter::foreach(hashmap::values(tests_by_file), function count_tests(tests) {
-    ntests = ntests + array::length(tests);
+    ntests += array::length(tests);
 });
 println("Collected", ntests, "tests from", hashmap::size(tests_by_file), "modules");
 

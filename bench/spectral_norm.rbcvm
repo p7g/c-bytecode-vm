@@ -7,18 +7,18 @@ function eval_A(i, j) {
 }
 
 function eval_A_times_u(N, u, Au) {
-    for (let i = 0; i < N; i = i + 1) {
+    for (let i = 0; i < N; i += 1) {
         Au[i] = 0;
-        for (let j = 0; j < N; j = j + 1) {
+        for (let j = 0; j < N; j += 1) {
             Au[i] = Au[i] + eval_A(i, j) * u[j];
         }
     }
 }
 
 function eval_At_times_u(N, u, Au) {
-    for (let i = 0; i < N; i = i + 1) {
+    for (let i = 0; i < N; i += 1) {
         Au[i] = 0;
-        for (let j = 0; j < N; j = j + 1) {
+        for (let j = 0; j < N; j += 1) {
             Au[i] = Au[i] + eval_A(j, i) * u[j];
         }
     }
@@ -34,16 +34,16 @@ function main(n) {
     let u = array::new(n, 1);
     let v = array::new(n, 0);
 
-    for (let i = 0; i < 10; i = i + 1) {
+    for (let i = 0; i < 10; i += 1) {
         eval_AtA_times_u(n, u, v);
         eval_AtA_times_u(n, v, u);
     }
 
     let vBv, vv;
     vBv = vv = 0;
-    for (let i = 0; i < n; i = i + 1) {
-        vBv = vBv + u[i] * v[i];
-        vv = vv + v[i] ** 2;
+    for (let i = 0; i < n; i += 1) {
+        vBv += u[i] * v[i];
+        vv += v[i] ** 2;
     }
     println(math::sqrt(vBv / vv));
 }

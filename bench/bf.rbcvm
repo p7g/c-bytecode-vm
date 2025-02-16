@@ -18,7 +18,7 @@ function tape_new() {
             arraylist::set(data, pos, arraylist::get(data, pos) + n);
         },
         move = function(n) {
-            pos = pos + n;
+            pos += n;
             if (pos >= arraylist::length(data)) {
                 arraylist::push(data, 0);
             }
@@ -56,7 +56,7 @@ function parse(it) {
 function run(tape, ops) {
     let len = array::length(ops);
 
-    for (let i = 0; i < len; i = i + 1) {
+    for (let i = 0; i < len; i += 1) {
         let op = ops[i];
 
         if (op.type == "inc") {

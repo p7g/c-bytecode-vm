@@ -47,7 +47,7 @@ doc.add("struct", "generator", "The interface for a documentation generator.");
 function lllen(list) {
     let len = 0;
     while (list) {
-        len = len + 1;
+        len += 1;
         list = list.next;
     }
     return len;
