@@ -9,10 +9,10 @@ syn match cbcvmSpecial "\\."
 syn region cbcvmString start=+"+ skip=+\\\\\|\\"+ end=+"+ contains=cbcvmSpecial
 syn region cbcvmCharacter start=+'+ skip=+\\\\\|\\'+ end=+'+ contains=cbcvmSpecial
 
-" Borrowed from vim's javascript syntax highlighting
 syn match cbcvmNumber "\<0x[0-9a-fA-F]\+\>"
 syn match cbcvmNumber "\<[1-9]\d*\(\.\d*\)\?\>"
 syn match cbcvmNumber "\<0\(\.\d*\)\?\>"
+syn match cbcvmFunction "\h\w*" display contained
 
 syn keyword cbcvmConditional if else
 syn keyword cbcvmRepeat for while 
@@ -22,10 +22,10 @@ syn keyword cbcvmBoolean true false
 syn keyword cbcvmKeyword let
 syn keyword cbcvmNull null
 syn keyword cbcvmException try catch throw
-syn keyword cbcvmFunction function
+syn keyword cbcvmStatement function nextgroup=cbcvmFunction skipwhite
 syn keyword cbcvmModifier export
 syn keyword cbcvmInclude import
-syn keyword cbcvmStructure struct
+syn keyword cbcvmStructure struct nextgroup=cbcvmFunction skipwhite
 syn keyword cbcvmIntrinsics print println tostring typeof string_chars
             \ string_from_chars string_bytes string_concat ord chr truncate32
             \ tofloat read_file read_file_bytes argv __upvalues apply now toint
@@ -33,8 +33,8 @@ syn keyword cbcvmIntrinsics print println tostring typeof string_chars
 syn match cbcvmBraces "[{}\[\]]"
 syn match cbcvmParens "[()]"
 
-syn match cbcvmStructField /\.\h\w*/hs=s+1 contains=ALLBUT,cbcvmIntrinsics transparent
-syn match cbcvmModuleMember /::\h\w*/hs=s+1 contains=ALLBUT,cbcvmIntrinsics transparent
+syn match cbcvmStructField /\.\h\w*/hs=s+1 contains=ALLBUT,cbcvmFunction,cbcvmIntrinsics transparent
+syn match cbcvmModuleMember /::\h\w*/hs=s+1 contains=ALLBUT,cbcvmFunction,cbcvmIntrinsics transparent
 
 " FIXME: what does this do?
 syn sync fromstart
@@ -51,7 +51,6 @@ hi def link cbcvmConditional Conditional
 hi def link cbcvmRepeat Repeat
 hi def link cbcvmBranch Conditional
 hi def link cbcvmStatement Statement
-hi def link cbcvmFunction Keyword
 hi def link cbcvmBraces Function
 hi def link cbcvmNull Keyword
 hi def link cbcvmBoolean Boolean
@@ -62,6 +61,7 @@ hi def link cbcvmModifier StorageClass
 hi def link cbcvmInclude Include
 hi def link cbcvmKeyword Keyword
 hi def link cbcvmStructure Structure
+hi def link cbcvmFunction Function
 
 let &cpo = s:cpo_save
 unlet s:cpo_save
