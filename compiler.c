@@ -283,13 +283,28 @@ static int next_token(struct lex_state *state, struct token *dest)
 		case '.': TOKEN(TOK_DOT);
 		case ':': OR2(':', TOK_COLON, TOK_DOUBLE_COLON);
 		case '=': OR2('=', TOK_EQUAL, TOK_EQUAL_EQUAL);
-		/* FIXME: support **= */
-		case '*': OR3(TOK_STAR, '*', TOK_STAR_STAR, '=', TOK_STAR_EQUAL);
 		case '&': OR3(TOK_AND, '&', TOK_AND_AND, '=', TOK_AND_EQUAL);
 		case '|': OR3(TOK_PIPE, '|', TOK_PIPE_PIPE, '=', TOK_PIPE_EQUAL);
 		case '<': OR2('=', TOK_LESS_THAN, TOK_LESS_THAN_EQUAL);
 		case '>': OR2('=', TOK_GREATER_THAN, TOK_GREATER_THAN_EQUAL);
 		case '!': OR2('=', TOK_BANG, TOK_BANG_EQUAL);
+
+		case '*': {
+			if (PEEK() == '*') {
+				NEXT();
+				if (PEEK() == '=') {
+					NEXT();
+					TOKEN(TOK_STAR_STAR_EQUAL);
+				} else {
+					TOKEN(TOK_STAR_STAR);
+				}
+			} else if (PEEK() == '=') {
+				NEXT();
+				TOKEN(TOK_STAR_EQUAL);
+			} else {
+				TOKEN(TOK_STAR);
+			}
+		}
 
 		case '0' ... '9':
 			if (PEEK() == 'x') {
