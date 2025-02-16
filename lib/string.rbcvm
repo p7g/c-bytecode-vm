@@ -5,70 +5,70 @@ import docs;
 import fn;
 import iter;
 import op;
-import sys;
 
 import _string;
 
-let doc = docs.module("string", "Functions for working with strings.");
+let doc = docs::module("string", "Functions for working with strings.");
 
 export let chars = string_chars;
 export let from_chars = string_from_chars;
 export let bytes = string_bytes;
 export let concat = string_concat;
-export let length = _string.len;
-export let char_at = _string.char_at;
-export let from_bytes = _string.from_bytes;
+export let length = _string::len;
+export let from_bytes = _string::from_bytes;
 
-doc:add("function", "chars(string)", "Get the characters of `string` as an array.");
-doc:add("function", "from_chars(chars)", "Create a string from the array of characters `chars`.");
-doc:add("function", "bytes(string)", "Get the bytes of `string` as an array.");
-doc:add("function", "concat(a, ...)", "Concatenate all strings passed as arguments with no separator.");
-doc:add("function", "length(string)", "Get the length of `string`.");
-doc:add("function", "char_at(string, idx)", "Get the `idx`th character of `string`.");
-doc:add("function", "from_bytes(bytes)", "Convert a byte array to a string.");
+doc.add("function", "chars(string)", "Get the characters of `string` as an array.");
+doc.add("function", "from_chars(chars)", "Create a string from the array of characters `chars`.");
+doc.add("function", "bytes(string)", "Get the bytes of `string` as an array.");
+doc.add("function", "concat(a, ...)", "Concatenate all strings passed as arguments with no separator.");
+doc.add("function", "length(string)", "Get the length of `string`.");
+doc.add("function", "from_bytes(bytes)", "Convert a byte array to a string.");
+
+export struct Error {
+    message,
+}
 
 export function iter(str) {
-  let cs = chars(str);
   let i = 0;
-  let len = array.length(cs);
   return function string_iterator() {
-    if (i >= len) {
-      return null;
+    let {c, nread} = _string::next_char(str, i);
+    if (c == null) {
+        return iter::STOP;
     }
-    let c = cs[i];
-    i = i + 1;
+    i += nread;
     return c;
   };
 }
 
-doc:add("function", "iter(str)", "Create an iterator over the characters in `str`.");
+doc.add("function", "iter(str)", "Create an iterator over the characters in `str`.");
 
-export let collector = iter.collector {
-  init = function () { return ""; },
-  reduce = function (a, b) {
-    return concat(tostring(a), tostring(b));
+export let collector = iter::collector {
+  init = arraylist::new,
+  reduce = function (parts, value) {
+    arraylist::push(parts, tostring(value));
+    return parts;
   },
-  finalize = function (s) { return s; },
+  finalize = function (parts) {
+    return join(arraylist::to_array(parts), "");
+  },
 };
 
-doc:add("object", "collector", "A collector to convert an iterator of characters
+doc.add("object", "collector", "A collector to convert an iterator of characters
 or strings into a string.");
 
-export function parse_integer(str, base) {
-  let sum = 0;
+export function parse_integer(str, base=10) {
   let cs = chars(str);
-  array.reverse(cs);
+  array::reverse(cs);
 
-  array.foreach(cs, function(char, i) {
-    if (char.is_digit(char)) {
-      sum = sum + toint(char.to_digit(char) * base ** i);
+  return array::foldl(cs, 0, function(sum, char, i) {
+    if (!char::is_digit(char)) {
+      return sum;
     }
+    return sum + toint(char::to_digit(char) * base ** i);
   });
-
-  return sum;
 }
 
-doc:add(
+doc.add(
   "function",
   "parse_integer(str, base)",
   "Parse `str` as an integer of base `base`. Currently only works for base 10.",
@@ -83,26 +83,26 @@ export function parse_float(str) {
     negate = true;
   }
 
-  chars = array.iter(chars);
+  chars = array::iter(chars);
   if (negate) {
-    chars = iter.drop(chars, 1);
+    chars = iter::drop(chars, 1);
   }
 
-  let integer_chars = iter.collect(iter.take_while(chars, fn.curry(op.ne, '.')));
-  sum = sum + parse_integer(from_chars(integer_chars), 10);
+  let integer_chars = iter::collect(iter::take_while(chars, fn::curry(op::ne, '.')));
+  sum += parse_integer(from_chars(integer_chars), 10);
 
-  iter.foreach(iter.enumerate(chars), function([i, c]) {
-    sum = sum + tofloat(char.to_digit(c)) / 10 ** (i + 1);
+  iter::foreach(iter::enumerate(chars), function([i, c]) {
+    sum += tofloat(char::to_digit(c)) / 10 ** (i + 1);
   });
 
   if (negate) {
-    sum = sum * -1;
+    sum *= -1;
   }
 
   return sum;
 }
 
-doc:add(
+doc.add(
   "function",
   "parse_float(str)",
   "Parse `str` as a floating point number.",
@@ -110,10 +110,10 @@ doc:add(
 
 export function slice(self, start, end) {
   let cs = chars(self);
-  return from_chars(array.slice(cs, start, end));
+  return from_chars(array::slice(cs, start, end));
 }
 
-doc:add(
+doc.add(
   "function",
   "slice(string, start, end)",
   "Get a substring of `string` starting from `start` and ending at `end`.",
@@ -124,15 +124,22 @@ export function startswith(self, other) {
     if (otherlen > length(self)) {
         return false;
     }
-    for (let i = 0; i < otherlen; i = i + 1) {
-        if (char_at(self, i) != char_at(other, i)) {
-            return false;
+
+    let match = true;
+    iter::foreach(iter::zip(iter(self), iter(other)), function ([a, b]) {
+        # "a" should never be null
+        if (b == null) {
+            return iter::STOP;
         }
-    }
-    return true;
+        if (a != b) {
+            match = false;
+            return iter::STOP;
+        }
+    });
+    return match;
 }
 
-doc:add("function", "startswith(string, prefix)", "Check if `prefix` is a prefix of `string`.");
+doc.add("function", "startswith(string, prefix)", "Check if `prefix` is a prefix of `string`.");
 
 export function endswith(self, other) {
     let otherlen = length(other);
@@ -140,114 +147,179 @@ export function endswith(self, other) {
     if (otherlen > selflen) {
         return false;
     }
-    for (let i = 0; i < otherlen; i = i + 1) {
-        if (char_at(self, selflen - i) != char_at(other, otherlen - i)) {
-            return false;
+
+    let selfend = iter::slice(iter(self), selflen - otherlen);
+
+    let match = true;
+    iter::foreach(iter::zip(selfend, iter(other)), function ([a, b]) {
+        if (a != b) {
+            match = false;
+            return iter::STOP;
         }
-    }
-    return true;
+    });
+    return match;
 }
 
-doc:add("function", "endswith(string, suffix)", "Check if `suffix` is a suffix of `string`.");
+doc.add("function", "endswith(string, suffix)", "Check if `suffix` is a suffix of `string`.");
 
 export function index(self, c) {
-    if (type_of(c) != "char") {
-        sys.panic("index: Only finding index of char is implemented");
+    if (typeof(c) != "char") {
+        throw Error { message = "index: Only finding index of char is implemented" };
     }
-    let len = length(self);
-    for (let i = 0; i < len; i = i + 1) {
-        if (char_at(self, i) == c) {
-            return i;
+    let index = -1;
+    iter::foreach(iter::enumerate(iter(self)), function ([i, c2]) {
+        if (c == c2) {
+            index = i;
+            return iter::STOP;
         }
-    }
-    return -1;
+    });
+    return index;
 }
 
-doc:add("function", "index(string, c)", "Find the first index where `c` is found in `string`.");
+doc.add("function", "index(string, c)", "Find the first index where `c` is found in `string`.");
 
 export function rindex(self, c) {
-    if (type_of(c) != "char") {
-        sys.panic("index: Only finding index of char is implemented");
+    if (typeof(c) != "char") {
+        throw Error { message = "index: Only finding index of char is implemented" };
     }
-    for (let i = length(self) - 1; i >= 0; i = i - 1) {
-        if (char_at(self, i) == c) {
-            return i;
+    let lastindex = -1;
+    iter::foreach(iter::enumerate(iter(self)), function ([i, c2]) {
+        if (c == c2) {
+            lastindex = i;
         }
-    }
-    return -1;
+    });
+    return lastindex;
 }
 
-doc:add("function", "rindex(string, c)", "Find the last index where `c` is found in `string`.");
+doc.add("function", "rindex(string, c)", "Find the last index where `c` is found in `string`.");
 
 export function contains(self, c) {
     return -1 != index(self, c);
 }
 
-doc:add("function", "contains(string, c)", "Check if `string` contains the character `c`.");
+doc.add("function", "contains(string, c)", "Check if `string` contains the character `c`.");
 
-export function lstrip(string, pred=char.is_whitespace) {
+export function lstrip(string, pred=char::is_whitespace) {
     let chars = chars(string);
-    let len = array.length(chars);
-    for (let i = 0; i < len && pred(chars[i]); i = i + 1) {}
+    let len = array::length(chars);
+    for (let i = 0; i < len && pred(chars[i]); i += 1) {}
     if (i == 0) {
         return string;
     }
-    return from_chars(array.slice(chars, i, len));
+    return from_chars(array::slice(chars, i, len));
 }
 
-doc:add(
+doc.add(
   "function",
-  "lstrip(string, pred=char.is_whitespace)",
+  "lstrip(string, pred=char::is_whitespace)",
   "Remove characters from the start of the string while `pred` remains true.",
 );
 
-export function rstrip(string, pred=char.is_whitespace) {
+export function rstrip(string, pred=char::is_whitespace) {
     let chars = chars(string);
-    let len = array.length(chars);
-    for (let i = len - 1; i >= 0 && pred(chars[i]); i = i - 1) {}
+    let len = array::length(chars);
+    for (let i = len - 1; i >= 0 && pred(chars[i]); i -= 1) {}
     if (i == len - 1) {
         return string;
     }
-    return from_chars(array.slice(chars, 0, i + 1));
+    return from_chars(array::slice(chars, 0, i + 1));
 }
 
-doc:add(
+doc.add(
   "function",
-  "rstrip(string, pred=char.is_whitespace)",
+  "rstrip(string, pred=char::is_whitespace)",
   "Remove characters from the end of the string while `pred` remains true.",
 );
 
-export function strip(string, lpred=char.is_whitespace, rpred=null) {
+export function strip(string, lpred=char::is_whitespace, rpred=null) {
     return rstrip(lstrip(string, lpred), rpred || lpred);
 }
 
-doc:add(
+doc.add(
   "function",
-  "strip(string, lpred=char.is_whitespace, rpred=null)",
+  "strip(string, lpred=char::is_whitespace, rpred=null)",
   "Remove characters from both ends of the string while predicates remain true.
 If only `lpred` is passed it's used for the start and end of the string.
 If `rpred` is also passed, it's used for the end of the string.",
 );
 
-export function split(string, on) {
-    let parts = arraylist.new();
+export function split(string, on, maxsplit=-1) {
+    let parts = arraylist::new();
     let chars = chars(string);
-    let len = array.length(chars);
+    let len = array::length(chars);
     let prev = 0;
+    let nmatch = 0;
 
-    for (let i = 0; i <= len; i = i + 1) {
+    for (let i = 0; i <= len; i += 1) {
         if (i == len || chars[i] == on) {
-            arraylist.push(parts, from_chars(array.slice(chars, prev, i)));
+            arraylist::push(parts, from_chars(array::slice(chars, prev, i)));
             prev = i + 1;
+            nmatch += 1;
+            if (nmatch == maxsplit) {
+                arraylist::push(parts, from_chars(array::slice(chars, i + 1)));
+                break;
+            }
             continue;
         }
     }
 
-    return arraylist.to_array(parts);
+    return arraylist::to_array(parts);
 }
 
-doc:add(
+doc.add(
   "function",
   "split(string, on)",
   "Break a string into an array of parts, where each part is separated by `on`.",
+);
+
+export function join(it, sep="") {
+  if (sep == "") {
+    if (typeof(it) == "array") {
+      return apply(concat, it);
+    } else {
+      return apply(concat, iter::collect(it));
+    }
+  } else {
+    return apply(concat, iter::collect(iter::intersperse(it, sep)));
+  }
+}
+
+doc.add(
+  "function",
+  "join(strings, sep)",
+  "Join all `strings` together with `sep` in between each.",
+);
+
+export function to_lowercase(string) {
+    return iter::collect(iter::map(chars(string), char::to_lowercase), collector);
+}
+
+doc.add("function", "to_lowercase(string)", "Convert `string` to lower case.");
+
+export function padleft(string, padchar, len) {
+    let npad = len - length(string);
+    if (npad <= 0) {
+        return string;
+    }
+    return concat(from_chars(array::new(npad, padchar)), string);
+}
+
+doc.add(
+    "function",
+    "padleft(string, padchar, len)",
+    "Pad `string` to length `len` by adding `padchar` to the left.",
+);
+
+export function padright(string, padchar, len) {
+    let npad = len - length(string);
+    if (npad <= 0) {
+        return string;
+    }
+    return concat(string, from_chars(array::new(npad, padchar)));
+}
+
+doc.add(
+    "function",
+    "padright(string, padchar, len)",
+    "Pad `string` to length `len` by adding `padchar` to the right.",
 );

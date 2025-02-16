@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -6,42 +7,61 @@
 #include "eval.h"
 #include "hashmap.h"
 #include "module.h"
+#include "struct.h"
+#include "value.h"
 
 #include "modules/arrays.h"
 #include "modules/bytesmodule.h"
+#include "modules/chars.h"
 #include "modules/errno.h"
 #include "modules/fs.h"
 #include "modules/inet.h"
 #include "modules/math.h"
 #include "modules/time.h"
+#include "modules/socket.h"
 #include "modules/strings.h"
 #include "modules/structs.h"
 #include "modules/sys.h"
 
-static const struct cb_builtin_module_spec builtins[] = {
-	{"time", cb_time_build_spec, cb_time_instantiate},
-	{"structs", cb_structs_build_spec, cb_structs_instantiate},
-	{"_fs", cb_fs_build_spec, cb_fs_instantiate},
-	{"_string", cb_strings_build_spec, cb_strings_instantiate},
-	{"errno", cb_errno_build_spec, cb_errno_instantiate},
-	{"sys", cb_sys_build_spec, cb_sys_instantiate},
-	{"module", cb_module_build_spec, cb_module_instantiate},
-	{"_array", cb_arrays_build_spec, cb_arrays_instantiate},
-	{"_inet", cb_inet_build_spec, cb_inet_instantiate},
-	{"_math", cb_math_build_spec, cb_math_instantiate},
-	{"_bytes", cb_bytes_build_spec, cb_bytes_instantiate},
+#define BUILTIN_MODULES(X) \
+	X(time, time) \
+	X(structs, structs) \
+	X(fs, _fs) \
+	X(strings, _string) \
+	X(errno, errno) \
+	X(sys, sys) \
+	X(module, _module) \
+	X(arrays, _array) \
+	X(inet, _inet) \
+	X(math, _math) \
+	X(bytes, _bytes) \
+	X(socket, _socket) \
+	X(chars, _char)
+
+#define MOD(NAME, PUB_NAME) { \
+		.name = #PUB_NAME, \
+		.name_len = sizeof(#PUB_NAME) - 1, \
+		.build_spec = cb_ ## NAME ## _build_spec, \
+		.instantiate = cb_ ## NAME ## _instantiate \
+	},
+static struct cb_builtin_module_spec builtins[] = {
+	BUILTIN_MODULES(MOD)
 };
+#undef MOD
+
 const struct cb_builtin_module_spec *cb_builtin_modules = builtins;
 const size_t cb_builtin_module_count = sizeof(builtins) / sizeof(builtins[0]);
 
 void cb_initialize_builtin_modules(void)
 {
 	cb_modspec *modspec;
+	size_t name;
 
 	for (size_t i = 0; i < cb_builtin_module_count; i += 1) {
-		modspec = cb_modspec_new(cb_agent_intern_string(
-					builtins[i].name,
-					strlen(builtins[i].name)));
+		name = cb_agent_intern_string((const char *) builtins[i].name,
+					builtins[i].name_len);
+		builtins[i].name_id = name;
+		modspec = cb_modspec_new(name);
 
 		builtins[i].build_spec(modspec);
 		cb_agent_add_modspec(modspec);
@@ -58,13 +78,10 @@ void cb_instantiate_builtin_modules(void)
 
 	for (i = 0; i < cb_builtin_module_count; i += 1) {
 		builtin = &builtins[i];
-		spec = cb_agent_get_modspec_by_name(
-				cb_agent_intern_string(builtin->name,
-					strlen(builtin->name)));
+		spec = cb_agent_get_modspec_by_name(builtin->name_id);
 		spec_id = cb_modspec_id(spec);
 		mod = &cb_vm_state.modules[spec_id];
 
-		mod->global_scope = cb_hashmap_new();
 		mod->spec = spec;
 		modules[i] = mod;
 	}
@@ -73,4 +90,39 @@ void cb_instantiate_builtin_modules(void)
 	 * all modules are in a valid state. */
 	for (i = 0; i < cb_builtin_module_count; i += 1)
 		builtins[i].instantiate(modules[i]);
+}
+
+struct cb_struct_spec *cb_declare_struct(const char *name, unsigned nfields,
+		...)
+{
+	va_list args;
+	va_start(args, nfields);
+
+	struct cb_struct_spec *spec = cb_struct_spec_new(
+			cb_agent_intern_string(name, strlen(name)),
+			nfields);
+
+	for (unsigned i = 0; i < nfields; i++) {
+		const char *fieldname = va_arg(args, const char *);
+		size_t fieldname_id = cb_agent_intern_string(fieldname,
+				strlen(fieldname));
+		cb_struct_spec_set_field_name(spec, i, fieldname_id);
+	}
+
+	va_end(args);
+	return spec;
+}
+
+struct cb_struct *cb_struct_make(struct cb_struct_spec *spec, ...)
+{
+	va_list args;
+	va_start(args, spec);
+
+	struct cb_struct *s = cb_struct_spec_instantiate(spec);
+
+	for (unsigned i = 0; i < spec->nfields; i++)
+		s->fields[i] = va_arg(args, struct cb_value);
+
+	va_end(args);
+	return s;
 }

@@ -1,11 +1,13 @@
 on: [push]
 
 jobs:
-  runt-tests:
+  run-tests:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: install build deps
         run: |
           sudo apt-get update
@@ -14,4 +16,4 @@ jobs:
         run: make
       - name: run tests
         run: |
-          CBCVM_PATH=lib scripts/run-tests
+          scripts/run-tests

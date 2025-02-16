@@ -1,43 +1,31 @@
 import _array;
-import arraylist;
+import _iter;
 import docs;
 
-let doc = docs.module("array", "Functions for working with arrays.");
+let doc = docs::module("array", "Functions for working with arrays.");
 
-export let new = _array.new;
-doc:add("function", "new(len)", "Create a new array of length `len`.");
+export let new = _array::new;
+doc.add(
+  "function",
+  "new(len, init=null)",
+  "Create a new array of length `len`. Each element is initialized to `init`.",
+);
 
-export let length = _array.length;
-doc:add("function", "length(array)", "Get the length of array `array`.");
+export let length = _array::length;
+doc.add("function", "length(array)", "Get the length of array `array`.");
 
-export function iter(array) {
-  let index = 0;
-  let len = length(array);
-  return function array_iterator() {
-    if (index == len) {
-      return null;
-    }
-    let item = array[index];
-    index = index + 1;
-    return item;
-  };
-}
+export let iter = _iter::array_iter;
 
-doc:add("function", "iter(array)", "Create an iterator from array `array`.");
+doc.add("function", "iter(array)", "Create an iterator from array `array`.");
 
-# don't use exported struct from `iter` to avoid circular import
-export let collector = struct {
-  init = arraylist.new,
-  reduce = arraylist.push,
-  finalize = arraylist.to_array,
-};
+export let collector = _iter::array_collector;
 
-doc:add("object", "collector", "A collector for converting an iterator into an array.");
+doc.add("object", "collector", "A collector for converting an iterator into an array.");
 
 export function find_index(self, func) {
   let len = length(self);
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     if (func(self[i], i, self)) {
       return i;
     }
@@ -46,7 +34,7 @@ export function find_index(self, func) {
   return -1;
 }
 
-doc:add(
+doc.add(
   "function",
   "find_index(array, predicate)",
   "Find the index of the element for which `predicate` returns true. If there is none, returns -1.",
@@ -60,33 +48,33 @@ export function find(self, func) {
     return null;
 }
 
-doc:add(
+doc.add(
   "function",
   "find(array, predicate)",
-  "Find the element element for which `predicate` returns true. If there is none, returns null.",
+  "Find the element for which `predicate` returns true. If there is none, returns null.",
 );
 
 export function foreach(self, func) {
   let len = length(self);
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     func(self[i], i, self);
   }
 }
 
-doc:add(
+doc.add(
   "function",
   "foreach(array, func)",
   "Call `func` with the element, index, and array for each element of `array`.",
 );
 
 export function contains(self, thing) {
-  return null != find(self, function(i) {
+  return -1 != find_index(self, function(i) {
     return i == thing;
   });
 }
 
-doc:add(
+doc.add(
   "function",
   "contains(array, thing)",
   "Returns true if any element of `array` is equal to `thing`.",
@@ -96,14 +84,14 @@ export function map(self, func) {
   let len = length(self);
   let new_array = new(len);
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     new_array[i] = func(self[i], i, self);
   }
 
   return new_array;
 }
 
-doc:add(
+doc.add(
   "function",
   "map(array, func)",
   "Create a new array where each element is the result of calling `func` on the
@@ -113,7 +101,7 @@ corresponding element of `array`.",
 export function foldl(self, init, reducer) {
   let len = length(self);
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     let item = self[i];
     init = reducer(init, item, i, self);
   }
@@ -121,7 +109,7 @@ export function foldl(self, init, reducer) {
   return init;
 }
 
-doc:add(
+doc.add(
   "function",
   "foldl(array, init, reducer)",
   "Reduce `array` from the left, using `init` as the initial value for the
@@ -132,7 +120,7 @@ export function foldl1(self, reducer) {
   let len = length(self);
   let acc = self[0];
 
-  for (let i = 1; i < len; i = i + 1) {
+  for (let i = 1; i < len; i += 1) {
     let item = self[i];
     acc = reducer(acc, item, i, self);
   }
@@ -140,7 +128,7 @@ export function foldl1(self, reducer) {
   return acc;
 }
 
-doc:add(
+doc.add(
   "function",
   "foldl(array, init, reducer)",
   "Reduce `array` from the left, using the first value of `array` as the initial
@@ -152,38 +140,71 @@ export function reverse(self) {
   let half = len / 2;
 
   let tmp;
-  for (let i = 0; i < half; i = i + 1) {
+  for (let i = 0; i < half; i += 1) {
     tmp = self[i];
     self[i] = self[len - i - 1];
     self[len - i - 1] = tmp;
   }
 }
 
-doc:add("function", "reverse(array)", "Reverse `array` in place.");
+doc.add("function", "reverse(array)", "Reverse `array` in place.");
 
 export function reversed(self) {
   let len = length(self);
   let copy = new(len);
 
-  for (let i = 0; i < len; i = i + 1) {
+  for (let i = 0; i < len; i += 1) {
     copy[len - i - 1] = self[i];
   }
 
   return copy;
 }
 
-doc:add("function", "reversed(array)", "Create a new array with the elements of `array` reversed.");
+doc.add("function", "reversed(array)", "Create a new array with the elements of `array` reversed.");
 
-export function slice(self, start, end) {
+export function slice(self, start, end=null) {
+    if (end == null) {
+        end = length(self);
+    }
     let sub = new(end - start);
-    for (let i = start; i < end; i = i + 1) {
+    for (let i = start; i < end; i += 1) {
         sub[i - start] = self[i];
     }
     return sub;
 }
 
-doc:add(
+doc.add(
   "function",
-  "slice(array, start, end)",
-  "Returns a slice of `array` starting at index `start` and ending at index `end`.",
+  "slice(array, start, end=...)",
+  "Returns a slice of `array` starting at index `start` and ending at index `end`. `end` defaults to the end of the array.",
+);
+
+export function copy(self) {
+    let len = length(self);
+    let copy = new(len);
+
+    for (let i = 0; i < len; i += 1) {
+        copy[i] = self[i];
+    }
+
+    return copy;
+}
+
+doc.add(
+    "function",
+    "copy(array)",
+    "Create a shallow copy of `array`.",
+);
+
+export function get(array, index, fallback=null) {
+    if (index >= length(array)) {
+        return fallback;
+    }
+    return array[index];
+}
+
+doc.add(
+    "function",
+    "get(array, index, fallback=null)",
+    "If `index` is out of `array`'s bounds, return `fallback`. Otherwise return the element of `array` at `index`.",
 );

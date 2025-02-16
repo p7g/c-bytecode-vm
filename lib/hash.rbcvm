@@ -1,25 +1,30 @@
 import bytes;
 import docs;
 
-let doc = docs.module("hash", "Hashing functions.");
+export struct Error {
+    message,
+}
+
+let doc = docs::module("hash", "Hashing functions.");
 
 let FNV_OFFSET_BASIS_32 = 2166136261;
 let FNV_PRIME_32 = 16777619;
 
 export function fnv1a(bytes) {
-  let len = bytes.length(bytes);
+  let len = bytes::length(bytes);
   let hash = FNV_OFFSET_BASIS_32;
 
-  for (let i = 0; i < len; i = i + 1) {
-    let byte = bytes.get(bytes, i);
-    hash = hash ^ byte;
-    hash = hash * FNV_PRIME_32;
+  for (let i = 0; i < len; i += 1) {
+    let byte = bytes::get(bytes, i);
+    hash ^= byte;
+    hash *= FNV_PRIME_32;
+    hash &= 0xffffffff;
   }
 
   return hash;
 }
 
-doc:add(
+doc.add(
   "function",
   "fnv1a(bytes)",
   "Applies the 32bit FNV-1a hashing algorithm to a byte array.",
@@ -29,16 +34,51 @@ export function int(n) {
   return n;
 }
 
-doc:add("function", "int(n)", "A hashing function for integer values.");
+doc.add("function", "int(n)", "A hashing function for integer values.");
 
 export function char(c) {
   return int(ord(c));
 }
 
-doc:add("function", "char(c)", "A hashing function for character values.");
+doc.add("function", "char(c)", "A hashing function for character values.");
 
 export function string(str) {
   return fnv1a(string_bytes(str));
 }
 
-doc:add("function", "string(s)", "A hash function for strings.");
+doc.add("function", "string(s)", "A hash function for strings.");
+
+export function bool(b) {
+    if (b) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+doc.add("function", "bool(b)", "A hash function for booleans.");
+
+export function double(d) {
+    throw Error { message = "double hash is not implemented" };
+}
+
+export function primitive(value) {
+    let ty = typeof(value);
+    if (ty == "string") {
+        return string(value);
+    } else if (ty == "char") {
+        return char(value);
+    } else if (ty == "integer") {
+        return int(value);
+    } else if (ty == "boolean") {
+        return bool(value);
+    } else if (ty == "null") {
+        return 0;
+    } else if (ty == "bytes") {
+        return fnv1a(value);
+    } else {
+        throw Error { message = string_concat("Unhashable type ", ty) };
+    }
+}
+
+doc.add("function", "primitive(value)", "A hash function for primitive types.");

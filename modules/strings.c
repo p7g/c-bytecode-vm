@@ -11,8 +11,60 @@
 #include "value.h"
 
 static size_t ident_len,
-	      ident_char_at,
+	      ident_next_char,
 	      ident_from_bytes;
+
+static struct cb_struct_spec *get_string_iter_result_spec(void)
+{
+	static struct cb_struct_spec *spec = NULL;
+	if (spec) {
+		return spec;
+	}
+
+	spec = cb_declare_struct("string_iter_result", 2, "c", "nread");
+	return spec;
+}
+
+static int next_char(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	cb_str strval;
+	int64_t intpos;
+	size_t pos;
+
+	strval = CB_EXPECT_STRING(argv[0]);
+	CB_EXPECT_TYPE(CB_VALUE_INT, argv[1]);
+	intpos = argv[1].val.as_int;
+	if (intpos < 0 || intpos > INT32_MAX) {
+		struct cb_value err;
+		(void) cb_value_from_string(&err, "pos is out of bounds");
+		cb_error_set(err);
+		return 1;
+	}
+
+	pos = (size_t) intpos;
+	struct cb_value c_val;
+	ssize_t nread = 0;
+	if (pos >= cb_strlen(strval)) {
+		c_val.type = CB_VALUE_NULL;
+	} else {
+		int32_t c;
+		nread = cb_str_read_char(strval, pos, &c);
+		c_val = cb_char(c);
+	}
+
+	if (nread < 0) {
+		struct cb_value err;
+		cb_value_from_string(&err, cb_str_errmsg(nread));
+		cb_error_set(err);
+		return 1;
+	}
+
+	result->type = CB_VALUE_STRUCT;
+	result->val.as_struct = cb_struct_make(get_string_iter_result_spec(),
+			c_val, cb_int(nread));
+	return 0;
+}
 
 static int len(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
@@ -21,25 +73,6 @@ static int len(size_t argc, struct cb_value *argv, struct cb_value *result)
 	strval = CB_EXPECT_STRING(argv[0]);
 	result->type = CB_VALUE_INT;
 	result->val.as_int = cb_strlen(strval);
-
-	return 0;
-}
-
-static int char_at(size_t argc, struct cb_value *argv, struct cb_value *result)
-{
-	cb_str strval;
-	int64_t pos;
-
-	strval = CB_EXPECT_STRING(argv[0]);
-	CB_EXPECT_TYPE(CB_VALUE_INT, argv[1]);
-	pos = argv[1].val.as_int;
-	if (pos < 0 || cb_strlen(strval) < (size_t) pos) {
-		cb_error_set(cb_value_from_string(
-					"char_at: String index out of range"));
-		return 1;
-	}
-	result->type = CB_VALUE_CHAR;
-	result->val.as_char = cb_str_at(strval, pos);
 
 	return 0;
 }
@@ -65,15 +98,14 @@ static int from_bytes(size_t argc, struct cb_value *argv,
 void cb_strings_build_spec(cb_modspec *spec)
 {
 	CB_DEFINE_EXPORT(spec, "len", ident_len);
-	CB_DEFINE_EXPORT(spec, "char_at", ident_char_at);
 	CB_DEFINE_EXPORT(spec, "from_bytes", ident_from_bytes);
+	CB_DEFINE_EXPORT(spec, "next_char", ident_next_char);
 }
 
 void cb_strings_instantiate(struct cb_module *mod)
 {
 	CB_SET_EXPORT(mod, ident_len, cb_cfunc_new(ident_len, 1, len));
-	CB_SET_EXPORT(mod, ident_char_at,
-			cb_cfunc_new(ident_char_at, 1, char_at));
 	CB_SET_EXPORT(mod, ident_from_bytes,
 			cb_cfunc_new(ident_from_bytes, 1, from_bytes));
+	CB_SET_EXPORT_FN(mod, ident_next_char, 1, next_char);
 }

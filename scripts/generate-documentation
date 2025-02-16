@@ -12,6 +12,7 @@ import fn;
 import fs;
 import hash;
 import hashmap;
+import inet;
 import iter;
 import json;
 import list;
@@ -20,8 +21,7 @@ import obj;
 import op;
 import path;
 import re;
-import result;
 import string;
 import test;
 
-docs.generate(docs.print_generator(docs.single_page_markdown()));
+docs::generate(docs::print_generator(docs::single_page_markdown()));

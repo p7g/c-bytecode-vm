@@ -1,0 +1,21 @@
+import _socket;
+
+export let AF_INET = _socket::AF_INET;
+export let AF_INET6 = _socket::AF_INET6;
+export let AI_PASSIVE = _socket::AI_PASSIVE;
+export let IPPROTO_TCP = _socket::IPPROTO_TCP;
+export let IPPROTO_UDP = _socket::IPPROTO_UDP;
+export let SOCK_DGRAM = _socket::SOCK_DGRAM;
+export let SOCK_STREAM = _socket::SOCK_STREAM;
+
+export let address = _socket::address;
+export let addrinfo = _socket::addrinfo;
+export let accept = _socket::accept;
+export let bind = _socket::bind;
+export let close = _socket::close;
+export let connect = _socket::connect;
+export let getaddrinfo = _socket::getaddrinfo;
+export let listen = _socket::listen;
+export let recv = _socket::recv;
+export let send = _socket::send;
+export let socket = _socket::socket;

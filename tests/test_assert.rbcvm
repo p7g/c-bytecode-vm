@@ -1,8 +1,13 @@
 import test;
 
+# But if assert doesn't work, why would this test fail?
 export function test_assert() {
-    test.assert(!false);
-    test.assert(false == pcall(function () {
-        test.assert(false);
-    })[0]);
+    test::assert(!false);
+    let failed = false;
+    try {
+        test::assert(false);
+    } catch (e) {
+        failed = true;
+    }
+    test::assert(failed);
 }

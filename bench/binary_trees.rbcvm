@@ -1,0 +1,44 @@
+import math;
+import string;
+
+function make_tree(depth) {
+    if (!depth) {
+        return [null, null];
+    }
+
+    depth -= 1;
+    return [make_tree(depth), make_tree(depth)];
+}
+
+function check_tree([left, right]) {
+    if (!left) {
+        return 1;
+    }
+    return 1 + check_tree(left) + check_tree(right);
+}
+
+let min_depth = 4;
+let max_depth = math::max(min_depth + 2, string::parse_integer(argv()[0]));
+let stretch_depth = max_depth + 1;
+
+println(string::concat("stretch tree of depth ", tostring(stretch_depth),
+            "\t check:"),
+        check_tree(make_tree(stretch_depth)));
+
+let long_lived_tree = make_tree(max_depth);
+let iterations = 2 ** max_depth;
+
+for (let depth = min_depth; depth < stretch_depth; depth += 2) {
+    let check = 0;
+    for (let i = 1; i <= iterations; i += 1) {
+        check += check_tree(make_tree(depth));
+    }
+
+    println(string::concat(tostring(iterations), "\t trees of depth ",
+                tostring(depth), "\t check:"),
+            check);
+    iterations /= 4;
+}
+
+println(string::concat("long lived tree of depth", tostring(max_depth), "\t check:"),
+        check_tree(long_lived_tree));

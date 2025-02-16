@@ -1,0 +1,92 @@
+import _array;
+
+export struct ArrayList {
+  length,
+  array,
+}
+
+let INITIAL_SIZE = 16;
+
+export function from_array(len, array) {
+  return ArrayList{length=len, array=array};
+}
+
+export function with_capacity(cap) {
+  return from_array(0, _array::new(cap));
+}
+
+export function new() {
+  return with_capacity(INITIAL_SIZE);
+}
+
+export function length(self) {
+  return self.length;
+}
+
+export function capacity(self) {
+  return _array::length(self.array);
+}
+
+export function get(self, idx) {
+  return self.array[idx];
+}
+
+export function set(self, idx, value) {
+  self.array[idx] = value;
+}
+
+export function delete(self, index) {
+  let len = self.length;
+
+  for (let i = index + 1; i < len; i += 1) {
+    set(self, i - 1, get(self, i));
+  }
+
+  self.length = len - 1;
+}
+
+export function to_array(self) {
+  let new_array = _array::new(self.length);
+
+  foreach(self, function(val, i) {
+    new_array[i] = val;
+  });
+
+  return new_array;
+}
+
+export function push(self, value) {
+  let next_idx = self.length;
+  let array = self.array;
+  let len = _array::length(array);
+
+  if (next_idx >= len) {
+    let new_array = _array::new(2 * len);
+    for (let i = 0; i < next_idx; i += 1) {
+      new_array[i] = array[i];
+    }
+    self.array = array = new_array;
+  }
+
+  array[next_idx] = value;
+  self.length = next_idx + 1;
+  return self;  # Return `self` to enable use as a reducer function.
+}
+
+export function pop(self) {
+  if (self.length <= 0) {
+    return null;
+  }
+
+  let i = self.length = self.length - 1;
+  return self.array[i];
+}
+
+export function foreach(self, func) {
+  let len = self.length;
+  let array = self.array;
+
+  for (let i = 0; i < len; i += 1) {
+    func(array[i], i, self);
+  }
+}

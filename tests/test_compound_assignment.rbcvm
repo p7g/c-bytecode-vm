@@ -1,0 +1,73 @@
+import test;
+
+export function test_identifier_compound_assignment() {
+    let n = 2;
+
+    test::assert((n += 2) == 4);
+    test::assert(n == 4);
+    test::assert((n -= 2) == 2);
+    test::assert(n == 2);
+    test::assert((n *= 2) == 4);
+    test::assert(n == 4);
+    test::assert((n /= 2) == 2);
+    test::assert(n == 2);
+    test::assert((n **= 2) == 4.0);
+    test::assert(n == 4.0);
+    n = toint(n);
+    test::assert((n %= 3) == 1);
+    test::assert(n == 1);
+    test::assert((n |= 2) == 3);
+    test::assert(n == 3);
+    test::assert((n &= 2) == 2);
+    test::assert(n == 2);
+    test::assert((n ^= 3) == 1);
+    test::assert(n == 1);
+}
+
+export function test_array_compound_assignment() {
+    let n = [2];
+
+    test::assert((n[0] += 2) == 4);
+    test::assert(n[0] == 4);
+    test::assert((n[0] -= 2) == 2);
+    test::assert(n[0] == 2);
+    test::assert((n[0] *= 2) == 4);
+    test::assert(n[0] == 4);
+    test::assert((n[0] /= 2) == 2);
+    test::assert(n[0] == 2);
+    test::assert((n[0] **= 2) == 4.0);
+    test::assert(n[0] == 4.0);
+    n[0] = toint(n[0]);
+    test::assert((n[0] %= 3) == 1);
+    test::assert(n[0] == 1);
+    test::assert((n[0] |= 2) == 3);
+    test::assert(n[0] == 3);
+    test::assert((n[0] &= 2) == 2);
+    test::assert(n[0] == 2);
+    test::assert((n[0] ^= 3) == 1);
+    test::assert(n[0] == 1);
+}
+
+export function test_struct_compound_assignment() {
+    let n = struct { x = 2 };
+
+    test::assert((n.x += 2) == 4);
+    test::assert(n.x == 4);
+    test::assert((n.x -= 2) == 2);
+    test::assert(n.x == 2);
+    test::assert((n.x *= 2) == 4);
+    test::assert(n.x == 4);
+    test::assert((n.x /= 2) == 2);
+    test::assert(n.x == 2);
+    test::assert((n.x **= 2) == 4.0);
+    test::assert(n.x == 4.0);
+    n.x = toint(n.x);
+    test::assert((n.x %= 3) == 1);
+    test::assert(n.x == 1);
+    test::assert((n.x |= 2) == 3);
+    test::assert(n.x == 3);
+    test::assert((n.x &= 2) == 2);
+    test::assert(n.x == 2);
+    test::assert((n.x ^= 3) == 1);
+    test::assert(n.x == 1);
+}

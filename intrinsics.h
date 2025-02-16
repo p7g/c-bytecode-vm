@@ -10,11 +10,13 @@
 
 #define CB_EXPECT_TYPE(TYPE, VAL) ({ \
 		if ((VAL).type != (TYPE)) { \
-			cb_error_set(cb_value_from_fmt( \
+			struct cb_value err; \
+			cb_value_from_fmt(&err, \
 					"%s: expected %s argument, got %s", \
 					__func__, \
 					cb_value_type_friendly_name(TYPE), \
-					cb_value_type_of(&(VAL)))); \
+					cb_value_type_of(&(VAL))); \
+			cb_error_set(err); \
 			return 1; \
 		} \
 	})
@@ -30,6 +32,21 @@
 			return 1; \
 		} \
 		_CB_EXPECT_STRING_str; \
+	})
+#define CB_EXPECT_STRUCT(SPEC, VAL) ({ \
+		struct cb_value _val = (VAL); \
+		struct cb_struct_spec *_spec = (SPEC); \
+		CB_EXPECT_TYPE(CB_VALUE_STRUCT, _val); \
+		if (_val.val.as_struct->spec != _spec) { \
+			struct cb_value err; \
+			cb_value_from_fmt(&err, \
+					"%s: expected %s argument, got %s", \
+					__func__, \
+					cb_agent_get_string(_spec->name), \
+					cb_agent_get_string(_val.val.as_struct->spec->name)); \
+			cb_error_set(err); \
+			return 1; \
+		} \
 	})
 
 void make_intrinsics(cb_hashmap *scope);

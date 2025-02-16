@@ -1,5 +1,7 @@
 #include <assert.h>
+#include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "agent.h"
 #include "error.h"
@@ -17,10 +19,10 @@ int cb_error_p(void)
 	return cb_vm_state.error != NULL;
 }
 
-struct cb_value *cb_error_value(void)
+struct cb_value cb_error_value(void)
 {
 	assert(cb_error_p());
-	return &cb_vm_state.error->value;
+	return cb_vm_state.error->value;
 }
 
 void cb_error_set(struct cb_value value)
@@ -36,6 +38,13 @@ void cb_error_set(struct cb_value value)
 		free(cb_vm_state.error);
 
 	cb_vm_state.error = err;
+}
+
+void cb_error_from_errno(void)
+{
+	struct cb_value err;
+	cb_value_from_string(&err, strerror(errno));
+	cb_error_set(err);
 }
 
 void cb_error_recover(void)
@@ -57,7 +66,7 @@ void cb_error_recover(void)
 }
 
 /* NOTE: frame is copied, ownership is not take by this function */
-void cb_traceback_add_frame(struct cb_frame *frame)
+void cb_traceback_add_frame(struct cb_frame *frame, size_t ip)
 {
 	struct cb_traceback *tb;
 
@@ -65,8 +74,11 @@ void cb_traceback_add_frame(struct cb_frame *frame)
 
 	tb = malloc(sizeof(struct cb_traceback));
 	tb->frame = *frame;
-	if (CB_VALUE_IS_USER_FN(&frame->func))
+	tb->ip = ip;
+	if (frame->is_function)
 		tb->func = cb_vm_state.stack[frame->bp];
+	else
+		tb->func.type = CB_VALUE_NULL;
 	tb->next = cb_vm_state.error->tb;
 	cb_vm_state.error->tb = tb;
 }
@@ -76,8 +88,9 @@ void cb_traceback_print(FILE *f, struct cb_traceback *tb)
 	struct cb_function *func;
 	struct cb_user_function *ufunc;
 	const cb_modspec *spec;
+	unsigned line, column;
 
-	if (CB_VALUE_IS_USER_FN(&tb->frame.func)) {
+	if (tb->frame.is_function) {
 		cb_str buf;
 
 		func = tb->func.val.as_function;
@@ -85,22 +98,24 @@ void cb_traceback_print(FILE *f, struct cb_traceback *tb)
 		/* FIXME: add module information to native functions */
 		if (func->type == CB_FUNCTION_USER) {
 			ufunc = &func->value.as_user;
-			spec = cb_agent_get_modspec(ufunc->module_id);
+			spec = ufunc->code->modspec;
 			cb_str modname = cb_agent_get_string(
 					cb_modspec_name(spec));
 			fprintf(f, "%s.", cb_strptr(&modname));
 		}
-		buf = cb_value_to_string(&tb->func);
-		fprintf(f, "%s\n", cb_strptr(&buf));
-		cb_str_free(buf);
+		buf = cb_agent_get_string(tb->func.val.as_function->name);
+		fprintf(f, "%s", cb_strptr(&buf));
 	} else {
 		const char *buf;
 
-		spec = tb->frame.module->spec;
+		spec = cb_agent_get_modspec(tb->frame.module_id);
 		cb_str modname = cb_agent_get_string(cb_modspec_name(spec));
 		buf = cb_strptr(&modname);
-		fprintf(f, "\tin module %s\n", buf);
+		fprintf(f, "\tin module %s", buf);
 	}
+
+	cb_code_lineno(tb->frame.code, tb->ip, &line, &column);
+	fprintf(f, " at %u:%u\n", line, column);
 }
 
 struct cb_traceback *cb_error_tb(void)
@@ -118,9 +133,9 @@ void cb_error_mark(void)
 	if (!e)
 		return;
 
-	cb_value_mark(&e->value);
+	cb_value_mark(e->value);
 	for (tb = e->tb; tb; tb = tb->next) {
-		if (CB_VALUE_IS_USER_FN(&tb->frame.func))
-			cb_value_mark(&tb->func);
+		if (tb->frame.is_function)
+			cb_value_mark(tb->func);
 	}
 }

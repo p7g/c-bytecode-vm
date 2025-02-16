@@ -1,0 +1,72 @@
+import arraylist;
+import hashmap;
+import json;
+import test;
+
+export function test_serialize_null() {
+    test::assert(json::serialize(null) == "null");
+}
+
+export function test_serialize_bool() {
+    test::assert(json::serialize(true) == "true");
+    test::assert(json::serialize(false) == "false");
+}
+
+export function test_serialize_integer() {
+    test::assert(json::serialize(123) == "123");
+    test::assert(json::serialize(-123) == "-123");
+    test::assert(json::serialize(0) == "0");
+}
+
+export function test_serialize_double() {
+    test::assert(json::serialize(1.23) == "1.23");
+}
+
+export function test_serialize_char() {
+    test::assert(json::serialize('a') == "\"a\"", "'a'");
+    test::assert(json::serialize('\r') == "\"\\r\"", "'\\r'");
+    test::assert(json::serialize('\0') == "\"\\u0000\"", "'\\0'");
+}
+
+export function test_serialize_string() {
+    test::assert(json::serialize("hello") == "\"hello\"");
+    test::assert(json::serialize("hello\nworld") == "\"hello\\nworld\"");
+}
+
+export function test_serialize_array() {
+    test::assert(json::serialize([]) == "[]");
+    test::assert(json::serialize([1, 2, 3]) == "[1,2,3]");
+    test::assert(json::serialize([[1], [2, 2], [3, 3, 3]]) == "[[1],[2,2],[3,3,3]]");
+}
+
+export function test_serialize_arraylist() {
+    let arr = arraylist::new();
+    arraylist::push(arr, 1);
+    arraylist::push(arr, 2);
+    arraylist::push(arr, 3);
+    test::assert(json::serialize(arr) == "[1,2,3]");
+    test::assert(json::serialize([arr]) == "[[1,2,3]]");
+}
+
+export function test_serialize_hashmap() {
+    let map = hashmap::make(function (set) {
+        set("a", "b");
+        set(123, "abc");
+        set('z', [1, 2, 3]);
+        set("z", "??");  # ???
+    });
+    let serialized = json::serialize(map);
+    test::assert(serialized == "{\"a\":\"b\",\"123\":\"abc\",\"z\":[1,2,3],\"z\":\"??\"}", serialized);
+}
+
+export function test_serialize_struct() {
+    let serialized = json::serialize(
+        struct {
+            abc = 123,
+            nested = struct {
+                hello = "world",
+            },
+        },
+    );
+    test::assert(serialized == "{\"abc\":123,\"nested\":{\"hello\":\"world\"}}");
+}

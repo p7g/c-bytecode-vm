@@ -1,12 +1,22 @@
 #include <assert.h>
+#include <libgen.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+
+#if __APPLE__
+#include <mach-o/dyld.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "agent.h"
 #include "builtin_modules.h"
 #include "cb_util.h"
+#include "error.h"
 #include "eval.h"
 #include "module.h"
 #include "str.h"
@@ -27,10 +37,41 @@ struct cb_agent {
 	       next_string_id;
 
 	char *cbcvm_path;
-	const char *import_paths[MAX_IMPORT_PATHS];
+	char *import_paths[MAX_IMPORT_PATHS];
 };
 
 static struct cb_agent agent;
+
+static char *get_stdlib_dir()
+{
+	char exe_path[PATH_MAX];
+	char *dir;
+#if __APPLE__
+	char buf[PATH_MAX];
+	uint32_t bufsize = PATH_MAX;
+	assert(!_NSGetExecutablePath(buf, &bufsize));
+	(void) bufsize;
+	realpath(buf, exe_path);
+#else
+	/* Linux */
+	ssize_t count = readlink("/proc/self/exe", exe_path, PATH_MAX);
+	if (count < 0) {
+		perror("readlink");
+		abort();
+	} else if (count >= PATH_MAX) {
+		fputs("Path to cbcvm executable is too long\n", stderr);
+		abort();
+	}
+	exe_path[count] = '\0';
+#endif
+	dir = dirname(exe_path);
+	size_t sz = snprintf(NULL, 0, "%s/lib", dir) + 1;
+
+	char *result = malloc(sizeof(char) * sz);
+	snprintf(result, sz, "%s/lib", dir);
+
+	return result;
+}
 
 int cb_agent_init(void)
 {
@@ -47,12 +88,14 @@ int cb_agent_init(void)
 	agent.string_table_size = 0;
 	agent.modules_size = 0;
 
-	for (i = 0; i < MAX_IMPORT_PATHS; i += 1)
+	agent.import_paths[0] = get_stdlib_dir();
+	for (i = 1; i < MAX_IMPORT_PATHS; i += 1)
 		agent.import_paths[i] = NULL;
+
 	agent.cbcvm_path = getenv("CBCVM_PATH");
 	if (agent.cbcvm_path) {
 		agent.cbcvm_path = strdup(agent.cbcvm_path);
-		for (i = 0, path = strtok(agent.cbcvm_path, ":"); path;
+		for (i = 1, path = strtok(agent.cbcvm_path, ":"); path;
 				i += 1, path = strtok(NULL, ":")) {
 			if (i >= MAX_IMPORT_PATHS) {
 				fprintf(stderr, "Too many paths in CBCVM_PATH\n");
@@ -94,10 +137,12 @@ void cb_agent_deinit(void)
 	agent.string_table = NULL;
 	agent.modules = NULL;
 
+	free(agent.import_paths[0]);
+	agent.import_paths[0] = NULL;
 	if (agent.cbcvm_path) {
 		free(agent.cbcvm_path);
 		agent.cbcvm_path = NULL;
-		for (i = 0; i < MAX_IMPORT_PATHS && agent.import_paths[i];
+		for (i = 1; i < MAX_IMPORT_PATHS && agent.import_paths[i];
 				i += 1) {
 			agent.import_paths[i] = NULL;
 		}
@@ -115,7 +160,7 @@ ssize_t cb_agent_get_string_id(const char *str, size_t len)
 	return -1;
 }
 
-size_t cb_agent_intern_string(const char *str, size_t len)
+ssize_t cb_agent_intern_string(const char *str, size_t len)
 {
 	size_t id;
 
@@ -139,9 +184,9 @@ size_t cb_agent_intern_string(const char *str, size_t len)
 				agent.string_table_size * sizeof(cb_str));
 	}
 
-	agent.string_table[id] = cb_str_from_cstr(str, len);
+	ssize_t result = cb_str_from_cstr(str, len, &agent.string_table[id]);
 
-	return id;
+	return result < 0 ? result : (ssize_t) id;
 }
 
 /* Strings returned from this function should not be freed */
@@ -162,13 +207,18 @@ static void maybe_grow_modules()
 				agent.modules_size * sizeof(cb_modspec *));
 	}
 	if (cb_vm_state.modules)
-		cb_vm_grow_modules_array(agent.next_module_id + 1);
+		cb_vm_grow_modules_array();
 }
 
 CB_INLINE void cb_agent_add_modspec(cb_modspec *spec)
 {
 	assert(spec != NULL);
 	agent.modules[cb_modspec_id(spec)] = spec;
+}
+
+inline void cb_agent_clear_modspec(cb_modspec *spec)
+{
+	agent.modules[cb_modspec_id(spec)] = NULL;
 }
 
 inline size_t cb_agent_reserve_modspec_id()
@@ -224,9 +274,12 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 #define min(A, B) ({ typeof((A)) _a = (A), _b = (B); _a < _b ? _a : _b; })
 #define CHECK_LEN ({ \
 		if (path[MAX_IMPORT_PATH_LEN - 1] != 0) { \
-			fprintf(stderr, "Import path for '%.*s' is too long\n", \
+			struct cb_value err; \
+			cb_value_from_fmt(&err, \
+					"Import path for '%.*s' is too long\n", \
 					(int) cb_strlen(import_name), \
 					cb_strptr(&import_name)); \
+			cb_error_set(err); \
 			return NULL; \
 		} \
 	})
@@ -247,7 +300,7 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 		j = strlen(path);
 		assert(j + 1 < MAX_IMPORT_PATH_LEN);
 		path[j++] = '/';
-		strncpy(path + j, cb_strptr(&import_name), min(
+		memcpy(path + j, cb_strptr(&import_name), min(
 				MAX_IMPORT_PATH_LEN - j,
 				cb_strlen(import_name)));
 		CHECK_LEN;
@@ -263,20 +316,39 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 		return f;
 	}
 
-	fprintf(stderr, "Import '%.*s' not found, checked in: ",
-			(int) cb_strlen(import_name),
-			cb_strptr(&import_name));
+	size_t buf_len = 0;
+	for (i = -1; i < MAX_IMPORT_PATHS && (i == -1 || agent.import_paths[i]); i++) {
+		if (i == -1 && !pwd)
+			continue;
+		buf_len += strlen(i == -1 ? pwd : agent.import_paths[i]);
+		if (i >= 0)
+			buf_len += 2; /* ", " */
+	}
+	if (!agent.import_paths[0])
+		buf_len = 6;
+
+	char *buf = malloc(sizeof(char) * buf_len + 1);
+	size_t nwritten = 0;
 	for (i = -1; i < MAX_IMPORT_PATHS && (i == -1 || agent.import_paths[i]);
 			i += 1) {
 		if (i == -1 && !pwd)
 			continue;
 		if (i > 0 || (pwd && i > -1))
-			fputs(", ", stderr);
-		fputs(i == -1 ? pwd : agent.import_paths[i], stderr);
+			nwritten += snprintf(buf + nwritten,
+					buf_len - nwritten + 1, ", ");
+		nwritten += snprintf(buf + nwritten, buf_len - nwritten + 1,
+				"%s", i == -1 ? pwd : agent.import_paths[i]);
 	}
 	if (!agent.import_paths[0])
-		fputs("(none)", stderr);
-	fputc('\n', stderr);
+		snprintf(buf, 7, "(none)");
+	buf[buf_len] = 0;
+
+	struct cb_value err;
+	cb_value_from_fmt(&err, "Import '%.*s' not found, checked in: %s",
+			(int) cb_strlen(import_name), cb_strptr(&import_name),
+			buf);
+	cb_error_set(err);
+	free(buf);
 	return NULL;
 
 #undef CHECK_LEN

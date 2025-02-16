@@ -2,7 +2,8 @@
 
 # c-bytecode-vm
 
-[![TODOs](https://badgen.net/https/api.tickgit.com/badgen/github.com/p7g/c-bytecode-vm)](https://www.tickgit.com/browse?repo=github.com/p7g/c-bytecode-vm)
+[![TODOs](https://img.shields.io/github/search?query=repo%3Ap7g%2Fc-bytecode-vm%20AND%20TODO&label=TODOs)](https://github.com/search?type=code&q=repo%3Ap7g%2Fc-bytecode-vm+TODO)
+[![FIXMEs](https://img.shields.io/github/search?query=repo%3Ap7g%2Fc-bytecode-vm%20AND%20FIXME&label=FIXMEs&color=red)](https://github.com/search?type=code&q=repo%3Ap7g%2Fc-bytecode-vm+FIXME)
 
 [Standard libary documentation](https://p7g.github.io/c-bytecode-vm/docs/stdlib)
 |
@@ -36,10 +37,7 @@ The primitive types are the following:
 
 ### Integer
 
-A signed, 64-bit integer. The semantics are those in C. There are no safeguards
-to prevent overflow (which is undefined behaviour for signed integers). All this
-to say: There are no guarantees beyond those you get when writing C. This is
-something I plan to address some day.
+A signed 64-bit integer. Hexadecimal literals are supported (with a lowercase X).
 
 Examples:
 ```js
@@ -50,7 +48,7 @@ Examples:
 
 ### Double
 
-A double-precision floating point value. Same disclaimer as for integers.
+A double-precision floating point value.
 
 Examples:
 ```js
@@ -65,8 +63,7 @@ want to make that not work.
 
 ### Char
 
-A single character. Stored as an unsigned 32-bit integer, though there is no
-UTF-8 support at this time. This is on the list of things to do.
+A single Unicode codepoint character.
 
 Examples:
 ```c
@@ -98,9 +95,8 @@ Example: `null`
 
 ### String
 
-A sequence of C `char` values represented as a "fat pointer"; a C char pointer
-with an associated length. As previously mentioned, UTF-8 support is something
-I plan to do.
+A UTF-8-encoded string. Can be manipulated using functions in the `string`
+module.
 
 Examples:
 ```js
@@ -130,7 +126,7 @@ Examples:
 some_array[3]
 ```
 
-Accessing a index that is out of range will panic.
+Accessing a index that is out of range will throw.
 
 ### Struct
 
@@ -148,14 +144,25 @@ Examples:
 struct test { a, b }
 test { a = 1 }
 
-test:a
+test.a
 ```
 
-Accessing a struct field that does not exist results in a panic at run-time.
+Accessing a struct field that does not exist results in a throw at run-time.
 
 An anonymous struct can be declared and instantiated in one expression:
 ```c
 println(struct { a = 123 });
+```
+
+Note that each anonymous struct declaration has its own struct spec. This means
+that two anonymous structs declared in different places will never be equal.
+For example:
+
+```c
+function makestruct() { return struct {}; }
+
+println(makestruct() == makestruct());  # true
+println(makestruct() == struct {});  # false
 ```
 
 ### Function
@@ -216,7 +223,7 @@ let [b, c] = [1, 2, 3];
 ```
 
 If a field is destructured that doesn't exist on the struct or if more elements
-are destructured from an array than the array contains, the program will panic.
+are destructured from an array than the array contains, the program will throw.
 
 Any fields/elements which aren't matched on are ignored.
 
@@ -267,7 +274,7 @@ The `for` loop is like a C for loop. The language has no native iteration
 protocol, but see the "Iteration" section below for more on that.
 
 ```js
-for (let a = 0; a < 10; a = a + 1) {}
+for (let a = 0; a < 10; a += 1) {}
 ```
 
 Any of the initializer, condition, or whatever the third part is called can be
@@ -275,22 +282,21 @@ omitted.
 
 ## Errors and Error Handling
 
-There is a pretty rudimentary error system that looks a bit like Lua's. It works
-much like exceptions in JavaScript, but without any special syntax for it (just
-special intrinsic functions).
+There is a pretty rudimentary exception system. It works much like exceptions
+in JavaScript, using try/catch and throw. You can throw any value, and
+a try/catch block will catch all errors regardless of type.
 
-To raise an error, the `panic` intrinsic function is used. Any value can be
-passed to it as the error value.
-
-The VM will unwind the call stack until the error state is recovered or it
-reaches the top of the stack, at which point the program will exit. To recover
-from an error state, the `pcall` intrinsic is used, like so:
+In the event of an error, the VM will unwind the call stack until the error
+state is recovered or it reaches the top of the stack, at which point the
+program will exit. Here's an example:
 
 ```js
-let [ok, value] = pcall(function () {
+try {
   this_might_fail();
   return "success";
-});
+} catch (e) {
+  return "failed";
+}
 ```
 
 ## Module System
@@ -311,11 +317,11 @@ that name, any imports of that name will result in the same module being
 imported.
 
 Once a module is imported, its exports can be accessed by prefixing their name
-with the module name and a dot, like `test.assert`. There is currently no way to
+with the module name and a dot, like `test::assert`. There is currently no way to
 alias an imported module, nor is there a way to create individual bindings for
 its exports while importing.
 
-Note that the module name in an expression like `test.assert` is not resolved
+Note that the module name in an expression like `test::assert` is not resolved
 like a variable; it is looked up in the list of imported modules directly. This
 means that the following will not work:
 ```js
@@ -325,13 +331,11 @@ let t = test;
 
 ## Garbage Collection
 
-c-bytecode-vm has a tracing (mark-and-sweep) garbage collector with some
-(potentially-flawed) reference-counting extensions. Such a GC is immune to
-cycles, at the expense of taking longer to collect.
+c-bytecode-vm has a tracing (mark-and-sweep) garbage collector.
 
-The ref-counting mechanism is to allow C extensions to make sure a value is not
-collected while they are using it. This works, but it could be unergonomic since
-an incremented ref on an array does not apply to its contents, for example.
+To allow C extensions to safely hold onto values without them being collected,
+use `cb_gc_hold` to add it to a GC root, and `cb_gc_release` to remove it from
+the root. The next time the GC runs the value may be eligible for collection.
 
 ## Intrinsic Functions
 
@@ -342,17 +346,16 @@ least for now:
 - `println`: Write a string representation of some values to stdout _with_ a
   trailing newline.
 - `tostring`: Get a string representation of a given value.
-- `type_of`: Get the type of a value as a string.
+- `typeof`: Get the type of a value as a string.
 - `ord`: Convert a character to an integer.
 - `chr`: Convert an integer to a character.
 - `tofloat`: Convert an integer to a double. This should be renamed.
-- `upvalues`: Returns the values of the current function's closure as an array.
+- `__upvalues`: Returns the values of the current function's closure as an array.
 - `apply`: Passes an array of values to a function as individual arguments.
 - `toint`: Converts a double to an integer, or does what `ord` does to a char.
 - `__gc_collect`: Have the garbage collector run immediately. It has a scary
   name because it seems like a scary thing to do.
-- `pcall`: Call a function, catching any errors raised during its execution and
-  returning whether it succeeded.
+- `__dis`: Print the disassembly of the given function directly to stdout.
 
 ## Standard Library
 
@@ -379,22 +382,23 @@ function range(to) {
       return null;
     }
     let val = i;
-    i = i + 1;
+    i += 1;
     return val;
   };
 }
 
-test.assert(iter.collect(range(10)) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+test::assert(iter::collect(range(10)) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 ```
 
 Using constructs like these, iteration can be performed like in JavaScript:
 ```js
-iter.foreach(range(10), function (n) {
+iter::foreach(range(10), function (n) {
   println(n);
 });
 ```
 
-Of course, the same issues in trying to exit the loop prematurely exist.
+To "break" out of `foreach` just return `iter::STOP` (the same sentinel used to
+signal when an iterator is exhausted).
 
 Modules that declare "types" that can be iterated over should export an `iter`
 function that returns this kind of iterator.

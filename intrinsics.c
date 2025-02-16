@@ -5,8 +5,11 @@
 #include <string.h>
 #include <time.h>
 
+#include "utf8proc/utf8proc.h"
+
 #include "agent.h"
 #include "bytes.h"
+#include "disassemble.h"
 #include "error.h"
 #include "eval.h"
 #include "gc.h"
@@ -15,40 +18,40 @@
 #include "value.h"
 #include "userdata.h"
 
-#define FUNC(FN, ARITY) ({ \
+#define FUNC(NAME, FN, ARITY) ({ \
 		struct cb_value _func_val; \
 		size_t _name; \
-		_name = cb_agent_intern_string(#FN, sizeof(#FN) - 1); \
+		_name = cb_agent_intern_string(NAME, sizeof(NAME) - 1); \
 		_func_val = cb_cfunc_new(_name, (ARITY), \
 				(cb_native_function *) (FN)); \
 		cb_hashmap_set(scope, _name, _func_val); \
 	});
 
-#define DECL(NAME, _ARITY) static int NAME(size_t, struct cb_value *, \
+#define DECL(NAME, FN, _ARITY) static int FN(size_t, struct cb_value *, \
 		struct cb_value *);
 
 #define INTRINSIC_LIST(X) \
-	X(print, 0) \
-	X(println, 0) \
-	X(tostring, 1) \
-	X(type_of, 1) \
-	X(string_chars, 1) \
-	X(string_from_chars, 1) \
-	X(string_bytes, 1) \
-	X(string_concat, 0) \
-	X(ord, 1) \
-	X(chr, 1) \
-	X(truncate32, 1) \
-	X(tofloat, 1) \
-	X(read_file, 1) \
-	X(argv, 0) \
-	X(upvalues, 0) \
-	X(apply, 2) \
-	X(now, 0) \
-	X(read_file_bytes, 1) \
-	X(toint, 1) \
-	X(__gc_collect, 0) \
-	X(pcall, 1)
+	X("print", print, 0) \
+	X("println", println, 0) \
+	X("tostring", tostring, 1) \
+	X("typeof", typeof_, 1) \
+	X("string_chars", string_chars, 1) \
+	X("string_from_chars", string_from_chars, 1) \
+	X("string_bytes", string_bytes, 1) \
+	X("string_concat", string_concat, 0) \
+	X("ord", ord, 1) \
+	X("chr", chr, 1) \
+	X("truncate32", truncate32, 1) \
+	X("tofloat", tofloat, 1) \
+	X("read_file", read_file, 1) \
+	X("argv", argv, 0) \
+	X("__upvalues", upvalues, 1) \
+	X("apply", apply, 2) \
+	X("now", now, 0) \
+	X("read_file_bytes", read_file_bytes, 1) \
+	X("toint", toint, 1) \
+	X("__gc_collect", __gc_collect, 0) \
+	X("__dis", __dis, 1)
 
 INTRINSIC_LIST(DECL);
 
@@ -64,7 +67,7 @@ static int print(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 	first = 1;
 	for (unsigned i = 0; i < argc; i += 1) {
-		as_string = cb_value_to_string(&argv[i]);
+		as_string = cb_value_to_string(argv[i]);
 		printf("%s%s", first ? "" : " ", cb_strptr(&as_string));
 		if (first)
 			first = 0;
@@ -94,7 +97,7 @@ static int tostring(size_t argc, struct cb_value *argv,
 {
 	cb_str as_string;
 
-	as_string = cb_value_to_string(&argv[0]);
+	as_string = cb_value_to_string(argv[0]);
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
@@ -103,7 +106,7 @@ static int tostring(size_t argc, struct cb_value *argv,
 	return 0;
 }
 
-static int type_of(size_t argc, struct cb_value *argv, struct cb_value *result)
+static int typeof_(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
 	const char *type;
 
@@ -113,7 +116,14 @@ static int type_of(size_t argc, struct cb_value *argv, struct cb_value *result)
 		.val.as_string = cb_string_new(),
 	};
 
-	result->val.as_string->string = cb_str_from_cstr(type, strlen(type));
+	ssize_t strvalid = cb_str_from_cstr(type, strlen(type),
+			&result->val.as_string->string);
+	if (strvalid < 0) {
+		struct cb_value err;
+		cb_value_from_string(&err, cb_str_errmsg(strvalid));
+		cb_error_set(err);
+		return 1;
+	}
 
 	return 0;
 }
@@ -122,22 +132,31 @@ static int string_chars(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	cb_str str;
-	size_t len;
+	size_t pos, ncodepoints, len;
 
 	str = CB_EXPECT_STRING(argv[0]);
 
 	len = cb_strlen(str);
+	ncodepoints = cb_str_ncodepoints(str);
 	result->type = CB_VALUE_ARRAY;
-	result->val.as_array = cb_array_new(len);
-	result->val.as_array->len = len;
+	result->val.as_array = cb_array_new(ncodepoints);
 
-	for (unsigned i = 0; i < len; i += 1) {
-		result->val.as_array->values[i] = (struct cb_value) {
-			.type = CB_VALUE_CHAR,
-			.val.as_char = cb_str_at(str, i),
-		};
+	pos = 0;
+	for (unsigned i = 0; i < ncodepoints; i += 1) {
+		struct cb_value *val = &result->val.as_array->values[i];
+		val->type = CB_VALUE_CHAR;
+
+		ssize_t result = cb_str_read_char(str, pos, &val->val.as_char);
+		if (result < 0) {
+			struct cb_value err;
+			cb_value_from_string(&err, cb_str_errmsg(result));
+			cb_error_set(err);
+			return 1;
+		}
+		pos += result;
 	}
 
+	assert(pos == len);
 	return 0;
 }
 
@@ -145,30 +164,40 @@ static int string_from_chars(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	struct cb_value arr;
-	char *str;
-	size_t len;
+	unsigned char *str;
+	size_t pos, len;
 
 	arr = argv[0];
 	CB_EXPECT_TYPE(CB_VALUE_ARRAY, arr);
 
 	len = arr.val.as_array->len;
-	str = malloc(len + 1);
+	str = malloc(len * 4 + 1);
+	pos = 0;
 
 	for (unsigned i = 0; i < len; i += 1) {
-		if (arr.val.as_array->values[i].type != CB_VALUE_CHAR) {
-			cb_error_set(cb_value_from_string(
-					"string_from_chars: Expected array of chars\n"));
+		struct cb_value charval = arr.val.as_array->values[i];
+		if (charval.type != CB_VALUE_CHAR) {
+			struct cb_value err;
+			cb_value_from_string(&err,
+					"string_from_chars: Expected array of chars\n");
+			cb_error_set(err);
 			free(str);
 			return 1;
 		}
-		/* FIXME: unicode */
-		str[i] = arr.val.as_array->values[i].val.as_char & 0xFF;
+		pos += utf8proc_encode_char(charval.val.as_char, str + pos);
 	}
-	str[len] = 0;
+	str[pos] = 0;
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
-	result->val.as_string->string = cb_str_take_cstr(str, len);
+	ssize_t strvalid = cb_str_take_cstr((char *) str, len,
+			&result->val.as_string->string);
+	if (strvalid < 0) {
+		struct cb_value err;
+		cb_value_from_string(&err, cb_str_errmsg(strvalid));
+		cb_error_set(err);
+		return 1;
+	}
 
 	return 0;
 }
@@ -215,7 +244,14 @@ static int string_concat(size_t argc, struct cb_value *argv,
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
-	result->val.as_string->string = cb_str_take_cstr(buf, len);
+	ssize_t strvalid = cb_str_take_cstr(buf, len,
+			&result->val.as_string->string);
+	if (strvalid < 0) {
+		struct cb_value err;
+		cb_value_from_string(&err, cb_str_errmsg(strvalid));
+		cb_error_set(err);
+		return 1;
+	}
 
 	return 0;
 }
@@ -232,10 +268,20 @@ static int ord(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 static int chr(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
+	int64_t intval;
+
 	CB_EXPECT_TYPE(CB_VALUE_INT, argv[0]);
+	intval = argv[0].val.as_int;
+	if (intval > INT32_MAX || intval < INT32_MIN
+			|| !utf8proc_codepoint_valid(intval)) {
+		struct cb_value err;
+		cb_value_from_fmt(&err, "Invalid codepoint");
+		cb_error_set(err);
+		return 1;
+	}
 
 	result->type = CB_VALUE_CHAR;
-	result->val.as_char = argv[0].val.as_int & 0xFF;
+	result->val.as_char = argv[0].val.as_int;
 
 	return 0;
 }
@@ -298,7 +344,14 @@ static int read_file(size_t argc, struct cb_value *argv,
 
 	result->type = CB_VALUE_STRING;
 	result->val.as_string = cb_string_new();
-	result->val.as_string->string = cb_str_take_cstr(buf, len);
+	ssize_t strvalid = cb_str_take_cstr(buf, len,
+			&result->val.as_string->string);
+	if (strvalid < 0) {
+		struct cb_value err;
+		cb_value_from_string(&err, cb_str_errmsg(strvalid));
+		cb_error_set(err);
+		return 1;
+	}
 
 	return 0;
 }
@@ -372,8 +425,14 @@ static int argv(size_t argc, struct cb_value *argv_, struct cb_value *result)
 		current = &result->val.as_array->values[i];
 		current->type = CB_VALUE_STRING;
 		current->val.as_string = cb_string_new();
-		current->val.as_string->string = cb_str_from_cstr(_argv[i],
-				strlen(_argv[i]));
+		ssize_t strvalid = cb_str_from_cstr(_argv[i], strlen(_argv[i]),
+				&current->val.as_string->string);
+		if (strvalid < 0) {
+			struct cb_value err;
+			cb_value_from_string(&err, cb_str_errmsg(strvalid));
+			cb_error_set(err);
+			return 1;
+		}
 	}
 
 	return 0;
@@ -381,16 +440,28 @@ static int argv(size_t argc, struct cb_value *argv_, struct cb_value *result)
 
 static int upvalues(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	struct cb_user_function *caller;
+	struct cb_user_function *func;
+	int i;
 
-	caller = cb_caller();
+	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
+
+	if (argv[0].val.as_function->type != CB_FUNCTION_USER) {
+		struct cb_value err;
+		cb_value_from_string(&err,
+				"__upvalues: Cannot get upvalues of native function");
+		cb_error_set(err);
+		return 1;
+	}
+
+	func = &argv[0].val.as_function->value.as_user;
 	result->type = CB_VALUE_ARRAY;
-	result->val.as_array = cb_array_new(caller->upvalues_len);
-	result->val.as_array->len = caller->upvalues_len;
+	result->val.as_array = cb_array_new(func->code->nupvalues);
 
-	for (unsigned i = 0; i < caller->upvalues_len; i += 1)
-		result->val.as_array->values[i] = cb_get_upvalue(
-				caller->upvalues[i]);
+	for (i = 0; i < func->code->nupvalues; i += 1) {
+		struct cb_upvalue *uv = func->upvalues[i];
+		struct cb_value v = cb_load_upvalue(uv);
+		result->val.as_array->values[i] = v;
+	}
 
 	return 0;
 }
@@ -433,8 +504,10 @@ static int toint(size_t argc, struct cb_value *argv, struct cb_value *result)
 	else if (arg.type == CB_VALUE_CHAR)
 		result->val.as_int = (intptr_t) arg.val.as_char;
 	else {
-		cb_error_set(cb_value_from_fmt("int: Cannot convert value of type %s to int",
-				cb_value_type_friendly_name(arg.type)));
+		struct cb_value err;
+		cb_value_from_fmt(&err, "int: Cannot convert value of type %s to int",
+				cb_value_type_friendly_name(arg.type));
+		cb_error_set(err);
 		return 1;
 	}
 
@@ -449,27 +522,21 @@ static int __gc_collect(size_t argc, struct cb_value *argv,
 	return 0;
 }
 
-static int pcall(size_t argc, struct cb_value *argv, struct cb_value *result)
+static int __dis(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	int failed;
-	ptrdiff_t sp;
-	struct cb_array *arr;
+	struct cb_user_function *func;
 
 	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
-	result->type = CB_VALUE_ARRAY;
-	arr = result->val.as_array = cb_array_new(2);
-	arr->len = 2;
-
-	sp = cb_vm_state.stack_top - cb_vm_state.stack;
-	failed = cb_value_call(argv[0], argv + 1, argc - 1, &arr->values[1]);
-	cb_vm_state.stack_top = cb_vm_state.stack + sp;
-
-	arr->values[0].type = CB_VALUE_BOOL;
-	arr->values[0].val.as_bool = !failed;
-	if (failed) {
-		assert(cb_error_p());
-		arr->values[1] = *cb_error_value();
-		cb_error_recover();
+	if (argv[0].val.as_function->type != CB_FUNCTION_USER) {
+		struct cb_value err;
+		cb_value_from_string(&err,
+				"__dis: Cannot disassemble native function");
+		cb_error_set(err);
+		return 1;
 	}
-	return 0;
+
+	func = &argv[0].val.as_function->value.as_user;
+
+	result->type = CB_VALUE_NULL;
+	return cb_disassemble_recursive(func->code);
 }

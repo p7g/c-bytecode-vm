@@ -15,7 +15,9 @@ jobs:
     name: Performance regression check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Install libs
         run: |
           sudo apt-get update
@@ -30,14 +32,52 @@ jobs:
           sum=0
           for i in $(seq $NTIMES); do
             before=$(gettimems)
-            CBCVM_PATH=lib ./cbcvm bf.rbcvm bench.b
+            ./cbcvm bench/bf.rbcvm bench/bench.b
             after=$(gettimems)
             elapsed=$((after - before))
             sum=$((sum + elapsed))
           done
+          bfresult=$((sum / NTIMES))
 
-          avg=$((sum / NTIMES))
-          printf '[{"name":"bench.b","value":%f,"unit":"ms"}]' $avg > output.txt
+          NTIMES=10
+          sum=0
+          for i in $(seq $NTIMES); do
+            before=$(gettimems)
+            ./cbcvm bench/nbody.rbcvm 500000
+            after=$(gettimems)
+            elapsed=$((after - before))
+            sum=$((sum + elapsed))
+          done
+          nbodyresult=$((sum / NTIMES))
+
+          NTIMES=10
+          sum=0
+          for i in $(seq $NTIMES); do
+            before=$(gettimems)
+            ./cbcvm bench/spectral_norm.rbcvm 1000
+            after=$(gettimems)
+            elapsed=$((after - before))
+            sum=$((sum + elapsed))
+          done
+          spectralnormresult=$((sum / NTIMES))
+
+          NTIMES=1
+          sum=0
+          for i in $(seq NTIMES); do
+            before=$(gettimems)
+            ./cbcvm bench/binary_trees.rbcvm 21
+            after=$(gettimems)
+            elapsed=$((after - before))
+            sum=$((sum + elapsed))
+          done
+          binarytreesresult=$((sum / NTIMES))
+
+          printf '[' >> output.txt
+          printf '{"name": "bench.b", "value": %f, "unit": "ms"},' $bfresult >> output.txt
+          printf '{"name": "nbody", "value": %f, "unit": "ms"},' $nbodyresult >> output.txt
+          printf '{"name": "spectral_norm", "value": %f, "unit": "ms"},' $spectralnormresult >> output.txt
+          printf '{"name": "binary_trees", "value": %f, "unit": "ms"}' $binarytreesresult >> output.txt
+          printf ']' >> output.txt
       # gh-pages branch is updated and pushed automatically with extracted benchmark data
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1

@@ -2,3 +2,5 @@ a.out
 .ccls-cache
 cbcvm
 *.dSYM
+*.o
+*.d

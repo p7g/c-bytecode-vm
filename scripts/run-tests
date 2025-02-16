@@ -8,50 +8,60 @@ import iter;
 import module;
 import path;
 import string;
+import sys;
+import json;
 
-let tests_by_file = hashmap.new();
+let tests_by_file = hashmap::new();
 
-iter.foreach(fs.directory_entries("tests"), function (path) {
-    path = path.join("tests", path);
-    if (fs.isfile(path) && path.ext(path) == "rbcvm") {
-        let tests = arraylist.new();
-        module.import_(path, path);
-        iter.foreach(module.exports(path), function (export_) {
-            if (string.startswith(export_, "test")) {
-                arraylist.push(tests, export_);
+iter::foreach(fs::directory_entries("tests"), function collect_test_modules(path) {
+    if (!string::startswith(path, "test")) {
+        return;
+    }
+    path = path::join("tests", path);
+    if (fs::isfile(path) && path::ext(path) == "rbcvm") {
+        let tests = arraylist::new();
+        module::import_(path, path);
+        iter::foreach(module::export_names(path), function collect_tests(export_) {
+            if (string::startswith(export_, "test")) {
+                arraylist::push(tests, export_);
             }
         });
-        hashmap.set(tests_by_file, path, arraylist.to_array(tests));
+        hashmap::set(tests_by_file, path, arraylist::to_array(tests));
     }
 });
 
 let ntests = 0;
-iter.foreach(hashmap.values(tests_by_file), function (tests) {
-    ntests = ntests + array.length(tests);
+iter::foreach(hashmap::values(tests_by_file), function count_tests(tests) {
+    ntests += array::length(tests);
 });
-println("Collected", ntests, "tests");
+println("Collected", ntests, "tests from", hashmap::size(tests_by_file), "modules");
 
-let failed = arraylist.new();
+let failed = arraylist::new();
 
-iter.foreach(hashmap.entries(tests_by_file), function ([filename, tests]) {
+iter::foreach(hashmap::entries(tests_by_file), function run_tests([filename, tests]) {
     print(filename, "");
-    iter.foreach(tests, function run_test(test) {
-        test = module.get(filename, test);
-        let [ok, result] = pcall(test);
-        if (ok) {
+    iter::foreach(tests, function run_test(test) {
+        test = module::get(filename, test);
+        try {
+            test();
             print('.');
-        } else {
+        } catch (error) {
             print('F');
-            arraylist.push(failed, [test, result]);
+            arraylist::push(failed, [test, error]);
         }
     });
+
     print('\n');
 });
 
-if (arraylist.length(failed) == 0) {
+println();
+let num_failed = arraylist::length(failed);
+if (num_failed == 0) {
     println("All tests passed");
 } else {
-    arraylist.foreach(failed, function ([test, error]) {
-        println(string.concat(tostring(test), ": ", tostring(error)));
+    println(num_failed, "failing tests:");
+    arraylist::foreach(failed, function print_failed_tests([test, error]) {
+        println(string::concat("\t", tostring(test), ": ", tostring(error)));
     });
+    sys::exit(1);
 }

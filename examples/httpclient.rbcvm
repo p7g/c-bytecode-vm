@@ -1,0 +1,39 @@
+import array;
+import fn;
+import http;
+import io;
+import socket;
+import string;
+import sys;
+
+let addrinfos = socket::getaddrinfo("localhost", "8000");
+let addrinfo;
+let sock;
+let i;
+for (i = 0; i < array::length(addrinfos); i += 1) {
+    addrinfo = addrinfos[i];
+    try {
+        sock = socket::socket(addrinfo.family, addrinfo.socktype,
+                addrinfo.protocol);
+        socket::connect(sock, addrinfo.addr);
+        break;
+    } catch (e) {
+        println("failed", addrinfo, e);
+    }
+}
+
+if (i == array::length(addrinfos)) {
+    println("couldn't create socket");
+    sys.exit(1);
+}
+
+let io = io::buffer(fn::curry(socket::recv, sock), fn::curry(socket::send, sock));
+let req = http::create_request("GET", "/", io);
+http::set_header(req.headers, "Host", addrinfo.addr.host);
+http::send_request(req);
+
+let resp = http::recv_response(io);
+let body = http::recv_body(resp);
+println(resp, string::from_bytes(body));
+
+socket::close(sock);

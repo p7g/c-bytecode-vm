@@ -5,44 +5,44 @@ import arraylist;
 import docs;
 import hash;
 import hashmap;
+import iter;
 import string;
 
-let doc = docs.module("re", "Primitive regular expressions.");
+let doc = docs::module("re", "Primitive regular expressions.");
 
 function insert_explicit_concat_operator(exp) {
-    let len = string.length(exp);
-    let output = arraylist.new();
+    let output = arraylist::new();
+    let tokens = iter::peekable(string::iter(exp));
 
-    for (let i = 0; i < len; i = i + 1) {
-        let token = string.char_at(exp, i);
-        arraylist.push(output, token);
+    iter::foreach(tokens.iter, function (token) {
+        arraylist::push(output, token);
 
         if (token == '(' || token == '|') {
-            continue;
+            return;
         }
 
-        if (i < len - 1) {
-            let lookahead = string.char_at(exp, i + 1);
-            if (string.contains("*?+|)", lookahead)) {
-                continue;
+        let lookahead = tokens.peek();
+        if (lookahead != iter::STOP) {
+            if (string::contains("*?+|", lookahead)) {
+                return;
             }
 
-            arraylist.push(output, '.');
+            arraylist::push(output, '.');
         }
-    }
+    });
 
-    return string.from_chars(arraylist.to_array(output));
+    return string::from_chars(arraylist::to_array(output));
 }
 
 function peek(stack) {
     let len;
-    if ((len = arraylist.length(stack)) > 0) {
-        return arraylist.get(stack, len - 1);
+    if ((len = arraylist::length(stack)) > 0) {
+        return arraylist::get(stack, len - 1);
     }
     return null;
 }
 
-let operator_precedence = hashmap.from_entries_with_hash_function(hash.char, [
+let operator_precedence = hashmap::from_entries([
     ['|', 0],
     ['.', 1],
     ['?', 2],
@@ -51,38 +51,38 @@ let operator_precedence = hashmap.from_entries_with_hash_function(hash.char, [
 ]);
 
 function to_postfix(exp) {
-    let output = arraylist.new();
-    let operator_stack = arraylist.new();
+    let output = arraylist::new();
+    let operator_stack = arraylist::new();
 
-    array.foreach(string.chars(exp), function (token) {
-        if (string.contains(".|*?+", token)) {
-            while (arraylist.length(operator_stack)
+    array::foreach(string::chars(exp), function (token) {
+        if (string::contains(".|*?+", token)) {
+            while (arraylist::length(operator_stack)
                     && peek(operator_stack) != '('
-                    && hashmap.get(operator_precedence, peek(operator_stack))
-                    >= hashmap.get(operator_precedence, token)) {
-                arraylist.push(output, arraylist.pop(operator_stack));
+                    && hashmap::get(operator_precedence, peek(operator_stack))
+                    >= hashmap::get(operator_precedence, token)) {
+                arraylist::push(output, arraylist::pop(operator_stack));
             }
 
-            arraylist.push(operator_stack, token);
+            arraylist::push(operator_stack, token);
         } else if (token == '(' || token == ')') {
             if (token == '(') {
-                arraylist.push(operator_stack, '(');
+                arraylist::push(operator_stack, '(');
             } else {
                 while (peek(operator_stack) != '(') {
-                    arraylist.push(output, arraylist.pop(operator_stack));
+                    arraylist::push(output, arraylist::pop(operator_stack));
                 }
-                arraylist.pop(operator_stack);
+                arraylist::pop(operator_stack);
             }
         } else {
-            arraylist.push(output, token);
+            arraylist::push(output, token);
         }
     });
 
-    while (arraylist.length(operator_stack)) {
-        arraylist.push(output, arraylist.pop(operator_stack));
+    while (arraylist::length(operator_stack)) {
+        arraylist::push(output, arraylist::pop(operator_stack));
     }
 
-    return string.from_chars(arraylist.to_array(output));
+    return string::from_chars(arraylist::to_array(output));
 }
 
 struct nfa_state {
@@ -94,17 +94,17 @@ struct nfa_state {
 function create_state(is_accepting) {
     return nfa_state {
         is_accepting = is_accepting,
-        transition = hashmap.with_hash_function(hash.char),
-        epsilon_transitions = arraylist.new(),
+        transition = hashmap::new(),
+        epsilon_transitions = arraylist::new(),
     };
 }
 
 function add_epsilon_transition(from, to) {
-    arraylist.push(from:epsilon_transitions, to);
+    arraylist::push(from.epsilon_transitions, to);
 }
 
 function add_transition(from, to, symbol) {
-    hashmap.set(from:transition, symbol, to);
+    hashmap::set(from.transition, symbol, to);
 }
 
 struct nfa {
@@ -128,22 +128,22 @@ function from_symbol(symbol) {
 }
 
 function concat(first, second) {
-    add_epsilon_transition(first:end, second:start);
-    first:end:is_accepting = false;
+    add_epsilon_transition(first.end, second.start);
+    first.end.is_accepting = false;
 
-    return nfa { start = first:start, end = second:end };
+    return nfa { start = first.start, end = second.end };
 }
 
 function union(first, second) {
     let start = create_state(false);
-    add_epsilon_transition(start, first:start);
-    add_epsilon_transition(start, second:start);
+    add_epsilon_transition(start, first.start);
+    add_epsilon_transition(start, second.start);
 
     let end = create_state(true);
-    add_epsilon_transition(first:end, end);
-    add_epsilon_transition(second:end, end);
-    first:end:is_accepting = false;
-    second:end:is_accepting = false;
+    add_epsilon_transition(first.end, end);
+    add_epsilon_transition(second.end, end);
+    first.end.is_accepting = false;
+    second.end.is_accepting = false;
 
     return nfa { start = start, end = end };
 }
@@ -153,10 +153,10 @@ function closure(nfa_) {
     let end = create_state(true);
 
     add_epsilon_transition(start, end);
-    add_epsilon_transition(start, nfa_:start);
-    add_epsilon_transition(nfa_:end, end);
-    add_epsilon_transition(nfa_:end, nfa_:start);
-    nfa_:end:is_accepting = false;
+    add_epsilon_transition(start, nfa_.start);
+    add_epsilon_transition(nfa_.end, end);
+    add_epsilon_transition(nfa_.end, nfa_.start);
+    nfa_.end.is_accepting = false;
 
     return nfa { start = start, end = end };
 }
@@ -166,9 +166,9 @@ function optional(nfa_) {
     let end = create_state(true);
 
     add_epsilon_transition(start, end);
-    add_epsilon_transition(start, nfa_:start);
-    add_epsilon_transition(nfa_:end, end);
-    nfa_:end:is_accepting = false;
+    add_epsilon_transition(start, nfa_.start);
+    add_epsilon_transition(nfa_.end, end);
+    nfa_.end.is_accepting = false;
 
     return nfa { start = start, end = end };
 }
@@ -177,10 +177,10 @@ function one_or_more(nfa_) {
     let start = create_state(false);
     let end = create_state(true);
 
-    add_epsilon_transition(start, nfa_:start);
-    add_epsilon_transition(nfa_:end, end);
-    add_epsilon_transition(nfa_:end, nfa_:start);
-    nfa_:end:is_accepting = false;
+    add_epsilon_transition(start, nfa_.start);
+    add_epsilon_transition(nfa_.end, end);
+    add_epsilon_transition(nfa_.end, nfa_.start);
+    nfa_.end.is_accepting = false;
 
     return nfa { start = start, end = end };
 }
@@ -190,65 +190,64 @@ function to_nfa(postfix_exp) {
         return from_epsilon();
     }
 
-    let stack = arraylist.new();
-    let len = string.length(postfix_exp);
+    let stack = arraylist::new();
+    let len = string::length(postfix_exp);
 
-    for (let i = 0; i < len; i = i + 1) {
-        let token = string.char_at(postfix_exp, i);
+    iter::foreach(string::iter(postfix_exp), function (token) {
         if (token == '*') {
-            arraylist.push(stack, closure(arraylist.pop(stack)));
+            arraylist::push(stack, closure(arraylist::pop(stack)));
         } else if (token == '|') {
-            let right = arraylist.pop(stack);
-            let left = arraylist.pop(stack);
-            arraylist.push(stack, union(left, right));
+            let right = arraylist::pop(stack);
+            let left = arraylist::pop(stack);
+            arraylist::push(stack, union(left, right));
         } else if (token == '?') {
-            arraylist.push(stack, optional(arraylist.pop(stack)));
+            arraylist::push(stack, optional(arraylist::pop(stack)));
         } else if (token == '+') {
-            arraylist.push(stack, one_or_more(arraylist.pop(stack)));
+            arraylist::push(stack, one_or_more(arraylist::pop(stack)));
         } else if (token == '.') {
-            let right = arraylist.pop(stack);
-            let left = arraylist.pop(stack);
-            arraylist.push(stack, concat(left, right));
+            let right = arraylist::pop(stack);
+            let left = arraylist::pop(stack);
+            arraylist::push(stack, concat(left, right));
         } else {
-            arraylist.push(stack, from_symbol(token));
+            arraylist::push(stack, from_symbol(token));
         }
-    }
+    });
 
-    return arraylist.pop(stack);
+    return arraylist::pop(stack);
 }
 
 function add_next_state(state, next_states, visited) {
-    if (arraylist.length(state:epsilon_transitions)) {
-        arraylist.foreach(state:epsilon_transitions, function (st) {
-            if (!arraylist.contains(visited, st)) {
-                arraylist.push(visited, st);
+    if (arraylist::length(state.epsilon_transitions)) {
+        arraylist::foreach(state.epsilon_transitions, function (st) {
+            if (!arraylist::contains(visited, st)) {
+                arraylist::push(visited, st);
                 add_next_state(st, next_states, visited);
             }
         });
     } else {
-        arraylist.push(next_states, state);
+        arraylist::push(next_states, state);
     }
 }
 
 function search(nfa, word) {
-    let current_states = arraylist.new();
-    add_next_state(nfa:start, current_states, arraylist.new());
+    let current_states = arraylist::new();
+    add_next_state(nfa.start, current_states, arraylist::new());
 
-    array.foreach(string.chars(word), function (symbol) {
-        let next_states = arraylist.new();
+    array::foreach(string::chars(word), function (symbol) {
+        let next_states = arraylist::new();
 
-        arraylist.foreach(current_states, function (state) {
-            let next_state = hashmap.get(state:transition, symbol);
+        arraylist::foreach(current_states, function (state) {
+            let next_state = hashmap::get(state.transition, symbol);
             if (next_state) {
-                add_next_state(next_state, next_states, arraylist.new());
+                add_next_state(next_state, next_states, arraylist::new());
             }
         });
 
         current_states = next_states;
     });
 
-    return arraylist.some(current_states, function (s) {
-        return s:is_accepting;
+    return arraylist::some(current_states, function (s) {
+        return s.is_accepting;
     });
 }
 
@@ -258,10 +257,10 @@ export function compile(exp) {
     return to_nfa(postfix_exp);
 }
 
-doc:add("function", "compile(exp)", "Compile a regular expression string into an NFA.");
+doc.add("function", "compile(exp)", "Compile a regular expression string into an NFA.");
 
 export function match(nfa, text) {
     return search(nfa, text);
 }
 
-doc:add("function", "match(nfa, text)", "Match some text against an NFA generated by `compile`.");
+doc.add("function", "match(nfa, text)", "Match some text against an NFA generated by `compile`.");

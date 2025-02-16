@@ -4,68 +4,74 @@ import bytes;
 import docs;
 import errno;
 import fn;
+import iter;
 import string;
-import sys;
 
 import _fs;
 
-let doc = docs.module("fs", "Filesystem operations.");
+let doc = docs::module("fs", "Filesystem operations.");
 
 let BLOCK_SIZE = 4096;
 
+export struct Error {
+    message,
+}
+
 function perror(msg) {
-    sys.panic(string_concat(msg, ": ", errno.strerror(errno.get())));
+    throw Error {
+        message = string_concat(msg, ": ", errno::strerror(errno::get())),
+    };
 }
 
 export function read_file(name) {
-    let f = _fs.fopen(name, "rb");
+    let f = _fs::fopen(name, "rb");
     if (f == null) {
         perror("read_file");
     }
-    let bufs = arraylist.new();
+    let bufs = arraylist::new();
     let buf;
     let nread;
 
-    while (!_fs.feof(f)) {
-        buf = bytes.new(4096);
-        nread = _fs.fread(buf, BLOCK_SIZE, f);
+    while (!_fs::feof(f)) {
+        buf = bytes::new(4096);
+        nread = _fs::fread(buf, BLOCK_SIZE, f);
         if (nread != BLOCK_SIZE) {
-            if (_fs.ferror(f)) {
+            if (_fs::ferror(f)) {
                 perror("read_file");
             }
-            let newbuf = bytes.new(nread);
-            bytes.copy(buf, newbuf, nread);
+            let newbuf = bytes::new(nread);
+            bytes::copy(buf, newbuf, nread);
             buf = newbuf;
         }
-        arraylist.push(bufs, buf);
+        arraylist::push(bufs, buf);
     }
 
-    return fn.apply(
+    return fn::apply(
         string_concat,
-        arraylist.to_array(arraylist.map(bufs, string.from_bytes)),
+        arraylist::to_array(arraylist::map(bufs, string::from_bytes)),
     );
 }
 
-doc:add("function", "read_file(name)", "Read the file called `fname` to completion.
+doc.add("function", "read_file(name)", "Read the file called `fname` to completion.
 
 This should also work with fifos and stuff.");
 
 export function directory_entries(path) {
-    let dirp = _fs.opendir(path);
+    let dirp = _fs::opendir(path);
     if (dirp == null) {
         perror("directory_entries");
     }
 
     return function next() {
-        errno.set(0);
-        let ent = _fs.readdir(dirp);
+        errno::set(0);
+        let ent = _fs::readdir(dirp);
         if (ent == null) {
-            if (errno.get()) {
+            if (errno::get()) {
                 perror("directory_entries");
             }
-            _fs.closedir(dirp);
+            _fs::closedir(dirp);
             dirp = null;
-            return null;
+            return iter::STOP;
         } else if (ent == "." || ent == "..") {
             return next();
         }
@@ -73,46 +79,48 @@ export function directory_entries(path) {
     };
 }
 
-doc:add(
+doc.add(
     "function",
     "directory_entries(path)",
     "Get an iterator over the entries of a directory, excluding '.' and '..'.",
 );
 
 function type_test(path, type) {
-    let st = _fs.stat(path);
+    let st = _fs::stat(path);
     if (st == null) {
-        sys.panic(string_concat("stat: ", errno.strerror(errno.get())));
+        throw Error {
+            message = string_concat("stat: ", errno::strerror(errno::get())),
+        };
     }
-    return (st:mode & _fs.S_IFMT) == type;
+    return (st.mode & _fs::S_IFMT) == type;
 }
 
 export function isfile(path) {
-    return type_test(path, _fs.S_IFREG);
+    return type_test(path, _fs::S_IFREG);
 }
 
-doc:add("function", "isfile(path)", "Check if `path` points to a file.");
+doc.add("function", "isfile(path)", "Check if `path` points to a file.");
 
 export function isdir(path) {
-    return type_test(path, _fs.S_IFDIR);
+    return type_test(path, _fs::S_IFDIR);
 }
 
-doc:add("function", "isdir(path)", "Check if `path` points to a directory.");
+doc.add("function", "isdir(path)", "Check if `path` points to a directory.");
 
 export function islink(path) {
-    return type_test(path, _fs.S_IFLNK);
+    return type_test(path, _fs::S_IFLNK);
 }
 
-doc:add("function", "islink(path)", "Check if `path` points to a link.");
+doc.add("function", "islink(path)", "Check if `path` points to a link.");
 
 export function issock(path) {
-    return type_test(path, _fs.S_IFSOCK);
+    return type_test(path, _fs::S_IFSOCK);
 }
 
-doc:add("function", "issock(path)", "Check if `path` points to a socket.");
+doc.add("function", "issock(path)", "Check if `path` points to a socket.");
 
 # TODO: Re-export constants and functions from _fs
 
-doc:add("Note", "", "Lower-level functions and constants are exported from `_fs`.
+doc.add("Note", "", "Lower-level functions and constants are exported from `_fs`.
 
 These are not documented, and will eventually move here.");

@@ -5,10 +5,8 @@
 
 #define CB_OPCODE_LIST(X) \
 	X(OP_HALT) \
-	X(OP_CONST_INT) \
-	X(OP_CONST_DOUBLE) \
+	X(OP_LOAD_CONST) \
 	X(OP_CONST_STRING) \
-	X(OP_CONST_CHAR) \
 	X(OP_CONST_TRUE) \
 	X(OP_CONST_FALSE) \
 	X(OP_CONST_NULL) \
@@ -29,7 +27,6 @@
 	X(OP_LOAD_GLOBAL) \
 	X(OP_DECLARE_GLOBAL) \
 	X(OP_STORE_GLOBAL) \
-	X(OP_NEW_FUNCTION) \
 	X(OP_BIND_LOCAL) \
 	X(OP_BIND_UPVALUE) \
 	X(OP_LOAD_UPVALUE) \
@@ -50,17 +47,24 @@
 	X(OP_BITWISE_NOT) \
 	X(OP_NOT) \
 	X(OP_NEG) \
-	X(OP_INIT_MODULE) \
-	X(OP_END_MODULE) \
 	X(OP_DUP) \
-	X(OP_ENTER_MODULE) \
-	X(OP_EXIT_MODULE) \
+	X(OP_DUP_2) \
+	X(OP_ALLOCATE_LOCALS) \
 	X(OP_NEW_STRUCT) \
 	X(OP_LOAD_STRUCT) \
 	X(OP_STORE_STRUCT) \
 	X(OP_ADD_STRUCT_FIELD) \
-	X(OP_NEW_STRUCT_SPEC) \
 	X(OP_ROT_2) \
+	X(OP_ROT_3) \
+	X(OP_ROT_4) \
+	X(OP_IMPORT_MODULE) \
+	X(OP_APPLY_DEFAULT_ARG) \
+	X(OP_THROW) \
+	X(OP_PUSH_TRY) \
+	X(OP_POP_TRY) \
+	X(OP_CATCH) \
+	X(OP_INC) \
+	X(OP_DEC) \
 	X(OP_MAX)
 
 enum cb_opcode {
@@ -69,9 +73,21 @@ enum cb_opcode {
 #undef COMMA
 };
 
+union cb_op_encoding {
+	size_t as_size_t;
+	struct __attribute__((packed)) {
+		enum cb_opcode op : 8;
+		size_t arg : 56;
+	} unary;
+	struct __attribute__((packed)) {
+		enum cb_opcode op : 8;
+		size_t arg1 : 28;
+		size_t arg2 : 28;
+	} binary;
+};
+
 const char *cb_opcode_name(enum cb_opcode);
-int cb_opcode_stack_effect(enum cb_opcode, cb_instruction *);
-unsigned cb_opcode_nargs(enum cb_opcode, cb_instruction *);
+int cb_opcode_stack_effect(const cb_instruction);
 enum cb_opcode cb_opcode_assert(size_t);
 
 #endif

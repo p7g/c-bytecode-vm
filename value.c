@@ -5,64 +5,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "utf8proc/utf8proc.h"
+
 #include "agent.h"
 #include "alloc.h"
 #include "bytes.h"
 #include "cb_util.h"
 #include "cbcvm.h"
+#include "constant.h"
 #include "eval.h"
 #include "module.h"
 #include "str.h"
 #include "struct.h"
 #include "value.h"
-
-static void adjust_refcount(struct cb_value *value, int amount)
-{
-	cb_gc_header *header;
-
-	switch (value->type) {
-	case CB_VALUE_ARRAY:
-		header = &value->val.as_array->gc_header;
-		break;
-	case CB_VALUE_STRING:
-		header = &value->val.as_string->gc_header;
-		break;
-	case CB_VALUE_BYTES:
-		header = &value->val.as_bytes->gc_header;
-		break;
-	case CB_VALUE_FUNCTION:
-		header = &value->val.as_function->gc_header;
-		break;
-	case CB_VALUE_STRUCT:
-		header = &value->val.as_struct->gc_header;
-		break;
-	case CB_VALUE_USERDATA:
-		header = &value->val.as_userdata->gc_header;
-		break;
-
-	default:
-		return;
-	}
-
-	if (cb_options.debug_gc) {
-		cb_str as_str = cb_value_to_string(value);
-		printf("GC: adjusted refcount by %d for object at %p: %s\n",
-				amount, header, cb_strptr(&as_str));
-		cb_str_free(as_str);
-	}
-
-	cb_gc_adjust_refcount(header, amount);
-}
-
-inline void cb_value_incref(struct cb_value *value)
-{
-	adjust_refcount(value, 1);
-}
-
-inline void cb_value_decref(struct cb_value *value)
-{
-	adjust_refcount(value, -1);
-}
 
 static void cb_function_deinit(void *ptr)
 {
@@ -74,8 +29,10 @@ static void cb_function_deinit(void *ptr)
 
 	ufn = fn->value.as_user;
 
-	if (ufn.upvalues_len) {
-		for (unsigned i = 0; i < ufn.upvalues_len; i += 1) {
+	if (ufn.code->nupvalues) {
+		for (unsigned i = 0; i < ufn.code->nupvalues; i += 1) {
+			if (ufn.upvalues[i] == NULL)
+				continue;
 			if (ufn.upvalues[i]->refcount != 0)
 				ufn.upvalues[i]->refcount -= 1;
 			if (ufn.upvalues[i]->refcount == 0)
@@ -96,7 +53,7 @@ static void cb_function_deinit(void *ptr)
 	}
 }
 
-inline struct cb_function *cb_function_new(void)
+CB_INLINE struct cb_function *cb_function_new(void)
 {
 	return cb_malloc(sizeof(struct cb_function), cb_function_deinit);
 }
@@ -118,19 +75,7 @@ struct cb_value cb_cfunc_new(size_t name, size_t arity,
 	return func_val;
 }
 
-CB_INLINE size_t cb_ufunc_entry(const struct cb_function *func, size_t num_args)
-{
-	const struct cb_user_function *ufunc;
-
-	assert(func->type == CB_FUNCTION_USER);
-	ufunc = &func->value.as_user;
-
-	if (num_args >= func->arity + ufunc->optargs.count)
-		return ufunc->address;
-	return ufunc->optargs.addrs[num_args - func->arity];
-}
-
-inline struct cb_array *cb_array_new(size_t len)
+CB_INLINE struct cb_array *cb_array_new(size_t len)
 {
 	struct cb_array *mem = cb_malloc(sizeof(struct cb_array)
 			+ sizeof(struct cb_value) * len, NULL);
@@ -145,12 +90,12 @@ static void deinit_string(void *s_ptr)
 	cb_str_free(s->string);
 }
 
-inline struct cb_string *cb_string_new(void)
+CB_INLINE struct cb_string *cb_string_new(void)
 {
 	return cb_malloc(sizeof(struct cb_string), deinit_string);
 }
 
-int cb_value_is_truthy(struct cb_value *val)
+CB_INLINE int cb_value_is_truthy(struct cb_value *val)
 {
 	switch (val->type) {
 	case CB_VALUE_INT:
@@ -191,7 +136,7 @@ const char *cb_value_type_name(enum cb_value_type type)
 	CB_VALUE_TYPE_LIST(CASE)
 #undef CASE
 	default:
-		return "";
+		return "<invalid type>";
 	}
 }
 
@@ -231,69 +176,78 @@ void repr_leave(cb_gc_header *obj)
 	}
 }
 
-cb_str cb_value_to_string(struct cb_value *val)
+cb_str cb_value_to_string(struct cb_value val)
 {
 	size_t len;
 	cb_str buf;
 
-	switch (val->type) {
+	switch (val.type) {
 	case CB_VALUE_INT:
-		len = snprintf(NULL, 0, "%" PRIdPTR, val->val.as_int);
+		len = snprintf(NULL, 0, "%" PRIdPTR, val.val.as_int);
 		cb_str_init(&buf, len);
-		snprintf(cb_strptr(&buf), len + 1, "%" PRIdPTR, val->val.as_int);
+		snprintf(cb_strptr(&buf), len + 1, "%" PRIdPTR, val.val.as_int);
+		cb_str_check_utf8(&buf);
 		break;
 
 	case CB_VALUE_DOUBLE:
-		len = snprintf(NULL, 0, "%g", val->val.as_double);
+		len = snprintf(NULL, 0, "%.12g", val.val.as_double);
 		cb_str_init(&buf, len);
-		snprintf(cb_strptr(&buf), len + 1, "%g", val->val.as_double);
+		snprintf(cb_strptr(&buf), len + 1, "%.12g", val.val.as_double);
+		cb_str_check_utf8(&buf);
 		break;
 
 	case CB_VALUE_BOOL:
-		if (val->val.as_bool) {
+		if (val.val.as_bool) {
 			len = sizeof("true") - 1;
 			cb_str_init(&buf, len);
-			sprintf(cb_strptr(&buf), "true");
+			snprintf(cb_strptr(&buf), len + 1, "true");
 		} else {
 			len = sizeof("false") - 1;
 			cb_str_init(&buf, len);
-			sprintf(cb_strptr(&buf), "false");
+			snprintf(cb_strptr(&buf), len + 1, "false");
 		}
+		cb_str_check_utf8(&buf);
 		break;
 
 	case CB_VALUE_NULL:
 		len = 4;
 		cb_str_init(&buf, len);
-		sprintf(cb_strptr(&buf), "null");
+		snprintf(cb_strptr(&buf), len + 1, "null");
+		cb_str_check_utf8(&buf);
 		break;
 
-	case CB_VALUE_CHAR:
-		cb_str_init(&buf, 1);
-		/* FIXME: unicode */
-		cb_strptr(&buf)[0] = val->val.as_char & 0xFF;
-		cb_strptr(&buf)[1] = 0;
+	case CB_VALUE_CHAR: {
+		cb_str_init(&buf, 4);
+		ssize_t written = utf8proc_encode_char(val.val.as_char,
+				(unsigned char *) cb_strptr(&buf));
+		cb_strptr(&buf)[written] = 0;
+		buf.len = written;
+		cb_str_check_utf8(&buf);
 		break;
+	}
 
 	case CB_VALUE_STRING:
-		buf = cb_strdup(val->val.as_string->string);
+		buf = cb_strdup(val.val.as_string->string);
 		break;
 
 	case CB_VALUE_BYTES: {
-		char *ptr;
+		char *ptr, *start;
 		size_t i, blen;
-		struct cb_bytes *bs = val->val.as_bytes;
+		struct cb_bytes *bs = val.val.as_bytes;
 
 		blen = cb_bytes_len(bs);
 		/* room for "<<>>" plus comma-space between each elem */
-		len = 4 + (blen - 1) * 2;
+		len = 4;
+		if (blen > 0)
+			len += (blen - 1) * 2;
 		for (i = 0; i < blen; i += 1)
 			len += snprintf(NULL, 0, "%d", cb_bytes_get(bs, i));
 		cb_str_init(&buf, len);
-		ptr = cb_strptr(&buf);
+		start = ptr = cb_strptr(&buf);
 		*ptr++ = '<';
 		*ptr++ = '<';
 		for (i = 0; i < blen; i += 1) {
-			ptr += sprintf(ptr, "%d", cb_bytes_get(bs, i));
+			ptr += snprintf(ptr, (len + 1) - (ptr - start), "%d", cb_bytes_get(bs, i));
 			if (i + 1 < blen) {
 				*ptr++ = ',';
 				*ptr++ = ' ';
@@ -301,16 +255,19 @@ cb_str cb_value_to_string(struct cb_value *val)
 		}
 		*ptr++ = '>';
 		*ptr++ = '>';
+		*ptr++ = 0;
+		assert(ptr == start + len + 1);
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
 	case CB_VALUE_INTERNED_STRING:
 		buf = cb_strdup(cb_agent_get_string(
-					val->val.as_interned_string));
+					val.val.as_interned_string));
 		break;
 
 	case CB_VALUE_FUNCTION: {
-		const struct cb_function *func = val->val.as_function;
+		const struct cb_function *func = val.val.as_function;
 		size_t name = func->name;
 		cb_str s, modname;
 		cb_str_init(&modname, 0);
@@ -319,17 +276,15 @@ cb_str cb_value_to_string(struct cb_value *val)
 		len += sizeof("<function >"); /* includes NUL byte */
 		/* User functions show the module name too */
 		if (func->type == CB_FUNCTION_USER) {
-			const struct cb_module *mod;
 			const struct cb_user_function *ufunc;
 			ufunc = &func->value.as_user;
-			mod = &cb_vm_state.modules[ufunc->module_id];
 			modname = cb_agent_get_string(
-					cb_modspec_name(mod->spec));
+					cb_modspec_name(ufunc->code->modspec));
 			/* modname + '.' */
 			len += 1 + cb_strlen(modname);
 		}
-		cb_str_init(&buf, len);
-		sprintf(cb_strptr(&buf), "<function ");
+		cb_str_init(&buf, len - 1);
+		snprintf(cb_strptr(&buf), sizeof("<function "), "<function ");
 		size_t pos = sizeof("<function ") - 1;
 		if (cb_strlen(modname)) {
 			memcpy(cb_strptr(&buf) + pos,
@@ -343,25 +298,27 @@ cb_str cb_value_to_string(struct cb_value *val)
 				cb_strlen(s));
 		cb_strptr(&buf)[len - 2] = '>';
 		cb_strptr(&buf)[len - 1] = 0;
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
 	case CB_VALUE_ARRAY: {
 		char *ptr;
-		size_t array_len = val->val.as_array->len;
-		cb_str elements[array_len];
+		size_t array_len = val.val.as_array->len;
+		cb_str *elements = alloca(sizeof(cb_str) * array_len);
 
-		if (repr_enter(&val->val.as_array->gc_header)) {
+		if (repr_enter(&val.val.as_array->gc_header)) {
 			len = sizeof("[...]") - 1;
 			cb_str_init(&buf, len);
 			memcpy(cb_strptr(&buf), "[...]", len);
+			cb_str_check_utf8(&buf);
 			break;
 		}
 
 		len = 2; /* square brackets around elements */
 		for (unsigned i = 0; i < array_len; i += 1) {
 			elements[i] = cb_value_to_string(
-					&val->val.as_array->values[i]);
+					val.val.as_array->values[i]);
 			len += cb_strlen(elements[i]);
 			if (i != 0)
 				len += 2; /* comma space */
@@ -381,15 +338,16 @@ cb_str cb_value_to_string(struct cb_value *val)
 		}
 		*ptr++ = ']';
 		assert(ptr == cb_strptr(&buf) + len);
-		repr_leave(&val->val.as_array->gc_header);
+		repr_leave(&val.val.as_array->gc_header);
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
 	case CB_VALUE_STRUCT: {
 		char *ptr;
-		struct cb_struct *s = val->val.as_struct;
+		struct cb_struct *s = val.val.as_struct;
 		size_t struct_len = s->spec->nfields;
-		cb_str elements[struct_len];
+		cb_str *elements = alloca(struct_len * sizeof(cb_str));
 		const char *name;
 		size_t name_len;
 		cb_str n = cb_agent_get_string(s->spec->name);
@@ -397,17 +355,18 @@ cb_str cb_value_to_string(struct cb_value *val)
 		name_len = cb_strlen(n);
 		len = name_len + 2;
 
-		if (repr_enter(&val->val.as_struct->gc_header)) {
+		if (repr_enter(&val.val.as_struct->gc_header)) {
 			len += 3;  /* for "..." */
 			cb_str_init(&buf, len);
 			ptr = cb_strptr(&buf);
 			memcpy(ptr, name, name_len);
 			memcpy(ptr + name_len, "{...}", 5);
+			cb_str_check_utf8(&buf);
 			break;
 		}
 
 		for (unsigned i = 0; i < struct_len; i += 1) {
-			elements[i] = cb_value_to_string(&s->fields[i]);
+			elements[i] = cb_value_to_string(s->fields[i]);
 			len += cb_strlen(elements[i]);
 			len += cb_strlen(cb_agent_get_string(
 						s->spec->fields[i]));
@@ -439,12 +398,13 @@ cb_str cb_value_to_string(struct cb_value *val)
 		}
 		*ptr++ = '}';
 		assert(ptr == cb_strptr(&buf) + len);
-		repr_leave(&val->val.as_struct->gc_header);
+		repr_leave(&val.val.as_struct->gc_header);
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
 	case CB_VALUE_STRUCT_SPEC: {
-		size_t name_id = val->val.as_struct_spec->name;
+		size_t name_id = val.val.as_struct_spec->name;
 		char *ptr;
 		const char *name;
 		size_t name_len;
@@ -460,6 +420,7 @@ cb_str cb_value_to_string(struct cb_value *val)
 		ptr += name_len;
 		*ptr++ = '>';
 		assert(ptr == cb_strptr(&buf) + len);
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
@@ -467,12 +428,13 @@ cb_str cb_value_to_string(struct cb_value *val)
 		size_t size = sizeof("<userdata>") - 1;
 		cb_str_init(&buf, size);
 		memcpy(cb_strptr(&buf), "<userdata>", size);
+		cb_str_check_utf8(&buf);
 		break;
 	}
 
 	default:
 		fprintf(stderr, "unsupported to_string (%s)\n",
-				cb_value_type_friendly_name(val->type));
+				cb_value_type_friendly_name(val.type));
 		abort();
 		break;
 	}
@@ -485,14 +447,20 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 	if (a == b)
 		return 1;
 	if (a->type == CB_VALUE_INTERNED_STRING && b->type == CB_VALUE_STRING) {
-		cb_str str = cb_agent_get_string(a->val.as_interned_string);
-		return !strcmp(cb_strptr(&b->val.as_string->string),
-				cb_strptr(&str));
+		cb_str astr = cb_agent_get_string(a->val.as_interned_string),
+		       bstr = b->val.as_string->string;
+		if (cb_strlen(astr) != cb_strlen(bstr))
+			return 0;
+		return !memcmp(cb_strptr(&bstr), cb_strptr(&bstr),
+				cb_strlen(astr));
 	} else if (b->type == CB_VALUE_INTERNED_STRING
 			&& a->type == CB_VALUE_STRING) {
-		cb_str str = cb_agent_get_string(b->val.as_interned_string);
-		return !strcmp(cb_strptr(&a->val.as_string->string),
-				cb_strptr(&str));
+		cb_str astr = cb_agent_get_string(b->val.as_interned_string),
+		       bstr = a->val.as_string->string;
+		if (cb_strlen(astr) != cb_strlen(bstr))
+			return 0;
+		return !memcmp(cb_strptr(&astr), cb_strptr(&bstr),
+				cb_strlen(astr));
 	}
 	if (a->type != b->type)
 		return 0;
@@ -523,8 +491,8 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		return 1;
 	}
 	case CB_VALUE_STRING:
-		return !strcmp(cb_strptr(&a->val.as_string->string),
-				cb_strptr(&b->val.as_string->string));
+		return !cb_strcmp(a->val.as_string->string,
+				b->val.as_string->string);
 	case CB_VALUE_BYTES: {
 		struct cb_bytes *bytes_a, *bytes_b;
 		bytes_a = a->val.as_bytes;
@@ -535,8 +503,7 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		if (a->val.as_function->type != b->val.as_function->type)
 			return 0;
 		if (a->val.as_function->type == CB_FUNCTION_USER)
-			return a->val.as_function->value.as_user.address
-				== b->val.as_function->value.as_user.address;
+			return a->val.as_function == b->val.as_function;
 		return a->val.as_function->value.as_native
 			== b->val.as_function->value.as_native;
 	case CB_VALUE_INTERNED_STRING:
@@ -600,6 +567,29 @@ double cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok)
 		if (b->type == CB_VALUE_DOUBLE)
 			return OK(a->val.as_double - b->val.as_double);
 		return UNDEFINED();
+	case CB_VALUE_STRING:
+		if (b->type == CB_VALUE_STRING) {
+			return OK(cb_strcmp(a->val.as_string->string,
+					b->val.as_string->string));
+		} else if (b->type == CB_VALUE_INTERNED_STRING) {
+			cb_str bstr = cb_agent_get_string(
+					b->val.as_interned_string);
+			return OK(cb_strcmp(a->val.as_string->string, bstr));
+		} else {
+			return UNDEFINED();
+		}
+	case CB_VALUE_INTERNED_STRING: {
+		cb_str astr = cb_agent_get_string(a->val.as_interned_string);
+		if (b->type == CB_VALUE_STRING) {
+			return OK(cb_strcmp(astr, b->val.as_string->string));
+		} else if (b->type == CB_VALUE_INTERNED_STRING) {
+			cb_str bstr = cb_agent_get_string(
+					b->val.as_interned_string);
+			return OK(cb_strcmp(astr, bstr));
+		} else {
+			return UNDEFINED();
+		}
+	}
 
 	default:
 		return UNDEFINED();
@@ -609,21 +599,11 @@ double cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok)
 #undef OK
 }
 
-void cb_function_add_upvalue(struct cb_user_function *fn, struct cb_upvalue *uv)
+void cb_function_add_upvalue(struct cb_user_function *fn,
+		size_t idx, struct cb_upvalue *uv)
 {
-	if (fn->upvalues_len >= fn->upvalues_size) {
-		/* FIXME: this could probably be pre-allocated; we know how many
-		 * upvalues a function has when compiling, so the information
-		 * just needs to be passed through the bytecode */
-		if (fn->upvalues_size == 0)
-			fn->upvalues_size = 4;
-		else
-			fn->upvalues_size <<= 1;
-		fn->upvalues = realloc(fn->upvalues,
-				fn->upvalues_size * sizeof(struct cb_upvalue *));
-	}
 	uv->refcount += 1;
-	fn->upvalues[fn->upvalues_len++] = uv;
+	fn->upvalues[idx] = uv;
 }
 
 const char *cb_value_type_friendly_name(enum cb_value_type typ)
@@ -659,7 +639,7 @@ const char *cb_value_type_friendly_name(enum cb_value_type typ)
 	return "";
 }
 
-inline const char *cb_value_type_of(struct cb_value *val)
+CB_INLINE const char *cb_value_type_of(struct cb_value *val)
 {
 	return cb_value_type_friendly_name(val->type);
 }
@@ -667,58 +647,84 @@ inline const char *cb_value_type_of(struct cb_value *val)
 int cb_value_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		struct cb_value *result)
 {
-	struct cb_function *func;
-
 	if (fn.type != CB_VALUE_FUNCTION) {
 		fprintf(stderr, "Value of type %s is not callable\n",
 				cb_value_type_of(&fn));
 		return 1;
 	}
 
-	func = fn.val.as_function;
-
-	if (func->type == CB_FUNCTION_NATIVE)
-		return func->value.as_native(args_len, args, result);
-	else
-		return cb_vm_call_user_func(fn, args, args_len, result);
+	return cb_vm_call(fn, args, args_len, result);
 }
 
-int cb_value_is_marked(const struct cb_value *val)
+CB_INLINE cb_gc_header *cb_value_gc_header(const struct cb_value val)
 {
-	switch (val->type) {
+	switch (val.type) {
 	case CB_VALUE_INT:
 	case CB_VALUE_DOUBLE:
 	case CB_VALUE_BOOL:
 	case CB_VALUE_CHAR:
 	case CB_VALUE_NULL:
 	case CB_VALUE_INTERNED_STRING:
+		return NULL;
+
 	case CB_VALUE_USERDATA:
-		return 1;
+		return &val.val.as_userdata->gc_header;
 
 	case CB_VALUE_STRING:
-		return cb_gc_is_marked(&val->val.as_string->gc_header);
+		return &val.val.as_string->gc_header;
 
 	case CB_VALUE_BYTES:
-		return cb_gc_is_marked(&val->val.as_bytes->gc_header);
+		return &val.val.as_bytes->gc_header;
 
 	case CB_VALUE_ARRAY:
-		return cb_gc_is_marked(&val->val.as_array->gc_header);
+		return &val.val.as_array->gc_header;
 
 	case CB_VALUE_FUNCTION:
-		return cb_gc_is_marked(&val->val.as_function->gc_header);
+		return &val.val.as_function->gc_header;
 
 	case CB_VALUE_STRUCT:
-		return cb_gc_is_marked(&val->val.as_struct->gc_header);
+		return &val.val.as_struct->gc_header;
 
 	case CB_VALUE_STRUCT_SPEC:
-		return cb_gc_is_marked(&val->val.as_struct_spec->gc_header);
+		return &val.val.as_struct_spec->gc_header;
 	}
 
-	fprintf(stderr, "Unknown value type %d\n", val->type);
+	fprintf(stderr, "Unknown value type %d\n", val.type);
 	abort();
 }
 
-void cb_value_mark(struct cb_value *val)
+static void value_mark_fn(void *obj)
+{
+	cb_value_mark(*(struct cb_value *) obj);
+}
+
+cb_gc_hold_key *cb_value_gc_hold(struct cb_value *val)
+{
+	return cb_gc_hold((void *) val, value_mark_fn);
+}
+
+static void queue_mark(struct cb_value *val)
+{
+	cb_gc_queue_mark((void *) val, value_mark_fn);
+}
+
+static void array_mark(struct cb_array *arr)
+{
+	for (unsigned i = 0; i < arr->len; i += 1)
+		queue_mark(&arr->values[i]);
+}
+
+static void array_mark_fn(void *obj)
+{
+	array_mark((struct cb_array *) obj);
+}
+
+cb_gc_hold_key *cb_array_gc_hold(struct cb_array *arr)
+{
+	return cb_gc_hold((void *) arr, array_mark_fn);
+}
+
+void cb_value_mark(struct cb_value val)
 {
 #define GC_LOG(F) ({ \
 		if (cb_options.debug_gc) { \
@@ -730,34 +736,36 @@ void cb_value_mark(struct cb_value *val)
 		} \
 	})
 
-	if (cb_value_is_marked(val))
+	cb_gc_header *header = cb_value_gc_header(val);
+	if (!header || cb_gc_is_marked(header))
 		return;
 
-	switch (val->type) {
+	cb_gc_mark(header);
+
+	switch (val.type) {
 	case CB_VALUE_INT:
 	case CB_VALUE_DOUBLE:
 	case CB_VALUE_BOOL:
 	case CB_VALUE_CHAR:
 	case CB_VALUE_NULL:
 	case CB_VALUE_INTERNED_STRING:
-	case CB_VALUE_USERDATA:
 		return;
 
+	case CB_VALUE_USERDATA:
+		GC_LOG(val.val.as_userdata);
+		break;
+
 	case CB_VALUE_STRING:
-		GC_LOG(val->val.as_string);
-		cb_gc_mark(&val->val.as_string->gc_header);
+		GC_LOG(val.val.as_string);
 		break;
 
 	case CB_VALUE_BYTES:
-		GC_LOG(val->val.as_bytes);
-		cb_gc_mark(&val->val.as_bytes->gc_header);
+		GC_LOG(val.val.as_bytes);
 		break;
 
 	case CB_VALUE_ARRAY: {
-		GC_LOG(val->val.as_array);
-		cb_gc_mark(&val->val.as_array->gc_header);
-		for (unsigned i = 0; i < val->val.as_array->len; i += 1)
-			cb_gc_queue_mark(&val->val.as_array->values[i]);
+		GC_LOG(val.val.as_array);
+		array_mark(val.val.as_array);
 		break;
 	}
 
@@ -765,38 +773,39 @@ void cb_value_mark(struct cb_value *val)
 		struct cb_function *fn;
 		struct cb_upvalue *uv;
 
-		fn = val->val.as_function;
+		fn = val.val.as_function;
 		GC_LOG(fn);
-		cb_gc_mark(&fn->gc_header);
 		if (fn->type == CB_FUNCTION_USER) {
-			for (unsigned i = 0; i < fn->value.as_user.upvalues_len;
+			struct cb_user_function *ufunc = &fn->value.as_user;
+			for (unsigned i = 0;
+					i < ufunc->code->nupvalues;
 					i += 1) {
-				uv = fn->value.as_user.upvalues[i];
-				if (!uv->is_open)
-					cb_gc_queue_mark(&uv->v.value);
+				uv = ufunc->upvalues[i];
+				if (uv->is_closed)
+					queue_mark(&uv->v.value);
 			}
+
+			cb_code_mark(ufunc->code);
 		}
 		break;
 	}
 
 	case CB_VALUE_STRUCT: {
-		GC_LOG(val->val.as_struct);
-		cb_gc_mark(&val->val.as_struct->gc_header);
-		cb_gc_mark(&val->val.as_struct->spec->gc_header);
-		for (unsigned i = 0; i < val->val.as_struct->spec->nfields;
+		GC_LOG(val.val.as_struct);
+		cb_gc_mark(&val.val.as_struct->spec->gc_header);
+		for (unsigned i = 0; i < val.val.as_struct->spec->nfields;
 				i += 1)
-			cb_gc_queue_mark(&val->val.as_struct->fields[i]);
+			queue_mark(&val.val.as_struct->fields[i]);
 		break;
 	}
 
 	case CB_VALUE_STRUCT_SPEC:
-		GC_LOG(val->val.as_struct_spec);
-		cb_gc_mark(&val->val.as_struct_spec->gc_header);
+		GC_LOG(val.val.as_struct_spec);
 		break;
 	}
 }
 
-inline struct cb_value cb_int(int64_t v)
+CB_INLINE struct cb_value cb_int(int64_t v)
 {
 	struct cb_value out;
 	out.type = CB_VALUE_INT;
@@ -804,7 +813,7 @@ inline struct cb_value cb_int(int64_t v)
 	return out;
 }
 
-inline struct cb_value cb_double(double v)
+CB_INLINE struct cb_value cb_double(double v)
 {
 	struct cb_value out;
 	out.type = CB_VALUE_DOUBLE;
@@ -812,7 +821,7 @@ inline struct cb_value cb_double(double v)
 	return out;
 }
 
-inline struct cb_value cb_bool(int v)
+CB_INLINE struct cb_value cb_bool(int v)
 {
 	struct cb_value out;
 	out.type = CB_VALUE_BOOL;
@@ -820,7 +829,7 @@ inline struct cb_value cb_bool(int v)
 	return out;
 }
 
-inline struct cb_value cb_char(uint32_t v)
+CB_INLINE struct cb_value cb_char(int32_t v)
 {
 	struct cb_value out;
 	out.type = CB_VALUE_CHAR;
@@ -828,17 +837,16 @@ inline struct cb_value cb_char(uint32_t v)
 	return out;
 }
 
-struct cb_value cb_value_from_string(const char *str)
+ssize_t cb_value_from_string(struct cb_value *val, const char *str)
 {
-	struct cb_value retval;
 	struct cb_string *sobj = cb_string_new();
-	sobj->string = cb_str_from_cstr(str, strlen(str));
-	retval.type = CB_VALUE_STRING;
-	retval.val.as_string = sobj;
-	return retval;
+	ssize_t result = cb_str_from_cstr(str, strlen(str), &sobj->string);
+	val->type = CB_VALUE_STRING;
+	val->val.as_string = sobj;
+	return result;
 }
 
-struct cb_value cb_value_from_fmt(const char *fmt, ...)
+ssize_t cb_value_from_fmt(struct cb_value *val, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -850,9 +858,9 @@ struct cb_value cb_value_from_fmt(const char *fmt, ...)
 	str[len] = 0;
 	va_end(args);
 
-	struct cb_value ret = cb_value_from_string(str);
+	ssize_t result = cb_value_from_string(val, str);
 	free(str);
-	return ret;
+	return result;
 }
 
 struct cb_bytes *cb_bytes_new(size_t size)

@@ -1,0 +1,26 @@
+import math;
+import test;
+
+export function test_right_shift_keeps_sign() {
+    test::assert(math::shr(-123, 1) == -62);
+}
+
+export function test_left_shift_overflow() {
+    let failed = false;
+    try {
+        math::shl(1, 63);
+    } catch (e) {
+        failed = true;
+    }
+    test::assert(failed);
+}
+
+export function test_left_shift() {
+    test::assert(math::shl(1, 1) == 2);
+    test::assert(math::shl(1, 10) == 1024);
+}
+
+export function test_right_shift() {
+    test::assert(math::shr(3, 1) == 1);
+    test::assert(math::shr(8, 2) == 2);
+}

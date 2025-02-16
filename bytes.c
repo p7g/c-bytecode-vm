@@ -16,7 +16,7 @@ int cb_bytes_cmp(struct cb_bytes *a, struct cb_bytes *b)
 	else if (len_a > len_b)
 		return 1;
 
-	return strncmp((char *) a->data, (char *) b->data, len_a);
+	return memcmp((char *) a->data, (char *) b->data, len_a);
 }
 
 size_t cb_bytes_len(struct cb_bytes *bs)

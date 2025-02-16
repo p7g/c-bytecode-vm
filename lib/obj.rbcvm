@@ -1,11 +1,13 @@
 import array;
 import docs;
 import hashmap;
-import result;
+import sys;
 
-let doc = docs.module("obj", "A simple object system.");
+let doc = docs::module("obj", "A simple object system.");
 
-export let E_NO_SUCH_METHOD = -1;
+export struct NoSuchMethodError { method_name }
+
+doc.add("struct", "NoSuchMethodError", "Error raised when an unrecognized message is sent to an object.");
 
 struct Class { super, methods }
 struct Object { class, dict }
@@ -14,36 +16,36 @@ export function class(super, methods) {
   return Class{super=super, methods=methods};
 }
 
-doc:add("function", "class(super, methods)", "Define a class that extends `super`.
+doc.add("function", "class(super, methods)", "Define a class that extends `super`.
 
 The `methods` value should be a hashmap of functions.
 ");
 
 export function new(class, args) {
-  let obj = Object{class=class, dict=hashmap.new()};
+  let obj = Object{class=class, dict=hashmap::new()};
   send(obj, "init", args);
   return obj;
 }
 
-doc:add("function", "new(class, args)", "Create an instance of a class.");
+doc.add("function", "new(class, args)", "Create an instance of a class.");
 
 export function getclass(obj) {
-  return obj:class;
+  return obj.class;
 }
 
-doc:add("function", "getclass(obj)", "Get the class of `obj`.");
+doc.add("function", "getclass(obj)", "Get the class of `obj`.");
 
 export function getsuper(cls) {
-  return cls:super;
+  return cls.super;
 }
 
-doc:add("function", "getsuper(cls)", "Get the superclass of the class `cls`.");
+doc.add("function", "getsuper(cls)", "Get the superclass of the class `cls`.");
 
 function resolve_method(cls, name) {
   let meth = null;
 
-  while (null == (meth = hashmap.get(cls:methods, name))
-    && null != (cls = cls:super)) {}
+  while ((meth = hashmap::get(cls.methods, name)) == null
+    && (cls = cls.super) != null) {}
   return meth;
 }
 
@@ -52,21 +54,21 @@ export function _send(cls, obj, msg, args) {
   if (meth == null) {
     meth = resolve_method(cls, "method_missing");
     if (meth == null) {
-        return result.error(E_NO_SUCH_METHOD, msg);
+      throw NoSuchMethodError { method_name = msg };
     }
-    let args_len = array.length(args);
-    let new_args = array.new(args_len + 2);
+    let args_len = array::length(args);
+    let new_args = array::new(args_len + 2);
     new_args[0] = obj;
     new_args[1] = msg;
-    array.foreach(args, function(v, i) {
-      new_args[i + 1] = v;
+    array::foreach(args, function(v, i) {
+      new_args[i + 2] = v;
     });
     args = new_args;
   } else {
-    let args_len = array.length(args);
-    let new_args = array.new(args_len + 1);
+    let args_len = array::length(args);
+    let new_args = array::new(args_len + 1);
     new_args[0] = obj;
-    array.foreach(args, function(v, i) {
+    array::foreach(args, function(v, i) {
       new_args[i + 1] = v;
     });
     args = new_args;
@@ -74,7 +76,7 @@ export function _send(cls, obj, msg, args) {
   return apply(meth, args);
 }
 
-doc:add(
+doc.add(
   "function",
   "_send(cls, obj, msg, args)",
   "Manually call the method `msg` on class `cls`, using `obj` as the instance.
@@ -83,25 +85,25 @@ Note that there is no guarantee that the method called is compatible with `obj`.
 );
 
 export function send(obj, msg, args) {
-  return _send(obj:class, obj, msg, args);
+  return _send(obj.class, obj, msg, args);
 }
 
-doc:add("function", "send(obj, msg, args)", "Call the method `msg` on `obj`.");
+doc.add("function", "send(obj, msg, args)", "Call the method `msg` on `obj`.");
 
 export function super(obj, msg, args) {
-  return _send(obj:class:super, obj, msg, args);
+  return _send(obj.class.super, obj, msg, args);
 }
 
-doc:add("function", "super(obj, msg, args)", "Call the method `msg` on the superclass object of `obj`.");
+doc.add("function", "super(obj, msg, args)", "Call the method `msg` on the superclass object of `obj`.");
 
 export function getattr(obj, name) {
-  return hashmap.get(obj:dict, name);
+  return hashmap::get(obj.dict, name);
 }
 
-doc:add("function", "getattr(obj, name)", "Get an attribute from the internal dictionary of `obj`.");
+doc.add("function", "getattr(obj, name)", "Get an attribute from the internal dictionary of `obj`.");
 
 export function setattr(obj, name, value) {
-  hashmap.set(obj:dict, name, value);
+  hashmap::set(obj.dict, name, value);
 }
 
-doc:add("function", "setattr(obj, name)", "Set an attribute on the internal dictionary of `obj`.");
+doc.add("function", "setattr(obj, name)", "Set an attribute on the internal dictionary of `obj`.");

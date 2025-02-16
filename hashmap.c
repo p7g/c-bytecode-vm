@@ -26,11 +26,11 @@ struct cb_hashmap {
 /* Hash functions courtesy of:
  * https://stackoverflow.com/a/12996028
  */
-static inline size_t hash_size_t(size_t x) {
+static CB_INLINE size_t hash_size_t(size_t x) {
 	if (sizeof(size_t) == 8) {
 		x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
 		x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
-		x = x ^ (x >> 31);
+		x ^= (x >> 31);
 		return x;
 	} else {
 		x = ((x >> 16) ^ x) * 0x45d9f3b;
@@ -85,6 +85,12 @@ static void maybe_grow(struct cb_hashmap *m)
 	free(old_entries);
 }
 
+static void inc_num_entries(cb_hashmap *m)
+{
+	m->num_entries += 1;
+	maybe_grow(m);
+}
+
 size_t cb_hashmap_find(const cb_hashmap *m, size_t key, int *empty)
 {
 	size_t idx;
@@ -133,7 +139,7 @@ void cb_hashmap_set(cb_hashmap *m, size_t key, struct cb_value value)
 		entry->in_use = 1;
 		entry->key = key;
 		entry->value = value;
-		m->num_entries += 1;
+		inc_num_entries(m);
 	} else {
 		entry = &m->entries[idx];
 		assert(entry->in_use);
@@ -149,7 +155,7 @@ void cb_hashmap_mark_contents(cb_hashmap *m)
 	for (i = 0; i < m->size; i += 1) {
 		entry = &m->entries[i];
 		if (entry->in_use)
-			cb_value_mark(&entry->value);
+			cb_value_mark(entry->value);
 	}
 }
 
