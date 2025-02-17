@@ -136,6 +136,63 @@ int cb_run(struct cb_code *code)
 	return result;
 }
 
+static CB_INLINE int do_call(unsigned short num_args, struct cb_frame *frame,
+		struct cb_value **stack, struct cb_value **bp,
+		struct cb_value **sp)
+{
+	struct cb_value func_val;
+	struct cb_function *func;
+	int failed;
+	int num_opt_params;
+
+	func_val = *(*sp - num_args - 1);
+
+	if (func_val.type != CB_VALUE_FUNCTION) {
+		struct cb_value err;
+		cb_value_from_fmt(&err, "Value of type '%s' is not callable\n",
+				cb_value_type_friendly_name(func_val.type));
+		cb_error_set(err);
+		return 1;
+	}
+
+	func = func_val.val.as_function;
+	num_opt_params = func->type == CB_FUNCTION_USER
+		? func->value.as_user.num_opt_params
+		: 0;
+	if (func->arity - num_opt_params > num_args) {
+		cb_str s = cb_agent_get_string(func->name);
+		struct cb_value err;
+		cb_value_from_fmt(&err, "Too few arguments to function '%s'\n",
+				cb_strptr(&s));
+		cb_error_set(err);
+		return 1;
+	}
+	size_t old_sp = *sp - *stack;
+	if (func->type == CB_FUNCTION_NATIVE) {
+		size_t dest = *sp - *stack - num_args - 1;
+		failed = func->value.as_native(num_args, *sp - num_args,
+				&cb_vm_state.stack[dest]);
+	} else {
+		struct cb_code *code = func->value.as_user.code;
+
+		struct cb_frame next_frame;
+		next_frame.is_function = 1;
+		next_frame.num_args = num_args;
+		next_frame.module_id = cb_modspec_id(code->modspec);
+		next_frame.code = code;
+		next_frame.bp = *sp - *stack - num_args - 1;
+
+		ensure_stack(code->stack_size, *sp - *stack);
+		failed = cb_eval(&next_frame);
+	}
+
+	*stack = cb_vm_state.stack;
+	*bp = *stack + frame->bp;
+	*sp = *stack + old_sp - num_args;
+
+	return failed;
+}
+
 int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		struct cb_value *result)
 {
@@ -477,114 +534,24 @@ DO_OP_JUMP_IF_FALSE: {
 	DISPATCH();
 }
 
-DO_OP_CALL_METHOD: {
-	size_t num_args;
-	struct cb_value func_val;
-	struct cb_function *func;
-	int failed;
-	int num_opt_params;
-
-	num_args = ARG;
-	func_val = *(sp - num_args - 1);
-
-	if (func_val.type != CB_VALUE_FUNCTION)
-		ERROR("Value of type '%s' is not callable\n",
-				cb_value_type_friendly_name(func_val.type));
-
-	func = func_val.val.as_function;
-	num_opt_params = func->type == CB_FUNCTION_USER
-		? func->value.as_user.num_opt_params
-		: 0;
-	if (func->arity - num_opt_params > num_args) {
-		cb_str s = cb_agent_get_string(func->name);
-		ERROR("Too few arguments to function '%s'\n", cb_strptr(&s));
+DO_OP_CALL_METHOD:
+	if (do_call(ARG, frame, &stack, &bp, &sp)) {
+		retval = 1;
+		RET_WITH_TRACE();
 	}
-	size_t old_sp = sp - stack;
-	if (func->type == CB_FUNCTION_NATIVE) {
-		size_t dest = sp - stack - num_args - 1;
-		failed = func->value.as_native(num_args, sp - num_args,
-				&cb_vm_state.stack[dest]);
-	} else {
-		struct cb_code *code = func->value.as_user.code;
-
-		struct cb_frame next_frame;
-		next_frame.is_function = 1;
-		next_frame.num_args = num_args;
-		next_frame.module_id = cb_modspec_id(code->modspec);
-		next_frame.code = code;
-		next_frame.bp = sp - stack - num_args - 1;
-
-		ensure_stack(code->stack_size, sp - stack);
-		failed = cb_eval(&next_frame);
-	}
-
-	stack = cb_vm_state.stack;
-	bp = stack + frame->bp;
-	sp = stack + old_sp - num_args;
 
 	PEEK(1) = PEEK(0);
 	(void) POP();
 
-	if (failed) {
+	DISPATCH();
+
+DO_OP_CALL:
+	if (do_call(ARG, frame, &stack, &bp, &sp)) {
 		retval = 1;
 		RET_WITH_TRACE();
 	}
 
 	DISPATCH();
-}
-
-DO_OP_CALL: {
-	size_t num_args;
-	struct cb_value func_val;
-	struct cb_function *func;
-	int failed;
-	int num_opt_params;
-
-	num_args = ARG;
-	func_val = *(sp - num_args - 1);
-
-	if (func_val.type != CB_VALUE_FUNCTION)
-		ERROR("Value of type '%s' is not callable\n",
-				cb_value_type_friendly_name(func_val.type));
-
-	func = func_val.val.as_function;
-	num_opt_params = func->type == CB_FUNCTION_USER
-		? func->value.as_user.num_opt_params
-		: 0;
-	if (func->arity - num_opt_params > num_args) {
-		cb_str s = cb_agent_get_string(func->name);
-		ERROR("Too few arguments to function '%s'\n", cb_strptr(&s));
-	}
-	size_t old_sp = sp - stack;
-	if (func->type == CB_FUNCTION_NATIVE) {
-		size_t dest = sp - stack - num_args - 1;
-		failed = func->value.as_native(num_args, sp - num_args,
-				&cb_vm_state.stack[dest]);
-	} else {
-		struct cb_code *code = func->value.as_user.code;
-
-		struct cb_frame next_frame;
-		next_frame.is_function = 1;
-		next_frame.num_args = num_args;
-		next_frame.module_id = cb_modspec_id(code->modspec);
-		next_frame.code = code;
-		next_frame.bp = sp - stack - num_args - 1;
-
-		ensure_stack(code->stack_size, sp - stack);
-		failed = cb_eval(&next_frame);
-	}
-
-	stack = cb_vm_state.stack;
-	bp = stack + frame->bp;
-	sp = stack + old_sp - num_args;
-
-	if (failed) {
-		retval = 1;
-		RET_WITH_TRACE();
-	}
-
-	DISPATCH();
-}
 
 DO_OP_RETURN: {
 	int i;
