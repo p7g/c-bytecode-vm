@@ -3,17 +3,32 @@
 #include <stdlib.h>
 
 #include "alloc.h"
+#include "cb_util.h"
+#include "gc.h"
 #include "struct.h"
 #include "value.h"
 
-struct cb_struct_spec *cb_struct_spec_new(size_t name, size_t nfields)
+static void struct_spec_deinit(void *obj)
+{
+	struct cb_struct_spec *spec = (struct cb_struct_spec *) obj;
+	if (spec->methods)
+		free(spec->methods);
+}
+
+struct cb_struct_spec *cb_struct_spec_new(size_t name, size_t nfields,
+		size_t nmethods)
 {
 	struct cb_struct_spec *spec;
 
 	spec = cb_malloc(sizeof(struct cb_struct_spec)
-			+ sizeof(size_t) * nfields, NULL);
+			+ sizeof(size_t) * nfields, struct_spec_deinit);
 	spec->name = name;
 	spec->nfields = nfields;
+	spec->nmethods = nmethods;
+	if (nmethods > 0)
+		spec->methods = calloc(nmethods, sizeof(struct cb_method));
+	else
+		spec->methods = NULL;
 
 	return spec;
 }
@@ -22,6 +37,35 @@ void cb_struct_spec_set_field_name(struct cb_struct_spec *spec, size_t i,
 		size_t name)
 {
 	spec->fields[i] = name;
+}
+
+void cb_struct_spec_set_method(struct cb_struct_spec *spec, size_t i,
+		size_t name, struct cb_function *func)
+{
+	spec->methods[i].name = name;
+	spec->methods[i].func = func;
+}
+
+CB_INLINE struct cb_function *cb_struct_spec_get_method(
+		struct cb_struct_spec *spec, size_t name)
+{
+	for (unsigned i = 0; i < spec->nmethods; i += 1) {
+		if (spec->methods[i].name == name)
+			return spec->methods[i].func;
+	}
+	return NULL;
+}
+
+void cb_struct_spec_mark(struct cb_struct_spec *spec)
+{
+	if (cb_gc_is_marked(&spec->gc_header))
+		return;
+
+	cb_gc_mark(&spec->gc_header);
+	for (unsigned i = 0; i < spec->nmethods; i += 1) {
+		if (spec->methods[i].func)
+			cb_function_mark(spec->methods[i].func);
+	}
 }
 
 struct cb_struct *cb_struct_spec_instantiate(struct cb_struct_spec *spec)

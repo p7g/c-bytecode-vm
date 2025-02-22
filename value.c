@@ -656,43 +656,6 @@ int cb_value_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 	return cb_vm_call(fn, args, args_len, result);
 }
 
-CB_INLINE cb_gc_header *cb_value_gc_header(const struct cb_value val)
-{
-	switch (val.type) {
-	case CB_VALUE_INT:
-	case CB_VALUE_DOUBLE:
-	case CB_VALUE_BOOL:
-	case CB_VALUE_CHAR:
-	case CB_VALUE_NULL:
-	case CB_VALUE_INTERNED_STRING:
-		return NULL;
-
-	case CB_VALUE_USERDATA:
-		return &val.val.as_userdata->gc_header;
-
-	case CB_VALUE_STRING:
-		return &val.val.as_string->gc_header;
-
-	case CB_VALUE_BYTES:
-		return &val.val.as_bytes->gc_header;
-
-	case CB_VALUE_ARRAY:
-		return &val.val.as_array->gc_header;
-
-	case CB_VALUE_FUNCTION:
-		return &val.val.as_function->gc_header;
-
-	case CB_VALUE_STRUCT:
-		return &val.val.as_struct->gc_header;
-
-	case CB_VALUE_STRUCT_SPEC:
-		return &val.val.as_struct_spec->gc_header;
-	}
-
-	fprintf(stderr, "Unknown value type %d\n", val.type);
-	abort();
-}
-
 static void value_mark_fn(void *obj)
 {
 	cb_value_mark(*(struct cb_value *) obj);
@@ -724,6 +687,28 @@ cb_gc_hold_key *cb_array_gc_hold(struct cb_array *arr)
 	return cb_gc_hold((void *) arr, array_mark_fn);
 }
 
+void cb_function_mark(struct cb_function *fn)
+{
+	struct cb_upvalue *uv;
+
+	if (cb_gc_is_marked(&fn->gc_header))
+		return;
+	cb_gc_mark(&fn->gc_header);
+
+	if (fn->type == CB_FUNCTION_USER) {
+		struct cb_user_function *ufunc = &fn->value.as_user;
+		for (unsigned i = 0;
+				i < ufunc->code->nupvalues;
+				i += 1) {
+			uv = ufunc->upvalues[i];
+			if (uv->is_closed)
+				queue_mark(&uv->v.value);
+		}
+
+		cb_code_mark(ufunc->code);
+	}
+}
+
 void cb_value_mark(struct cb_value val)
 {
 #define GC_LOG(F) ({ \
@@ -736,12 +721,6 @@ void cb_value_mark(struct cb_value val)
 		} \
 	})
 
-	cb_gc_header *header = cb_value_gc_header(val);
-	if (!header || cb_gc_is_marked(header))
-		return;
-
-	cb_gc_mark(header);
-
 	switch (val.type) {
 	case CB_VALUE_INT:
 	case CB_VALUE_DOUBLE:
@@ -752,47 +731,37 @@ void cb_value_mark(struct cb_value val)
 		return;
 
 	case CB_VALUE_USERDATA:
+		cb_gc_mark(&val.val.as_userdata->gc_header);
 		GC_LOG(val.val.as_userdata);
 		break;
 
 	case CB_VALUE_STRING:
+		cb_gc_mark(&val.val.as_string->gc_header);
 		GC_LOG(val.val.as_string);
 		break;
 
 	case CB_VALUE_BYTES:
+		cb_gc_mark(&val.val.as_bytes->gc_header);
 		GC_LOG(val.val.as_bytes);
 		break;
 
 	case CB_VALUE_ARRAY: {
+		cb_gc_mark(&val.val.as_array->gc_header);
 		GC_LOG(val.val.as_array);
 		array_mark(val.val.as_array);
 		break;
 	}
 
-	case CB_VALUE_FUNCTION: {
-		struct cb_function *fn;
-		struct cb_upvalue *uv;
-
-		fn = val.val.as_function;
-		GC_LOG(fn);
-		if (fn->type == CB_FUNCTION_USER) {
-			struct cb_user_function *ufunc = &fn->value.as_user;
-			for (unsigned i = 0;
-					i < ufunc->code->nupvalues;
-					i += 1) {
-				uv = ufunc->upvalues[i];
-				if (uv->is_closed)
-					queue_mark(&uv->v.value);
-			}
-
-			cb_code_mark(ufunc->code);
-		}
+	case CB_VALUE_FUNCTION:
+		cb_function_mark(val.val.as_function);
 		break;
-	}
 
 	case CB_VALUE_STRUCT: {
+		if (cb_gc_is_marked(&val.val.as_struct->gc_header))
+			break;
+		cb_gc_mark(&val.val.as_struct->gc_header);
 		GC_LOG(val.val.as_struct);
-		cb_gc_mark(&val.val.as_struct->spec->gc_header);
+		cb_struct_spec_mark(val.val.as_struct->spec);
 		for (unsigned i = 0; i < val.val.as_struct->spec->nfields;
 				i += 1)
 			queue_mark(&val.val.as_struct->fields[i]);
@@ -800,6 +769,7 @@ void cb_value_mark(struct cb_value val)
 	}
 
 	case CB_VALUE_STRUCT_SPEC:
+		cb_struct_spec_mark(val.val.as_struct_spec);
 		GC_LOG(val.val.as_struct_spec);
 		break;
 	}

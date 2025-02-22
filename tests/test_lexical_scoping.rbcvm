@@ -1,0 +1,29 @@
+import test;
+
+export function test_lexical_scoping() {
+    let a = 0;
+    if (true) {
+        let a = 1;
+        test::assert(a == 1);
+    }
+    if (true) {
+        let a = 2;
+        test::assert(a == 2);
+    }
+    test::assert(a == 0);
+}
+
+export function test_not_function_scoping() {
+    if (true) {
+        let a = 0;
+    }
+
+    let did_catch = false;
+    try {
+        test::assert(a == 0);
+    } catch (e) {
+        did_catch = true;
+        test::assert(e == "Unbound global 'a'");
+    }
+    test::assert(did_catch);
+}

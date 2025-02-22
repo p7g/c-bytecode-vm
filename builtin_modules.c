@@ -100,7 +100,7 @@ struct cb_struct_spec *cb_declare_struct(const char *name, unsigned nfields,
 
 	struct cb_struct_spec *spec = cb_struct_spec_new(
 			cb_agent_intern_string(name, strlen(name)),
-			nfields);
+			nfields, 0);
 
 	for (unsigned i = 0; i < nfields; i++) {
 		const char *fieldname = va_arg(args, const char *);

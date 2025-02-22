@@ -97,6 +97,7 @@
 	X(TOK_THROW) \
 	X(TOK_TRY) \
 	X(TOK_CATCH) \
+	X(TOK_THIS) \
 	X(TOK_EOF)
 
 enum token_type {
@@ -159,6 +160,7 @@ static struct {
 	KW("throw", TOK_THROW),
 	KW("try", TOK_TRY),
 	KW("catch", TOK_CATCH),
+	KW("this", TOK_THIS),
 };
 #undef KW
 
@@ -314,18 +316,30 @@ static int next_token(struct lex_state *state, struct token *dest)
 				TOKEN(TOK_INT);
 			}
 
-			is_double = 0;
 			while ((c = PEEK())) {
-				if (c == '.' && !is_double) {
-					is_double = 1;
-				} else if (c == '.' && is_double) {
-					ERROR("Unexpected '.'");
-					return 1;
-				} else if (!isdigit(c)) {
+				if (!isdigit(c))
 					break;
-				}
 				(void) NEXT();
 			}
+
+			is_double = 0;
+			if (PEEK() == '.') {
+				is_double = 1;
+				(void) NEXT();
+				c = PEEK();
+				if (!isdigit(c)) {
+					ERROR("Expected digit");
+					return 1;
+				}
+				(void) NEXT();
+
+				while ((c = PEEK())) {
+					if (!isdigit(c))
+						break;
+					(void) NEXT();
+				}
+			}
+
 			if (is_double)
 				TOKEN(TOK_DOUBLE);
 			else
@@ -415,8 +429,7 @@ struct binding {
 
 struct scope {
 	struct scope *parent;
-	struct binding *locals,
-		       *upvalues;
+	struct binding *bindings;
 	size_t num_locals,
 	       num_upvalues;
 };
@@ -430,24 +443,46 @@ static void scope_free(struct scope *s)
 {
 	struct binding *current, *tmp;
 
-#define FREE_LIST(L) \
-	do { \
-		if (L) { \
-			current = (L); \
-			while (current) { \
-				tmp = current; \
-				current = current->next; \
-				free(tmp); \
-			} \
-		} \
-	} while (0)
-
-	FREE_LIST(s->locals);
-	FREE_LIST(s->upvalues);
-
-#undef FREE_LIST
+	current = s->bindings;
+	while (current) {
+		tmp = current;
+		current = current->next;
+		free(tmp);
+	}
 
 	free(s);
+}
+
+static struct scope *scope_new_child(struct scope *parent)
+{
+	struct scope *child = scope_new();
+	child->parent = parent;
+	child->num_locals = parent->num_locals;
+	child->num_upvalues = parent->num_upvalues;
+	return child;
+}
+
+static struct scope *scope_pop_child(struct scope *child)
+{
+	struct scope *parent = child->parent;
+	assert(parent != NULL);
+
+	/* Locals will be reused but upvalues can't be; copy them to parent */
+	parent->num_upvalues = child->num_upvalues;
+	struct binding *current, *tmp, *prev = NULL;
+	current = child->bindings;
+	while (current) {
+		tmp = current;
+		current = tmp->next;
+		if (!tmp->is_upvalue)
+			continue;
+		prev->next = tmp->next;
+		tmp->next = parent->bindings;
+		parent->bindings = tmp;
+	}
+
+	scope_free(child);
+	return parent;
 }
 
 static size_t scope_add_binding(struct scope *s, ssize_t name, int upvalue)
@@ -461,51 +496,31 @@ static size_t scope_add_binding(struct scope *s, ssize_t name, int upvalue)
 
 	if (upvalue) {
 		id = new_binding->index = s->num_upvalues++;
-		new_binding->next = s->upvalues;
-		s->upvalues = new_binding;
+		new_binding->next = s->bindings;
+		s->bindings = new_binding;
 	} else {
 		id = new_binding->index = s->num_locals++;
-		new_binding->next = s->locals;
-		s->locals = new_binding;
+		new_binding->next = s->bindings;
+		s->bindings = new_binding;
 	}
 
 	return id;
 }
 
-static struct binding *scope_get_binding(struct scope *s, size_t name)
+static struct binding *scope_get_binding(struct scope *scope, size_t name)
 {
-	struct binding *binding;
-#define SEARCH(L) \
-	do { \
-		if (!(L)) \
-			break; \
-		binding = (L); \
-		while (binding) { \
-			if ((size_t) binding->name == name) \
-				return binding; \
-			binding = binding->next; \
-		} \
-	} while (0)
-
-	SEARCH(s->locals);
-	SEARCH(s->upvalues);
-
-#undef SEARCH
-
+	for (struct scope *s = scope; s; s = s->parent) {
+		for (struct binding *b = s->bindings; b; b = b->next) {
+			if ((size_t) b->name == name)
+					return b;
+		}
+	}
 	return NULL;
 }
 
 static int scope_has_binding(struct scope *s, size_t name)
 {
 	return scope_get_binding(s, name) != NULL;
-}
-
-static int scope_parent_has_binding(struct scope *s, size_t name)
-{
-	if (!s->parent)
-		return 0;
-	return scope_has_binding(s->parent, name)
-		|| scope_parent_has_binding(s->parent, name);
 }
 
 static CB_INLINE size_t tok_len(struct token *tok)
@@ -690,14 +705,26 @@ struct module_state {
 struct function_state {
 	size_t name;
 	struct scope *scope;
+	size_t num_locals;
 	struct function_state *parent;
 	size_t *free_variables,
 	       free_var_len,
 	       free_var_size;
 	int arity;
+	int is_method;
 };
 
-void fstate_add_freevar(struct function_state *fstate, size_t free_var)
+static int fstate_parent_has_binding(struct function_state *s, size_t name)
+{
+	if (!s->parent)
+		return 0;
+	else if (scope_has_binding(s->parent->scope, name))
+		return 1;
+	else
+		return fstate_parent_has_binding(s->parent, name);
+}
+
+static void fstate_add_freevar(struct function_state *fstate, size_t free_var)
 {
 	if (fstate->free_var_len >= fstate->free_var_size) {
 		fstate->free_var_size = fstate->free_var_size == 0
@@ -707,6 +734,25 @@ void fstate_add_freevar(struct function_state *fstate, size_t free_var)
 				fstate->free_var_size * sizeof(size_t));
 	}
 	fstate->free_variables[fstate->free_var_len++] = free_var;
+}
+
+static size_t fstate_add_binding(struct function_state *state, size_t name,
+		int upvalue)
+{
+	size_t binding = scope_add_binding(state->scope, name, upvalue);
+	if (!upvalue && state->scope->num_locals > state->num_locals)
+		state->num_locals = state->scope->num_locals;
+	return binding;
+}
+
+static void fstate_push_scope(struct function_state *state)
+{
+	state->scope = scope_new_child(state->scope);
+}
+
+static void fstate_pop_scope(struct function_state *state)
+{
+	state->scope = scope_pop_child(state->scope);
 }
 
 struct loc {
@@ -831,6 +877,11 @@ static int cstate_is_global(struct cstate *s)
 	return !s->function_state;
 }
 
+static int cstate_is_method(struct cstate *s)
+{
+	return !!s->function_state && s->function_state->is_method;
+}
+
 static void cstate_push_loc(struct cstate *s, unsigned line, unsigned column)
 {
 	struct loc loc;
@@ -867,7 +918,7 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 		*out = *binding;
 		return 1;
 	}
-	if (scope_parent_has_binding(fstate->scope, name)) {
+	if (fstate_parent_has_binding(fstate, name)) {
 		found = 0;
 		for (i = 0; i < fstate->free_var_len; i += 1) {
 			if (fstate->free_variables[i] == name) {
@@ -954,12 +1005,12 @@ static struct token next(struct parse_state *state, int *ok)
 	})
 #define MAYBE_CONSUME(TYPE) (MATCH_P(TYPE) ? (NEXT(), 1) : 0)
 #define EXPECT(TYPE) ({ \
-		struct token *_tok = PEEK(); \
+		struct token *_expect_tok = PEEK(); \
 		enum token_type typ = (TYPE); \
-		if (!_tok || _tok->type != typ) { \
-			enum token_type actual = _tok ? _tok->type \
+		if (!_expect_tok || _expect_tok->type != typ) { \
+			enum token_type actual = _expect_tok ? _expect_tok->type \
 							: TOK_EOF; \
-			ERROR_AT_P(_tok, "Expected '%s', got '%s'", \
+			ERROR_AT_P(_expect_tok, "Expected '%s', got '%s'", \
 					token_type_name(typ), \
 					token_type_name(actual)); \
 			return 1; \
@@ -967,9 +1018,10 @@ static struct token next(struct parse_state *state, int *ok)
 		NEXT(); \
 	})
 #define ERROR_AT_P(TOK, MSG, ...) ({ \
+		struct token *_error_at_p_tok = (TOK); \
 		cb_str __name; \
-		if (TOK) { \
-			ERROR_AT(*(TOK), MSG, ##__VA_ARGS__); \
+		if (_error_at_p_tok) { \
+			ERROR_AT(*_error_at_p_tok, MSG, ##__VA_ARGS__); \
 		} else { \
 			__name = cb_agent_get_string( \
 					state->parse_state->lex_state.name); \
@@ -978,11 +1030,12 @@ static struct token next(struct parse_state *state, int *ok)
 		} \
 	})
 #define ERROR_AT(TOK, MSG, ...) ({ \
+		struct token _error_at_tok = (TOK); \
 		cb_str __name = cb_agent_get_string( \
 				state->parse_state->lex_state.name); \
 		fprintf(stderr, "Error in %s at %zu:%zu: " MSG "\n", \
-				cb_strptr(&__name), (TOK).line, \
-				(TOK).column, ##__VA_ARGS__); \
+				cb_strptr(&__name), _error_at_tok.line, \
+				_error_at_tok.column, ##__VA_ARGS__); \
 	})
 
 #define OP(X) ({ \
@@ -1055,6 +1108,7 @@ static struct cb_code *create_code(struct cstate *state)
 		current += cb_opcode_stack_effect(instr);
 #ifndef NDEBUG
 		if (current < 0) {
+			printf("Negative stack effect %zd\n", current);
 			for (size_t j = 0; j < cb_bytecode_len(state->bytecode); j++) {
 				assert(!cb_disassemble_one(state->bytecode->code[j], j));
 			}
@@ -1095,7 +1149,7 @@ static struct cb_code *create_code(struct cstate *state)
 	state->bytecode = NULL;
 
 	if (!cstate_is_global(state)) {
-		code->nlocals = state->function_state->scope->num_locals;
+		code->nlocals = state->function_state->num_locals;
 		code->nupvalues = state->function_state->free_var_len;
 	} else {
 		/* TODO: use locals for global scope */
@@ -1210,7 +1264,7 @@ static int declare_name(struct cstate *state, size_t name_id, int export)
 			export_name(state, name_id);
 		APPEND(OP_POP);
 	} else {
-		binding_id = scope_add_binding(state->function_state->scope,
+		binding_id = fstate_add_binding(state->function_state,
 				name_id, 0);
 		APPEND1(OP_STORE_LOCAL, binding_id);
 		APPEND(OP_POP);
@@ -1390,7 +1444,8 @@ static int compile_let_statement(struct cstate *state, int export)
 }
 
 static int compile_const_function(struct cstate *state, size_t **free_vars_out,
-		struct cb_const_user_function *func_out, size_t *binding_id_out)
+		struct cb_const_user_function *func_out, size_t *binding_id_out,
+		int is_method)
 {
 	struct cstate inner_state;
 	struct function_state inner_fn_state;
@@ -1419,10 +1474,10 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	inner_state.function_state = &inner_fn_state;
 	inner_fn_state.parent = state->function_state;
 	inner_fn_state.scope = scope_new();
+	inner_fn_state.num_locals = 0;
 	inner_fn_state.free_variables = NULL;
 	inner_fn_state.free_var_len = inner_fn_state.free_var_size = 0;
-	if (state->function_state)
-		inner_fn_state.scope->parent = state->function_state->scope;
+	inner_fn_state.is_method = is_method;
 
 	EXPECT(TOK_FUNCTION);
 	if (MATCH_P(TOK_IDENT)) {
@@ -1431,8 +1486,7 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 		if (!cstate_is_global(state)) {
 			/* Add the function to the current scope so recursive
 			   calls refer to the right variable */
-			binding_id = scope_add_binding(
-					state->function_state->scope,
+			binding_id = fstate_add_binding(state->function_state,
 					name_id, 0);
 			if (binding_id_out)
 				*binding_id_out = binding_id;
@@ -1458,7 +1512,7 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 			if (MATCH_P(TOK_RIGHT_PAREN))
 				break;
 		}
-		bindings[num_params] = scope_add_binding(inner_fn_state.scope,
+		bindings[num_params] = fstate_add_binding(&inner_fn_state,
 				-1, 0);
 		if (parse_assignment_pattern(&inner_state,
 					&param_patterns[num_params++], 0))
@@ -1492,9 +1546,9 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 		/* Avoid copying all arguments that aren't patterns */
 		if (param_patterns[i].type == PATTERN_IDENT) {
 			// FIXME
-			for (struct binding *b = inner_fn_state.scope->locals;
+			for (struct binding *b = inner_fn_state.scope->bindings;
 					b; b = b->next) {
-				if (b->index == bindings[i]) {
+				if (b->index == bindings[i] && !b->is_upvalue) {
 					b->name = param_patterns[i].p.ident;
 					break;
 				}
@@ -1518,7 +1572,7 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	 * already be on the stack, so we don't need to allocate more room for
 	 * them. */
 	UPDATE_INNER(allocate_locals_pos, OP1(OP_ALLOCATE_LOCALS,
-				inner_fn_state.scope->num_locals - num_params));
+				inner_fn_state.num_locals - num_params));
 
 	func_out->code = create_code(&inner_state);
 	func_out->name = name_id;
@@ -1545,7 +1599,8 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	return inner_fn_state.free_var_len;
 }
 
-static int compile_function(struct cstate *state, size_t *name_out)
+static int compile_function(struct cstate *state, size_t *name_out,
+		int is_method)
 {
 	ssize_t free_var_len;
 	size_t free_var, *free_vars;
@@ -1556,7 +1611,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 
 	func = malloc(sizeof(struct cb_const_user_function));
 	free_var_len = compile_const_function(state, &free_vars, func,
-			&binding_id);
+			&binding_id, is_method);
 	if (free_var_len < 0) {
 		free(func);
 		return 1;
@@ -1570,7 +1625,8 @@ static int compile_function(struct cstate *state, size_t *name_out)
 	const_id = cstate_add_const(state, func_const);
 	APPEND1(OP_LOAD_CONST, const_id);
 
-	if (!cstate_is_global(state) && binding_id != (size_t) -1) {
+	if (!cstate_is_global(state) && binding_id != (size_t) -1
+			&& !is_method) {
 		APPEND1(OP_STORE_LOCAL, binding_id);
 	}
 
@@ -1583,7 +1639,7 @@ static int compile_function(struct cstate *state, size_t *name_out)
 				APPEND2(OP_BIND_UPVALUE, i, binding->index);
 			else
 				APPEND2(OP_BIND_LOCAL, i, binding->index);
-		} else if (scope_parent_has_binding(state->function_state->scope,
+		} else if (fstate_parent_has_binding(state->function_state,
 					free_var)) {
 			assert(state->function_state != NULL);
 			fstate_add_freevar(state->function_state, free_var);
@@ -1603,7 +1659,7 @@ static int compile_function_statement(struct cstate *state, int export)
 {
 	size_t name;
 
-	X(compile_function(state, &name));
+	X(compile_function(state, &name, 0));
 	/* FIXME: all functions have names, so this is declaring anonymous
 	   functions as "<anonymous>" */
 	if (name != (size_t) -1)
@@ -1630,8 +1686,14 @@ static int compile_if_statement(struct cstate *state)
 	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
 
+	if (state->function_state)
+		fstate_push_scope(state->function_state);
+
 	while (!MATCH_P(TOK_RIGHT_BRACE))
 		X(compile_statement(state));
+
+	if (state->function_state)
+		fstate_pop_scope(state->function_state);
 
 	EXPECT(TOK_RIGHT_BRACE);
 
@@ -1676,7 +1738,10 @@ static int compile_for_statement(struct cstate *state)
 
 	EXPECT(TOK_FOR);
 	EXPECT(TOK_LEFT_PAREN);
-	
+
+	if (state->function_state)
+		fstate_push_scope(state->function_state);
+
 	/* if there is an initializer */
 	if (!MATCH_P(TOK_SEMICOLON)) {
 		X(compile_statement(state));
@@ -1716,6 +1781,9 @@ static int compile_for_statement(struct cstate *state)
 	while (!MATCH_P(TOK_RIGHT_BRACE))
 		X(compile_statement(state));
 
+	if (state->function_state)
+		fstate_pop_scope(state->function_state);
+
 	EXPECT(TOK_RIGHT_BRACE);
 	APPEND1(OP_JUMP, ADDR_OF(increment_label, 1, 0));
 	MARK(end_label);
@@ -1747,11 +1815,17 @@ static int compile_while_statement(struct cstate *state)
 	old_lstate = state->loop_state;
 	state->loop_state = &lstate;
 
+	if (state->function_state)
+		fstate_push_scope(state->function_state);
+
 	EXPECT(TOK_RIGHT_PAREN);
 	EXPECT(TOK_LEFT_BRACE);
 	while (!MATCH_P(TOK_RIGHT_BRACE))
 		X(compile_statement(state));
 	EXPECT(TOK_RIGHT_BRACE);
+
+	if (state->function_state)
+		fstate_pop_scope(state->function_state);
 
 	APPEND1(OP_JUMP, ADDR_OF(start_label, 1, 0));
 	MARK(end_label);
@@ -1939,9 +2013,11 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 		int has_values_inline, struct cb_struct_spec **spec_out)
 {
 	struct token name, field;
-	size_t name_id, num_fields, binding_id;
+	size_t name_id, num_fields, num_methods, binding_id;
 	int first_field;
 	int is_named;
+	int in_methods;
+	size_t methods_start;
 	size_t fields[STRUCT_MAX_FIELDS];
 
 	EXPECT(TOK_STRUCT);
@@ -1956,7 +2032,8 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 		name_id = cb_agent_intern_string("<anonymous>", 11);
 	}
 
-	num_fields = 0;
+	in_methods = 0;
+	num_methods = num_fields = 0;
 	first_field = 1;
 
 	EXPECT(TOK_LEFT_BRACE);
@@ -1964,26 +2041,43 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 		if (first_field) {
 			first_field = 0;
 		} else {
-			EXPECT(TOK_COMMA);
+			if (!in_methods)
+				EXPECT(TOK_COMMA);
 			/* support trailing comma */
 			if (MATCH_P(TOK_RIGHT_BRACE))
 				break;
 		}
-		field = EXPECT(TOK_IDENT);
-		fields[num_fields++] = intern_ident(state, &field);
-		if (num_fields == STRUCT_MAX_FIELDS) {
-			ERROR_AT(field, "Too many struct fields");
-			return -1;
-		}
-		if (has_values_inline) {
-			EXPECT(TOK_EQUAL);
-			if (compile_expression(state))
+		if (MATCH_P(TOK_FUNCTION)) {
+			if (!in_methods) {
+				in_methods = 1;
+				methods_start = num_fields;
+			}
+			if (num_fields + num_methods == STRUCT_MAX_FIELDS) {
+				ERROR_AT(NEXT(), "Too many methods");
 				return -1;
+			}
+			X(compile_function(state, &fields[num_fields + num_methods++], 1));
+		} else if (in_methods) {
+			ERROR_AT(NEXT(), "All fields must come before methods");
+			return -1;
+		} else {
+			field = EXPECT(TOK_IDENT);
+			if (num_fields == STRUCT_MAX_FIELDS) {
+				ERROR_AT(field, "Too many struct fields");
+				return -1;
+			}
+			fields[num_fields++] = intern_ident(state, &field);
+			if (has_values_inline) {
+				EXPECT(TOK_EQUAL);
+				if (compile_expression(state))
+					return -1;
+			}
 		}
 	}
 	EXPECT(TOK_RIGHT_BRACE);
 
-	struct cb_struct_spec *spec = cb_struct_spec_new(name_id, num_fields);
+	struct cb_struct_spec *spec = cb_struct_spec_new(name_id, num_fields,
+			num_methods);
 	if (spec_out)
 		*spec_out = spec;
 	for (unsigned i = 0; i < num_fields; i++) {
@@ -1994,16 +2088,26 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 	const_spec.val.as_struct_spec = spec;
 	size_t const_id = cstate_add_const(state, const_spec);
 
-	if (is_named) {
+	if (is_named || in_methods)
 		APPEND1(OP_LOAD_CONST, const_id);
+
+	if (in_methods) {
+		for (unsigned i = num_fields + num_methods - 1;
+				i >= methods_start; i--)
+			APPEND2(OP_SET_METHOD, i - methods_start, fields[i]);
+	}
+
+	if (is_named) {
 		if (cstate_is_global(state)) {
 			APPEND1(OP_DECLARE_GLOBAL, name_id);
 			APPEND1(OP_STORE_GLOBAL, name_id);
 		} else {
-			binding_id = scope_add_binding(state->function_state->scope,
+			binding_id = fstate_add_binding(state->function_state,
 					name_id, 0);
 			APPEND1(OP_STORE_LOCAL, binding_id);
 		}
+	} else if (in_methods) {
+		APPEND(OP_POP);
 	}
 
 	return const_id;
@@ -2047,15 +2151,24 @@ static int compile_try_statement(struct cstate *state)
 	if (state->loop_state)
 		state->loop_state->try_depth += 1;
 
+	if (state->function_state)
+		fstate_push_scope(state->function_state);
+
 	while (!MATCH_P(TOK_RIGHT_BRACE))
 		X(compile_statement(state));
 	EXPECT(TOK_RIGHT_BRACE);
 	APPEND(OP_POP_TRY);
 	APPEND1(OP_JUMP, ADDR_OF(end_label, 1, 0));
 
+	if (state->function_state)
+		fstate_pop_scope(state->function_state);
+
 	state->try_depth -= 1;
 	if (state->loop_state)
 		state->loop_state->try_depth -= 1;
+
+	if (state->function_state)
+		fstate_push_scope(state->function_state);
 
 	MARK(catch_label);
 	APPEND(OP_CATCH);
@@ -2074,6 +2187,9 @@ static int compile_try_statement(struct cstate *state)
 	while (!MATCH_P(TOK_RIGHT_BRACE))
 		X(compile_statement(state));
 	EXPECT(TOK_RIGHT_BRACE);
+
+	if (state->function_state)
+		fstate_pop_scope(state->function_state);
 
 	MARK(end_label);
 
@@ -2541,6 +2657,19 @@ static int compile_anonymous_struct_literal(struct cstate *state)
 	return 0;
 }
 
+static int compile_this_expression(struct cstate *state)
+{
+	struct token this_tok = EXPECT(TOK_THIS);
+
+	if (!cstate_is_method(state)) {
+		ERROR_AT(this_tok, "Can't use this outside of method");
+		return 1;
+	}
+
+	APPEND(OP_LOAD_THIS);
+	return 0;
+}
+
 static int compile_expression_inner(struct cstate *, int rbp);
 
 static int compile_unary_expression(struct cstate *state)
@@ -2610,13 +2739,16 @@ static int nud(struct cstate *state)
 		X(compile_unary_expression(state));
 		break;
 	case TOK_FUNCTION:
-		X(compile_function(state, NULL));
+		X(compile_function(state, NULL, 0));
 		break;
 	case TOK_STRUCT:
 		X(compile_anonymous_struct_literal(state));
 		break;
 	case TOK_LEFT_BRACE:
 		X(compile_struct_destructuring_assignment(state));
+		break;
+	case TOK_THIS:
+		X(compile_this_expression(state));
 		break;
 
 	default:
@@ -2699,7 +2831,7 @@ static int compile_right_assoc_binary(struct cstate *state)
 	return 0;
 }
 
-static int compile_call_expression(struct cstate *state)
+static int compile_call_expression(struct cstate *state, int is_method)
 {
 	size_t num_args;
 	int first_arg;
@@ -2722,7 +2854,7 @@ static int compile_call_expression(struct cstate *state)
 	}
 	EXPECT(TOK_RIGHT_PAREN);
 
-	APPEND1(OP_CALL, num_args);
+	APPEND1(is_method ? OP_CALL_METHOD : OP_CALL, num_args);
 
 	return 0;
 }
@@ -2792,6 +2924,9 @@ static int compile_struct_field_expression(struct cstate *state)
 		APPEND(tok.type == TOK_PLUS_PLUS ? OP_INC : OP_DEC);
 		APPEND1(OP_STORE_STRUCT, name);
 		APPEND(OP_POP);
+	} else if (MATCH_P(TOK_LEFT_PAREN)) {
+		APPEND1(OP_LOAD_METHOD, name);
+		X(compile_call_expression(state, 1));
 	} else {
 		APPEND1(OP_LOAD_STRUCT, name);
 	}
@@ -2885,7 +3020,7 @@ static int led(struct cstate *state)
 		break;
 
 	case TOK_LEFT_PAREN:
-		X(compile_call_expression(state));
+		X(compile_call_expression(state, 0));
 		break;
 
 	case TOK_LEFT_BRACKET:

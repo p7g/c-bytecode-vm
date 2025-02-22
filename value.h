@@ -111,12 +111,12 @@ void cb_function_add_upvalue(struct cb_user_function *fn, size_t idx,
 int cb_value_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		struct cb_value *result);
 
-cb_gc_header *cb_value_gc_header(const struct cb_value val);
 cb_gc_hold_key *cb_value_gc_hold(struct cb_value *val);
 void cb_value_mark(struct cb_value val);
 void cb_value_incref(struct cb_value val);
 void cb_value_decref(struct cb_value val);
 struct cb_function *cb_function_new(void);
+void cb_function_mark(struct cb_function *func);
 struct cb_string *cb_string_new(void);
 struct cb_array *cb_array_new(size_t len);
 cb_gc_hold_key *cb_array_gc_hold(struct cb_array *arr);

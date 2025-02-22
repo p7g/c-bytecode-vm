@@ -14,6 +14,7 @@ syn match cbcvmNumber "\<[1-9]\d*\(\.\d*\)\?\>"
 syn match cbcvmNumber "\<0\(\.\d*\)\?\>"
 syn match cbcvmFunction "\h\w*" display contained
 
+syn keyword cbcvmIdentifier this
 syn keyword cbcvmConditional if else
 syn keyword cbcvmRepeat for while 
 syn keyword cbcvmBranch break continue

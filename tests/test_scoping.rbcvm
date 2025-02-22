@@ -1,0 +1,87 @@
+import test;
+
+export function test_lexical_scoping() {
+    let a = 0;
+    if (true) {
+        let a = 1;
+        test::assert(a == 1);
+    }
+    if (true) {
+        let a = 2;
+        test::assert(a == 2);
+    }
+    test::assert(a == 0);
+}
+
+export function test_not_function_scoping() {
+    if (true) {
+        let a = 0;
+    }
+
+    let did_catch = false;
+    try {
+        test::assert(a == 0);
+    } catch (e) {
+        did_catch = true;
+        test::assert(e == "Unbound global 'a'");
+    }
+    test::assert(did_catch);
+}
+
+export function test_lexical_scoping_for() {
+    let i = 2;
+
+    let did_run = false;
+    for (let i = 0; i < 1; i++) {
+        did_run = true;
+        test::assert(i == 0);
+    }
+    test::assert(did_run);
+    test::assert(i == 2);
+}
+
+export function test_lexical_scoping_while() {
+    let i = 0;
+    while (true) {
+        let i = 1;
+        test::assert(i == 1);
+        break;
+    }
+    test::assert(i == 0);
+}
+
+export function test_lexical_scoping_try() {
+    let i = 0;
+
+    let was_one = false;
+    try {
+        let i = 1;
+        was_one = i == 1;
+    } catch {
+        test::assert(false);
+    }
+    test::assert(was_one);
+    test::assert(i == 0);
+
+    let did_catch = false;
+    try {
+        throw "exc";
+    } catch (e) {
+        let i = 2;
+        test::assert(e == "exc");
+        test::assert(i == 2);
+        did_catch = true;
+    }
+
+    test::assert(i == 0);
+    test::assert(did_catch);
+
+    did_catch = false;
+    try {
+        e;
+    } catch (e2) {
+        did_catch = true;
+        test::assert(e2 == "Unbound global 'e'");
+    }
+    test::assert(did_catch);
+}

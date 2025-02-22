@@ -124,6 +124,7 @@ int cb_disassemble_one(cb_instruction instruction, size_t offset)
 	case OP_CATCH:
 	case OP_INC:
 	case OP_DEC:
+	case OP_LOAD_THIS:
 		printf("%s\n", cb_opcode_name(op));
 		return 0;
 
@@ -138,16 +139,10 @@ int cb_disassemble_one(cb_instruction instruction, size_t offset)
 	case OP_ALLOCATE_LOCALS:
 	case OP_NEW_ARRAY_WITH_VALUES:
 	case OP_CALL:
+	case OP_CALL_METHOD:
 	case OP_IMPORT_MODULE:
 	case OP_PUSH_TRY: {
 		printf("%s(%zu)\n", cb_opcode_name(op), arg);
-		return 0;
-	}
-
-	case OP_CONST_STRING: {
-		size_t string_id = arg;
-		cb_str string = cb_agent_get_string(string_id);
-		printf("%s(\"%s\")\n", cb_opcode_name(op), cb_strptr(&string));
 		return 0;
 	}
 
@@ -170,6 +165,8 @@ int cb_disassemble_one(cb_instruction instruction, size_t offset)
 	case OP_LOAD_STRUCT:
 	case OP_STORE_STRUCT:
 	case OP_ADD_STRUCT_FIELD:
+	case OP_CONST_STRING:
+	case OP_LOAD_METHOD:
 		tmp_str = cb_agent_get_string(arg);
 		printf("%s(\"%s\")\n", cb_opcode_name(op), cb_strptr(&tmp_str));
 		return 0;
@@ -177,6 +174,12 @@ int cb_disassemble_one(cb_instruction instruction, size_t offset)
 	case OP_BIND_LOCAL:
 	case OP_BIND_UPVALUE:
 		printf("%s(%zu, %zu)\n", cb_opcode_name(op), arg1, arg2);
+		return 0;
+
+	case OP_SET_METHOD:
+		tmp_str = cb_agent_get_string(arg2);
+		printf("%s(%zu, %s)\n", cb_opcode_name(op), arg1,
+				cb_strptr(&tmp_str));
 		return 0;
 
 	case OP_LOAD_FROM_MODULE: {

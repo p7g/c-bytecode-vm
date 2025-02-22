@@ -12,7 +12,8 @@
 
 static size_t ident_len,
 	      ident_next_char,
-	      ident_from_bytes;
+	      ident_from_bytes,
+	      ident_string_iter_result;
 
 static struct cb_struct_spec *get_string_iter_result_spec(void)
 {
@@ -100,6 +101,7 @@ void cb_strings_build_spec(cb_modspec *spec)
 	CB_DEFINE_EXPORT(spec, "len", ident_len);
 	CB_DEFINE_EXPORT(spec, "from_bytes", ident_from_bytes);
 	CB_DEFINE_EXPORT(spec, "next_char", ident_next_char);
+	CB_DEFINE_EXPORT(spec, "string_iter_result", ident_string_iter_result);
 }
 
 void cb_strings_instantiate(struct cb_module *mod)
@@ -108,4 +110,9 @@ void cb_strings_instantiate(struct cb_module *mod)
 	CB_SET_EXPORT(mod, ident_from_bytes,
 			cb_cfunc_new(ident_from_bytes, 1, from_bytes));
 	CB_SET_EXPORT_FN(mod, ident_next_char, 1, next_char);
+
+	struct cb_value string_iter_result;
+	string_iter_result.type = CB_VALUE_STRUCT_SPEC;
+	string_iter_result.val.as_struct_spec = get_string_iter_result_spec();
+	CB_SET_EXPORT(mod, ident_string_iter_result, string_iter_result);
 }

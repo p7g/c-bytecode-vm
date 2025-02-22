@@ -51,7 +51,7 @@ static void mark_const(struct cb_const c)
 		break;
 
 	case CB_CONST_STRUCT_SPEC:
-		cb_gc_mark(&c.val.as_struct_spec->gc_header);
+		cb_struct_spec_mark(c.val.as_struct_spec);
 		break;
 
 	default:
