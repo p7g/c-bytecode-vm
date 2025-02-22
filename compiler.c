@@ -316,18 +316,30 @@ static int next_token(struct lex_state *state, struct token *dest)
 				TOKEN(TOK_INT);
 			}
 
-			is_double = 0;
 			while ((c = PEEK())) {
-				if (c == '.' && !is_double) {
-					is_double = 1;
-				} else if (c == '.' && is_double) {
-					ERROR("Unexpected '.'");
-					return 1;
-				} else if (!isdigit(c)) {
+				if (!isdigit(c))
 					break;
-				}
 				(void) NEXT();
 			}
+
+			is_double = 0;
+			if (PEEK() == '.') {
+				is_double = 1;
+				(void) NEXT();
+				c = PEEK();
+				if (!isdigit(c)) {
+					ERROR("Expected digit");
+					return 1;
+				}
+				(void) NEXT();
+
+				while ((c = PEEK())) {
+					if (!isdigit(c))
+						break;
+					(void) NEXT();
+				}
+			}
+
 			if (is_double)
 				TOKEN(TOK_DOUBLE);
 			else
