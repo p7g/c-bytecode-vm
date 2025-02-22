@@ -417,8 +417,7 @@ struct binding {
 
 struct scope {
 	struct scope *parent;
-	struct binding *locals,
-		       *upvalues;
+	struct binding *bindings;
 	size_t num_locals,
 	       num_upvalues;
 };
@@ -432,22 +431,12 @@ static void scope_free(struct scope *s)
 {
 	struct binding *current, *tmp;
 
-#define FREE_LIST(L) \
-	do { \
-		if (L) { \
-			current = (L); \
-			while (current) { \
-				tmp = current; \
-				current = current->next; \
-				free(tmp); \
-			} \
-		} \
-	} while (0)
-
-	FREE_LIST(s->locals);
-	FREE_LIST(s->upvalues);
-
-#undef FREE_LIST
+	current = s->bindings;
+	while (current) {
+		tmp = current;
+		current = current->next;
+		free(tmp);
+	}
 
 	free(s);
 }
@@ -463,12 +452,12 @@ static size_t scope_add_binding(struct scope *s, ssize_t name, int upvalue)
 
 	if (upvalue) {
 		id = new_binding->index = s->num_upvalues++;
-		new_binding->next = s->upvalues;
-		s->upvalues = new_binding;
+		new_binding->next = s->bindings;
+		s->bindings = new_binding;
 	} else {
 		id = new_binding->index = s->num_locals++;
-		new_binding->next = s->locals;
-		s->locals = new_binding;
+		new_binding->next = s->bindings;
+		s->bindings = new_binding;
 	}
 
 	return id;
@@ -477,22 +466,13 @@ static size_t scope_add_binding(struct scope *s, ssize_t name, int upvalue)
 static struct binding *scope_get_binding(struct scope *s, size_t name)
 {
 	struct binding *binding;
-#define SEARCH(L) \
-	do { \
-		if (!(L)) \
-			break; \
-		binding = (L); \
-		while (binding) { \
-			if ((size_t) binding->name == name) \
-				return binding; \
-			binding = binding->next; \
-		} \
-	} while (0)
 
-	SEARCH(s->locals);
-	SEARCH(s->upvalues);
-
-#undef SEARCH
+	binding = s->bindings;
+	while (binding) {
+		if ((size_t) binding->name == name)
+			return binding;
+		binding = binding->next;
+	}
 
 	return NULL;
 }
@@ -1505,9 +1485,9 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 		/* Avoid copying all arguments that aren't patterns */
 		if (param_patterns[i].type == PATTERN_IDENT) {
 			// FIXME
-			for (struct binding *b = inner_fn_state.scope->locals;
+			for (struct binding *b = inner_fn_state.scope->bindings;
 					b; b = b->next) {
-				if (b->index == bindings[i]) {
+				if (b->index == bindings[i] && !b->is_upvalue) {
 					b->name = param_patterns[i].p.ident;
 					break;
 				}
