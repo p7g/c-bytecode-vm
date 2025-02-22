@@ -92,11 +92,12 @@ int cb_agent_init(void)
 	for (i = 1; i < MAX_IMPORT_PATHS; i += 1)
 		agent.import_paths[i] = NULL;
 
+	char *lasts;
 	agent.cbcvm_path = getenv("CBCVM_PATH");
 	if (agent.cbcvm_path) {
 		agent.cbcvm_path = strdup(agent.cbcvm_path);
-		for (i = 1, path = strtok(agent.cbcvm_path, ":"); path;
-				i += 1, path = strtok(NULL, ":")) {
+		for (i = 1, path = strtok_r(agent.cbcvm_path, ":", &lasts); path;
+				i += 1, path = strtok_r(NULL, ":", &lasts)) {
 			if (i >= MAX_IMPORT_PATHS) {
 				fprintf(stderr, "Too many paths in CBCVM_PATH\n");
 				goto error;
