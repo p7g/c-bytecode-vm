@@ -482,14 +482,6 @@ static int scope_has_binding(struct scope *s, size_t name)
 	return scope_get_binding(s, name) != NULL;
 }
 
-static int scope_parent_has_binding(struct scope *s, size_t name)
-{
-	if (!s->parent)
-		return 0;
-	return scope_has_binding(s->parent, name)
-		|| scope_parent_has_binding(s->parent, name);
-}
-
 static CB_INLINE size_t tok_len(struct token *tok)
 {
 	return tok->end - tok->start;
@@ -680,7 +672,17 @@ struct function_state {
 	int is_method;
 };
 
-void fstate_add_freevar(struct function_state *fstate, size_t free_var)
+static int fstate_parent_has_binding(struct function_state *s, size_t name)
+{
+	if (!s->parent)
+		return 0;
+	else if (scope_has_binding(s->parent->scope, name))
+		return 1;
+	else
+		return fstate_parent_has_binding(s->parent, name);
+}
+
+static void fstate_add_freevar(struct function_state *fstate, size_t free_var)
 {
 	if (fstate->free_var_len >= fstate->free_var_size) {
 		fstate->free_var_size = fstate->free_var_size == 0
@@ -855,7 +857,7 @@ static int resolve_binding(struct cstate *s, size_t name, struct binding *out)
 		*out = *binding;
 		return 1;
 	}
-	if (scope_parent_has_binding(fstate->scope, name)) {
+	if (fstate_parent_has_binding(fstate, name)) {
 		found = 0;
 		for (i = 0; i < fstate->free_var_len; i += 1) {
 			if (fstate->free_variables[i] == name) {
@@ -1414,8 +1416,6 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 	inner_fn_state.free_variables = NULL;
 	inner_fn_state.free_var_len = inner_fn_state.free_var_size = 0;
 	inner_fn_state.is_method = is_method;
-	if (state->function_state)
-		inner_fn_state.scope->parent = state->function_state->scope;
 
 	EXPECT(TOK_FUNCTION);
 	if (MATCH_P(TOK_IDENT)) {
@@ -1578,7 +1578,7 @@ static int compile_function(struct cstate *state, size_t *name_out,
 				APPEND2(OP_BIND_UPVALUE, i, binding->index);
 			else
 				APPEND2(OP_BIND_LOCAL, i, binding->index);
-		} else if (scope_parent_has_binding(state->function_state->scope,
+		} else if (fstate_parent_has_binding(state->function_state,
 					free_var)) {
 			assert(state->function_state != NULL);
 			fstate_add_freevar(state->function_state, free_var);
