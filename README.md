@@ -13,7 +13,7 @@ This is a small, weakly and dynamically typed, interpreted programming language
 that doesn't really have a name. My goal is to see how close I can get to a
 "real" programming language like Python while implementing everything on my own.
 
-One of the goals I have with this language is to keep the built-in stuff
+Another goal I have with this language is to keep the built-in stuff
 (implemented in C) to a minimum. You'll probably be able to tell throughout the
 rest of this document.
 
@@ -54,16 +54,13 @@ Examples:
 ```js
 1.1
 0.123
-123.
+123.0
 -156.3
 ```
 
-To be honest, supporting a trailing decimal is not intentional and I sort of
-want to make that not work.
-
 ### Char
 
-A single Unicode codepoint character.
+A single Unicode codepoint.
 
 Examples:
 ```c
@@ -71,11 +68,6 @@ Examples:
 '\n'
 '\''
 ```
-
-This one seems uncommon for dynamic languages for whatever reason. Personally, I
-like to have the guarantee that a char needs no allocations without having to
-assume certain optimizations exist. This means that a dumb language like this
-one won't suffer quite as much when processing strings.
 
 ### Bool
 
@@ -110,7 +102,7 @@ lines"
 
 ## Composite Data Types
 
-There are two native types for aggregating values:
+There are three native types for aggregating values:
 
 ### Array
 
@@ -126,7 +118,7 @@ Examples:
 some_array[3]
 ```
 
-Accessing a index that is out of range will throw.
+Accessing an index that is out of range will throw.
 
 ### Struct
 
@@ -229,15 +221,13 @@ Any fields/elements which aren't matched on are ignored.
 
 ### Scoping Rules
 
-Variables are scoped to their function, regardless of where the declaration is.
-This is similar to how Python behaves, however there is no need for a `global`
-or `nonlocal` statement equivalent, since declarations are explicit.
+Variables are lexically scoped.
 
-If a variable exists in the current function with a given name, references to
-that name will refer to that variable. If not, the compiler will check for the
-variable in the parent (lexical) scopes one by one. If it finds the variable in
-a parent scope, that variable will be closed-over by the current function. If it
-is not found, it is assumed to be a global variable.
+If a variable exists in the current scope with a given name, references to that
+name will refer to that variable. If not, the compiler will check for the
+variable in the parent function scopes one by one. If it finds the variable in
+a parent scope, that variable will be closed-over by the current function. If
+it is not found, it is assumed to be a global variable.
 
 Global variables only exist in the module in which they're defined.
 
@@ -274,7 +264,7 @@ The `for` loop is like a C for loop. The language has no native iteration
 protocol, but see the "Iteration" section below for more on that.
 
 ```js
-for (let a = 0; a < 10; a += 1) {}
+for (let a = 0; a < 10; a++) {}
 ```
 
 Any of the initializer, condition, or whatever the third part is called can be
@@ -301,9 +291,8 @@ try {
 
 ## Module System
 
-The module system works like Python's, but much more rudimentary.
-
 A module is imported using an `import` statement:
+
 ```js
 import test;
 ```
@@ -317,13 +306,14 @@ that name, any imports of that name will result in the same module being
 imported.
 
 Once a module is imported, its exports can be accessed by prefixing their name
-with the module name and a dot, like `test::assert`. There is currently no way to
-alias an imported module, nor is there a way to create individual bindings for
-its exports while importing.
+with the module name and a dot, like `test::assert`. There is currently no way
+to alias an imported module, nor is there a way to create individual bindings
+for its exports while importing.
 
 Note that the module name in an expression like `test::assert` is not resolved
 like a variable; it is looked up in the list of imported modules directly. This
 means that the following will not work:
+
 ```js
 import test;
 let t = test;
