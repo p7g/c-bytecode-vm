@@ -264,7 +264,7 @@ CB_INLINE size_t cb_agent_modspec_count(void)
 }
 
 /* Given a name like "hashmap", find a matching file relative to one of the
-   paths in CBCVM_PATH with a .rbcvm extension. If found, it will be opened and
+   paths in CBCVM_PATH with a .cb extension. If found, it will be opened and
    a FILE handle returned. Otherwise NULL will be returned, and an error
    message will be printed.
 
@@ -306,7 +306,7 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 				cb_strlen(import_name)));
 		CHECK_LEN;
 		j += cb_strlen(import_name);
-		strncpy(path + j, ".rbcvm", MAX_IMPORT_PATH_LEN - j);
+		strncpy(path + j, ".cb", MAX_IMPORT_PATH_LEN - j);
 		CHECK_LEN;
 
 		f = fopen(path, "rb");

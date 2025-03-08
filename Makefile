@@ -38,7 +38,7 @@ vendor/utf8proc/libutf8proc.a:
 # Generate a release binary using profile-guided optimization
 profile-opt:
 	CFLAGS='-fprofile-generate' $(MAKE) clean cbcvm TARGET=release
-	./cbcvm bf.rbcvm bench.b
+	./cbcvm bf.cb bench.b
 	$(MAKE) clean
 	CFLAGS='-fprofile-use -fprofile-correction' $(MAKE) TARGET=release
 	find . -name '*.gcda' -delete

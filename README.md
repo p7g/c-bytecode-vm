@@ -299,7 +299,7 @@ import test;
 
 Upon encountering this statement, the compiler will search for a module with
 that name. If a built-in module exists with that name, it's imported. If not,
-the compiler will search for a file called (in this case) `test.rbcvm` in each
+the compiler will search for a file called (in this case) `test.cb` in each
 of the paths defined in the `CBCVM_PATH` environment variable. This variable
 should be a colon-separated list of directories. Once it finds a module with
 that name, any imports of that name will result in the same module being
@@ -360,7 +360,7 @@ Here are some idioms that have appeared in the standard library:
 This language has no generators, nor any built-in iteration protocol. The way
 this is done in the standard library (see the [iter] module) is using closures.
 
-[iter]: https://github.com/p7g/c-bytecode-vm/blob/master/lib/iter.rbcvm
+[iter]: https://github.com/p7g/c-bytecode-vm/blob/main/lib/iter.cb
 
 This is easiest to illustrate with an example:
 ```js

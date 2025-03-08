@@ -18,7 +18,7 @@ iter::foreach(fs::directory_entries("tests"), function collect_test_modules(path
         return;
     }
     path = path::join("tests", path);
-    if (fs::isfile(path) && path::ext(path) == "rbcvm") {
+    if (fs::isfile(path) && path::ext(path) == "cb") {
         let tests = arraylist::new();
         module::import_(path, path);
         iter::foreach(module::export_names(path), function collect_tests(export_) {

@@ -32,7 +32,7 @@ jobs:
           sum=0
           for i in $(seq $NTIMES); do
             before=$(gettimems)
-            ./cbcvm bench/bf.rbcvm bench/bench.b
+            ./cbcvm bench/bf.cb bench/bench.b
             after=$(gettimems)
             elapsed=$((after - before))
             sum=$((sum + elapsed))
@@ -43,7 +43,7 @@ jobs:
           sum=0
           for i in $(seq $NTIMES); do
             before=$(gettimems)
-            ./cbcvm bench/nbody.rbcvm 500000
+            ./cbcvm bench/nbody.cb 500000
             after=$(gettimems)
             elapsed=$((after - before))
             sum=$((sum + elapsed))
@@ -54,7 +54,7 @@ jobs:
           sum=0
           for i in $(seq $NTIMES); do
             before=$(gettimems)
-            ./cbcvm bench/spectral_norm.rbcvm 1000
+            ./cbcvm bench/spectral_norm.cb 1000
             after=$(gettimems)
             elapsed=$((after - before))
             sum=$((sum + elapsed))
@@ -65,7 +65,7 @@ jobs:
           sum=0
           for i in $(seq NTIMES); do
             before=$(gettimems)
-            ./cbcvm bench/binary_trees.rbcvm 21
+            ./cbcvm bench/binary_trees.cb 21
             after=$(gettimems)
             elapsed=$((after - before))
             sum=$((sum + elapsed))

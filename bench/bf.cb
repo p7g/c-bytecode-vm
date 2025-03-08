@@ -81,7 +81,7 @@ function run(tape, ops) {
 
 let args = argv();
 if (array::length(args) != 1) {
-    println("Usage: ./cbcvm bf3.rbcvm <program>");
+    println("Usage: ./cbcvm bf.cb <program>");
 } else {
     let it = array::iter(string::chars(fs::read_file(args[0])));
     run(tape_new(), parse(it));

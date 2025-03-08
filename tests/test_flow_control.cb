@@ -54,7 +54,7 @@ export function test_return() {
 }
 
 export function test_loop_in_global_scope() {
-    module::import_("global_loop", "tests/global_loop.rbcvm");
+    module::import_("global_loop", "tests/global_loop.cb");
 }
 
 export function test_try_catch() {
