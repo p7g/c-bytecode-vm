@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741491616808,
+  "lastUpdate": 1741525310065,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -2158,6 +2158,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "spectral_norm",
             "value": 5256,
+            "unit": "ms"
+          },
+          {
+            "name": "binary_trees",
+            "value": 0,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "8c3a766d6415b376da6fd3776924fd8374d3eb62",
+          "message": "disallow implementing same trait twice for struct",
+          "timestamp": "2025-03-09T08:56:06-04:00",
+          "tree_id": "6e499c4b3f849455ae9cbdc7f1b8891f1d1ac465",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/8c3a766d6415b376da6fd3776924fd8374d3eb62"
+        },
+        "date": 1741525309411,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 176279,
+            "unit": "ms"
+          },
+          {
+            "name": "nbody",
+            "value": 2592,
+            "unit": "ms"
+          },
+          {
+            "name": "spectral_norm",
+            "value": 5287,
             "unit": "ms"
           },
           {
