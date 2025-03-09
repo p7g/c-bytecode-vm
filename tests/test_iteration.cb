@@ -20,7 +20,7 @@ export function test_arraylist_collector() {
     test::assert(collected == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 }
 
-function _test_mapping(iter, collector, unwrap) {
+function _test_mapping(collector, unwrap) {
     let it = iter::range(10);
     let entries = iter::zip(it, it);
     let mapping = iter::collect(entries, collector);
@@ -34,7 +34,7 @@ function _test_mapping(iter, collector, unwrap) {
     let valid = true;
 
     iter::foreach(
-        unwrap(iter::collect(iter(mapping), collector)),
+        unwrap(iter::collect(mapping, collector)),
         function ([key, value]) {
             if (hashmap::get(results, key) != value) {
                 valid = false;
@@ -46,11 +46,11 @@ function _test_mapping(iter, collector, unwrap) {
 }
 
 export function test_assoclist_collector() {
-    _test_mapping(assoclist::iter, assoclist::collector, assoclist::entries);
+    _test_mapping(assoclist::collector, assoclist::entries);
 }
 
 export function test_hashmap_collector() {
-    _test_mapping(hashmap::iter, hashmap::collector(), hashmap::entries);
+    _test_mapping(hashmap::collector(), hashmap::entries);
 }
 
 export function test_list_collector() {
@@ -62,6 +62,6 @@ export function test_list_collector() {
 
 export function test_string_collector() {
     let str = "hello";
-    test::assert(iter::collect(string::iter(str), string::collector) == str);
+    test::assert(iter::collect(str, string::collector) == str);
     test::assert(iter::collect(iter::range(10), string::collector) == "0123456789");
 }

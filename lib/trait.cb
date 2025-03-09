@@ -5,6 +5,7 @@ import structs;
 export struct TypeError { message }
 
 struct Method { name, arity }
+struct Primitive { type }
 
 export function method(name) {
   return Method { name = name };
@@ -34,6 +35,18 @@ function map(arr, fn) {
   }
 
   return new_array;
+}
+
+function slice(arr, start=0, end=-1) {
+  let len = _array::length(arr);
+  if (end == -1) {
+    end = len;
+  }
+  let new_arr = _array::new(end - start);
+  for (let i = start; i < end; i++) {
+    new_arr[i - start] = arr[i];
+  }
+  return new_arr;
 }
 
 export function new(name, methods) {
@@ -70,25 +83,28 @@ export function cast(trait, obj) {
   return instantiate_traitobject(trait, obj);
 }
 
+export function primitive(ty) {
+  return Primitive { type = ty };
+}
+
 export function impl(trait, for_, impl_struct) {
-  if (typeof(for_) != "struct spec") {
-    throw TypeError { message = "Can only implement traits for structs" };
-  } else if (get_impl(trait, for_)) {
+  let for_type = get_type(for_);
+  if (get_impl(trait, for_type)) {
     throw TypeError {
       message = string_concat(
-        trait_name(trait), " is already implemented for ", structs::name(for_)
+        trait_name(trait), " is already implemented for ", type_name(for_type)
       ),
     };
   }
 
-  let fields = concat(["_structty"], map(trait._methods, function (method) {
+  let fields = concat(["_objty"], map(trait._methods, function (method) {
     return method.name;
   }));
 
-  let for_name = structs::name(for_);
+  let for_name = type_name(for_type);
   let name = string_concat(trait_name(trait), "For", for_name);
   let spec = structs::new(name, fields);
-  let impl = spec { _structty = for_, };
+  let impl = spec { _objty = for_type, };
 
   for (let i = 0; i < _array::length(trait._methods); i++) {
     let method_desc = trait._methods[i];
@@ -126,7 +142,11 @@ export function implements(obj, trait) {
       message = string_concat(tostring(trait), " is not a trait"),
     };
   }
-  return get_impl(trait, obj) != null;
+  try {
+    return obj._istraitobject == trait;
+  } catch {
+    return get_impl(trait, get_type(obj)) != null;
+  }
 }
 
 function is_trait(trait) {
@@ -137,31 +157,68 @@ function is_trait(trait) {
   }
 }
 
+function is_traitobject(obj) {
+  try {
+    obj._istraitobject;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function get_type(obj) {
+  let ty = typeof(obj);
+  if (ty == "struct spec") {
+    return obj;
+  } else if (ty == "struct") {
+    let spec = structs::spec(obj);
+    if (spec == Primitive) {
+      return obj;
+    }
+    return spec;
+  } else {
+    return Primitive { type = ty };
+  }
+}
+
+function type_name(obj) {
+  let ty = typeof(obj);
+  if (ty == "struct spec") {
+    return structs::name(obj);
+  } else if (ty == "struct" && structs::spec(obj) == Primitive) {
+    return obj.type;
+  } else {
+    return ty;
+  }
+}
+
 function trait_name(trait) {
   return structs::name(structs::spec(trait));
 }
 
-function get_impl(trait, obj) {
-  let spec;
-  if (typeof(obj) == "struct") {
-    spec = structs::spec(obj);
-  } else {
-    spec = obj;
-  }
-
+function get_impl(trait, ty) {
   for (let i = 0; i < _arraylist_impl::length(trait._impls); i++) {
     let impl = _arraylist_impl::get(trait._impls, i);
-    if (impl._structty == spec) {
+    if (impl._objty == ty) {
       return impl;
     }
   }
+
   return null;
 }
 
 function make_dispatch(trait, method) {
   return function (obj) {
     let args = arguments();
-    let impl = get_impl(trait, obj);
+    let impl;
+    if (is_traitobject(obj)) {
+      if (obj._istraitobject == trait) {
+        impl = obj;
+        args = slice(args, 1);
+      }
+    } else {
+      impl = get_impl(trait, get_type(obj));
+    }
     if (!impl) {
       throw TypeError {
         message = string_concat(tostring(obj), " does not implement ",
@@ -178,7 +235,7 @@ function dispatch(impl, method_name, args) {
 }
 
 function make_traitobject_struct(name, methods) {
-  let fields = concat(["_obj"], map(methods, function (method) {
+  let fields = concat(["_istraitobject", "_obj"], map(methods, function (method) {
     return method.name;
   }));
 
@@ -186,8 +243,8 @@ function make_traitobject_struct(name, methods) {
 }
 
 function instantiate_traitobject(trait, obj) {
-  let traitobject = trait._objty { _obj = obj };
-  let impl = get_impl(trait, obj);
+  let traitobject = trait._objty { _istraitobject = trait, _obj = obj };
+  let impl = get_impl(trait, get_type(obj));
   if (!impl) {
     throw TypeError {
       message = string_concat(tostring(obj), " does not implement ",

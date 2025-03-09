@@ -2,6 +2,7 @@ import array;
 import docs;
 import hash;
 import iter;
+import trait;
 
 let doc = docs::module("hashmap", "An implementation of a hash map.");
 
@@ -51,15 +52,25 @@ let DEFAULT_OPTIONS = Options {
     hash_function = default_hash,
 };
 
+struct HashMapCollector { options }
+
+trait::impl(iter::Collector, HashMapCollector, struct {
+  function init(self) {
+    return new(self.options);
+  }
+
+  function reduce(self, map, [key, value]) {
+    set(map, key, value);
+    return map;
+  }
+
+  function finalize(self, map) {
+    return map;
+  }
+});
+
 export function collector(options=DEFAULT_OPTIONS) {
-  return iter::collector {
-    init = function () { return new(options); },
-    reduce = function (map, [key, value]) {
-      set(map, key, value);
-      return map;
-    },
-    finalize = function (map) { return map; },
-  };
+  return HashMapCollector { options = options };
 }
 
 doc.add(
@@ -197,24 +208,36 @@ export function has(self, key) {
 
 doc.add("function", "has(map, key)", "Check if `map` has a value for `key`.");
 
-export function entries(self) {
-  let bucket = self.first_insert;
+trait::impl(iter::Iterable, HashMap, struct {
+  function iter(self) {
+    return HashMapIterator { bucket = self.first_insert };
+  }
+});
 
-  return function next() {
-    if (bucket == null) {
+struct HashMapIterator { bucket }
+
+trait::impl(iter::Iterable, HashMapIterator, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(iter::Iterator, HashMapIterator, struct {
+  function next(self) {
+    if (self.bucket == null) {
       return iter::STOP;
     }
-    let result = [bucket.key, bucket.value];
-    bucket = bucket.next;
+    let result = [self.bucket.key, self.bucket.value];
+    self.bucket = self.bucket.next;
     return result;
-  };
+  }
+});
+
+export function entries(self) {
+  return iter::iter(self);
 }
 
 doc.add("function", "entries(map)", "Get an iterator over the key-value pairs in `map`.");
-
-export let iter = entries;
-
-doc.add("function", "iter(map)", "Get an iterator over the key-value pairs in `map`.");
 
 export function size(self) {
   return self.load;

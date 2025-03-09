@@ -1,7 +1,9 @@
-import trait;
-import structs;
+import array;
 import arraylist;
+import string;
+import structs;
 import test;
+import trait;
 
 export function test_cast_creates_traitobject() {
     let myTrait = trait::new("MyTrait", [trait::method("method1")]);
@@ -249,4 +251,54 @@ export function test_impling_trait_twice() {
     test::assert(err == trait::TypeError {
         message = "T is already implemented for S",
     }, err);
+}
+
+export function test_implements() {
+    let T = trait::new("T", []);
+    struct S {}
+    trait::impl(T, S, struct {});
+
+    test::assert(trait::implements(S, T));
+    test::assert(trait::implements(S {}, T));
+    test::assert(trait::implements(trait::cast(T, S {}), T));
+}
+
+export function test_fully_qualified_on_traitobject() {
+    let Unary = trait::new("Unary", [trait::method("call")]);
+
+    struct Partial { func, arg }
+    trait::impl(Unary, Partial, struct {
+        function call(self, arg) {
+            return self.func(self.arg, arg);
+        }
+    });
+
+    let add1 = Partial {
+        func = function(a, b) {
+            return a + b;
+        },
+        arg = 1,
+    };
+
+    let obj = trait::cast(Unary, add1);
+    test::assert(Unary.call(obj, 2) == 3);
+}
+
+export function test_primitive_impl() {
+    let Len = trait::new("Len", [trait::method("len")]);
+
+    trait::impl(Len, trait::primitive("string"), struct {
+        function len(self) {
+            return string::length(self);
+        }
+    });
+
+    trait::impl(Len, trait::primitive("array"), struct {
+        function len(self) {
+            return array::length(self);
+        }
+    });
+
+    test::assert(Len.len("hello") == 5);
+    test::assert(Len.len([1, 2, 3]) == 3);
 }

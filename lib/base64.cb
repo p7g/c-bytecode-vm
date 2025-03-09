@@ -31,7 +31,7 @@ export function decode_size(payload) {
     let len = string::length(payload);
     let npadding = 0;
     # FIXME: not ideal
-    iter::foreach(string::iter(payload), function (c) {
+    iter::foreach(payload, function (c) {
         if (c == '=') {
             npadding += 1;
         }

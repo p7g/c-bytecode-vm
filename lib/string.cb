@@ -5,6 +5,7 @@ import docs;
 import fn;
 import iter;
 import op;
+import trait;
 
 import _string;
 
@@ -28,30 +29,48 @@ export struct Error {
     message,
 }
 
-export function iter(str) {
-  let i = 0;
-  return function string_iterator() {
-    let {c, nread} = _string::next_char(str, i);
+trait::impl(iter::Iterable, trait::primitive("string"), struct {
+  function iter(self) {
+    return StringIterator { str = self, i = 0 };
+  }
+});
+
+struct StringIterator { str, i }
+
+trait::impl(iter::Iterable, StringIterator, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(iter::Iterator, StringIterator, struct {
+  function next(self) {
+    let {c, nread} = _string::next_char(self.str, self.i);
     if (c == null) {
-        return iter::STOP;
+      return iter::STOP;
     }
-    i += nread;
+    self.i += nread;
     return c;
-  };
-}
+  }
+});
 
-doc.add("function", "iter(str)", "Create an iterator over the characters in `str`.");
+struct StringCollector {}
+export let collector = StringCollector {};
 
-export let collector = iter::collector {
-  init = arraylist::new,
-  reduce = function (parts, value) {
+trait::impl(iter::Collector, StringCollector, struct {
+  function init(self) {
+    return arraylist::new();
+  }
+
+  function reduce(self, parts, value) {
     arraylist::push(parts, tostring(value));
     return parts;
-  },
-  finalize = function (parts) {
+  }
+
+  function finalize(self, parts) {
     return join(arraylist::to_array(parts), "");
-  },
-};
+  }
+});
 
 doc.add("object", "collector", "A collector to convert an iterator of characters
 or strings into a string.");
@@ -83,7 +102,7 @@ export function parse_float(str) {
     negate = true;
   }
 
-  chars = array::iter(chars);
+  chars = iter::iter(chars);
   if (negate) {
     chars = iter::drop(chars, 1);
   }
@@ -126,7 +145,7 @@ export function startswith(self, other) {
     }
 
     let match = true;
-    iter::foreach(iter::zip(iter(self), iter(other)), function ([a, b]) {
+    iter::foreach(iter::zip(self, other), function ([a, b]) {
         # "a" should never be null
         if (b == null) {
             return iter::STOP;
@@ -148,10 +167,10 @@ export function endswith(self, other) {
         return false;
     }
 
-    let selfend = iter::slice(iter(self), selflen - otherlen);
+    let selfend = iter::slice(self, selflen - otherlen);
 
     let match = true;
-    iter::foreach(iter::zip(selfend, iter(other)), function ([a, b]) {
+    iter::foreach(iter::zip(selfend, other), function ([a, b]) {
         if (a != b) {
             match = false;
             return iter::STOP;
@@ -167,7 +186,7 @@ export function index(self, c) {
         throw Error { message = "index: Only finding index of char is implemented" };
     }
     let index = -1;
-    iter::foreach(iter::enumerate(iter(self)), function ([i, c2]) {
+    iter::foreach(iter::enumerate(self), function ([i, c2]) {
         if (c == c2) {
             index = i;
             return iter::STOP;
@@ -183,7 +202,7 @@ export function rindex(self, c) {
         throw Error { message = "index: Only finding index of char is implemented" };
     }
     let lastindex = -1;
-    iter::foreach(iter::enumerate(iter(self)), function ([i, c2]) {
+    iter::foreach(iter::enumerate(self), function ([i, c2]) {
         if (c == c2) {
             lastindex = i;
         }

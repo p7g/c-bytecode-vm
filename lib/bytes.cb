@@ -2,6 +2,7 @@ import _bytes;
 import arraylist;
 import docs;
 import iter;
+import trait;
 
 let doc = docs::module("bytes", "A compact byte array type.");
 
@@ -50,32 +51,52 @@ export function concat(a, b) {
     return result;
 }
 
-export let collector = iter::collector {
-    init = arraylist::new,
-    reduce = arraylist::push,
-    finalize = function collect_bytes(list) {
+struct BytesCollector {}
+export let collector = BytesCollector {};
+
+trait::impl(iter::Collector, BytesCollector, struct {
+    function init(self) {
+        return arraylist::new();
+    }
+
+    function reduce(self, list, value) {
+        arraylist::push(list, value);
+        return list;
+    }
+
+    function finalize(self, list) {
         let len = arraylist::length(list);
         let bytes = new(len);
         for (let i = 0; i < len; i += 1) {
             set(bytes, i, arraylist::get(list, i));
         }
         return bytes;
-    },
-};
+    }
+});
 
 doc.add("object", "collector", "A collector for converting an iterator into byte array.");
 
-export function iter(bytes) {
-    let i = 0;
-    let len = length(bytes);
-    return function bytes_iter() {
-        if (i >= len) {
+trait::impl(iter::Iterable, trait::primitive("bytes"), struct {
+    function iter(self) {
+        return BytesIterator { bytes = self, len = length(self), i = 0 };
+    }
+});
+
+struct BytesIterator { bytes, len, i }
+
+trait::impl(iter::Iterable, BytesIterator, struct {
+    function iter(self) {
+        return self;
+    }
+});
+
+trait::impl(iter::Iterator, BytesIterator, struct {
+    function next(self) {
+        if (self.i >= self.len) {
             return iter::STOP;
         }
-        let val = get(bytes, i);
-        i += 1;
+        let val = get(self.bytes, self.i);
+        self.i += 1;
         return val;
-    };
-}
-
-doc.add("function", "iter(bytes)", "Create an iterator over `bytes`.");
+    }
+});

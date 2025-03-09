@@ -1,25 +1,62 @@
 import _array;
 import _arraylist_impl;
+import _iter_stop;
+import trait;
 
-export let STOP = struct {};
-export struct collector { init, reduce, finalize }
+export let STOP = _iter_stop::STOP;
 
-export function array_iter(array) {
-  let i = 0;
-  let len = _array::length(array);
-  return function array_iterator() {
-    if (i == len) {
+export let Iterable = trait::new("Iterable", [trait::method("iter")]);
+export let Iterator = trait::new("Iterator", [trait::method("next")]);
+export let Collector = trait::new("Collector", [
+  trait::method("init"),
+  trait::method("reduce"),
+  trait::method("finalize"),
+]);
+
+struct ArrayCollector {}
+export let array_collector = ArrayCollector {};
+
+trait::impl(Collector, ArrayCollector, struct {
+  function init(self) {
+    return _arraylist_impl::new();
+  }
+
+  function reduce(self, list, item) {
+    _arraylist_impl::push(list, item);
+    return list;
+  }
+
+  function finalize(self, list) {
+    return _arraylist_impl::to_array(list);
+  }
+});
+
+trait::impl(Iterable, trait::primitive("array"), struct {
+  function iter(self) {
+    return ArrayIterator {
+      i = 0,
+      len = _array::length(self),
+      array = self,
+    };
+  }
+});
+
+struct ArrayIterator { i, len, array }
+
+trait::impl(Iterable, ArrayIterator, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, ArrayIterator, struct {
+  function next(self) {
+    if (self.i == self.len) {
       return STOP;
     }
 
-    let item = array[i];
-    i += 1;
+    let item = self.array[self.i];
+    self.i += 1;
     return item;
-  };
-}
-
-export let array_collector = collector {
-  init = _arraylist_impl::new,
-  reduce = _arraylist_impl::push,
-  finalize = _arraylist_impl::to_array,
-};
+  }
+});

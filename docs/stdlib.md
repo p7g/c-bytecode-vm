@@ -112,10 +112,6 @@ Find the index of the element for which `predicate` returns true. If there is no
 
 A collector for converting an iterator into an array.
 
-### function `iter(array)`
-
-Create an iterator from array `array`.
-
 ### function `length(array)`
 
 Get the length of array `array`.
@@ -183,10 +179,6 @@ Insert `value` at the front of `list`
 ### function `length(list)`
 
 Get the length of the list.
-
-### function `iter(list)`
-
-Create an iterator over `list`.
 
 ### function `new()`
 
@@ -393,9 +385,9 @@ Create an iterator that counts from 0 to `to`.
 
 Create an iterator that counts up from `n` indefinitely.
 
-### struct `collector`
+### trait `Collector`
 
-An struct defining the required functions to convert an iterator into an arbitrary collection.
+A trait for converting an iterator into an arbitrary collection.
 
 ### object `STOP`
 
@@ -476,10 +468,6 @@ Create an empty arraylist with default initial capacity.
 
 Create an empty arraylist with the given initial capacity.
 
-### function `iter(list)`
-
-Create an iterator over arraylist `list`.
-
 ### function `from_array(len, array)`
 
 Create a new arraylist from `array`. The `len` argument should be the length
@@ -518,10 +506,6 @@ Set the value of `key` in `list` to `value`.
 A collector for converting an iterator of
 entries into an assoclist.
 
-### function `iter(list)`
-
-Create an iterator over the entries of `list`.
-
 ### function `length`
 
 Check the number of items in the list.
@@ -533,10 +517,6 @@ Create an empty assoclist.
 ## bytes module
 
 A compact byte array type.
-
-### function `iter(bytes)`
-
-Create an iterator over `bytes`.
 
 ### object `collector`
 
@@ -711,10 +691,6 @@ Parse `str` as an integer of base `base`. Currently only works for base 10.
 A collector to convert an iterator of characters
 or strings into a string.
 
-### function `iter(str)`
-
-Create an iterator over the characters in `str`.
-
 ### function `from_bytes(bytes)`
 
 Convert a byte array to a string.
@@ -883,10 +859,6 @@ Get an iterator over the keys in `map`.
 ### function `size(map)`
 
 Return the number of values in `map`.
-
-### function `iter(map)`
-
-Get an iterator over the key-value pairs in `map`.
 
 ### function `entries(map)`
 

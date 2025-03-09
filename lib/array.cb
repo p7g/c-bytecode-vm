@@ -14,10 +14,6 @@ doc.add(
 export let length = _array::length;
 doc.add("function", "length(array)", "Get the length of array `array`.");
 
-export let iter = _iter::array_iter;
-
-doc.add("function", "iter(array)", "Create an iterator from array `array`.");
-
 export let collector = _iter::array_collector;
 
 doc.add("object", "collector", "A collector for converting an iterator into an array.");
@@ -58,7 +54,9 @@ export function foreach(self, func) {
   let len = length(self);
 
   for (let i = 0; i < len; i += 1) {
-    func(self[i], i, self);
+    if (func(self[i], i, self) == _iter::STOP) {
+      break;
+    }
   }
 }
 
