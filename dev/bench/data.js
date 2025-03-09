@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741398223595,
+  "lastUpdate": 1741491317432,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -2070,6 +2070,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "spectral_norm",
             "value": 5368,
+            "unit": "ms"
+          },
+          {
+            "name": "binary_trees",
+            "value": 0,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "fb2afed703c29d2ef4a1a0e65975c3eb46283b8e",
+          "message": "add rudimentary trait system to stdlib\n\nIf this works well I'll add it to the language",
+          "timestamp": "2025-03-08T22:30:33-05:00",
+          "tree_id": "2a00647592be4bb9a1166d4ee35fd73d5761ecb4",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/fb2afed703c29d2ef4a1a0e65975c3eb46283b8e"
+        },
+        "date": 1741491316380,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 170719,
+            "unit": "ms"
+          },
+          {
+            "name": "nbody",
+            "value": 2577,
+            "unit": "ms"
+          },
+          {
+            "name": "spectral_norm",
+            "value": 5151,
             "unit": "ms"
           },
           {
