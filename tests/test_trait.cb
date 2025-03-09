@@ -1,0 +1,229 @@
+import trait;
+import structs;
+import arraylist;
+import test;
+
+export function test_cast_creates_traitobject() {
+    let myTrait = trait::new("MyTrait", [trait::method("method1")]);
+
+    struct TestObj {}
+
+    trait::impl(myTrait, TestObj, struct {
+        function method1(self) {
+        }
+    });
+
+    let obj = TestObj {};
+    let traitobject = trait::cast(myTrait, obj);
+    test::assert(trait::downcast(traitobject) == obj, "Should create a traitobject");
+}
+
+export function test_cast_throws_error_if_no_impl() {
+    let myTrait = trait::new("MyTrait", [trait::method("method1")]);
+
+    struct TestObj {}
+
+    let err;
+    try {
+        trait::cast(myTrait, TestObj {});
+    } catch (e) {
+        err = e;
+    }
+
+    test::assert(err == trait::TypeError { message = "TestObj{} does not implement MyTrait" });
+}
+
+export function test_impl_works_with_implemented_objects() {
+    let myTrait = trait::new("MyTrait", [trait::method("method1")]);
+
+    struct ImplStruct {}
+    trait::impl(myTrait, ImplStruct, struct {
+        function method1(self) {
+            return "method1 called";
+        }
+    });
+
+    let traitobject = trait::cast(myTrait, ImplStruct {});
+
+    test::assert(traitobject.method1() == "method1 called", "Should call method on implemented object");
+}
+
+export function test_cast_throws_error_if_missing_method() {
+    let myTrait = trait::new("MyTrait", [trait::method("method1")]);
+
+    # Create an object that doesn't implement method1
+    struct InvalidObj {}
+
+    let err;
+    try {
+        trait::impl(myTrait, InvalidObj, struct {});
+    } catch (e) {
+        err = e;
+    }
+    test::assert(err == trait::TypeError { message = "MyTrait implementation for InvalidObj is missing method method1" });
+
+    err = null;
+    try {
+        trait::cast(myTrait, InvalidObj {});
+    } catch (e) {
+        err = e;
+    }
+
+    test::assert(err == trait::TypeError {
+        message = "InvalidObj{} does not implement MyTrait",
+    }, "Should throw TypeError if method is missing");
+}
+
+export function test_only_valid_traits_can_be_cast_to() {
+    struct TestObj {}
+
+    # Try to cast to a non-trait object
+    let err;
+    try {
+        trait::cast(TestObj {}, TestObj {});
+    } catch (e) {
+        err = e;
+    }
+
+    test::assert(err == trait::TypeError {
+        message = "TestObj{} is not a trait",
+    }, "Should only allow valid traits to be cast to");
+}
+
+export function test_trait_object_call() {
+    let ToString = trait::new("ToString", [trait::method("to_string")]);
+
+    struct MyStruct { n }
+    trait::impl(ToString, MyStruct, struct {
+        function to_string(self) {
+            return string_concat("MY STRUCT ", tostring(self.n));
+        }
+    });
+
+    let obj = trait::cast(ToString, MyStruct { n = 123 });
+    test::assert(obj.to_string() == "MY STRUCT 123");
+}
+
+export function test_fully_qualified_call() {
+    let ToString = trait::new("ToString", [trait::method("to_string")]);
+
+    struct MyStruct { n }
+    trait::impl(ToString, MyStruct, struct {
+        function to_string(self) {
+            return string_concat("MY STRUCT ", tostring(self.n));
+        }
+    });
+
+    let obj = MyStruct { n = 123 };
+    test::assert(ToString.to_string(obj) == "MY STRUCT 123");
+}
+
+export function test_multiple_methods() {
+    let Cube = trait::new("Cube", [
+        trait::method("area"),
+        trait::method("volume"),
+    ]);
+
+    struct Point3D { x, y, z }
+    trait::impl(Cube, Point3D, struct {
+        function area(self) {
+            return self.x * self.y;
+        }
+
+        function volume(self) {
+            return Cube.area(self) * self.z;
+        }
+    });
+
+    let p = Point3D { x = 10, y = 10, z = 10 };
+    test::assert(Cube.volume(p) == 1000);
+}
+
+export function test_arguments_traitobject() {
+    let Unary = trait::new("Unary", [trait::method("call")]);
+
+    struct Partial { func, arg }
+    trait::impl(Unary, Partial, struct {
+        function call(self, arg) {
+            return self.func(self.arg, arg);
+        }
+    });
+
+    let add1 = Partial {
+        func = function(a, b) {
+            return a + b;
+        },
+        arg = 1,
+    };
+    test::assert(trait::cast(Unary, add1).call(2) == 3);
+}
+
+export function test_arguments_fully_qualified() {
+    let Unary = trait::new("Unary", [trait::method("call")]);
+
+    struct Partial { func, arg }
+    trait::impl(Unary, Partial, struct {
+        function call(self, arg) {
+            return self.func(self.arg, arg);
+        }
+    });
+
+    let add1 = Partial {
+        func = function(a, b) {
+            return a + b;
+        },
+        arg = 1,
+    };
+
+    test::assert(Unary.call(add1, 2) == 3);
+}
+
+export function test_multiple_impls_one_struct() {
+    let T1 = trait::new("T1", [trait::method("t1")]);
+    let T2 = trait::new("T2", [trait::method("t2")]);
+
+    struct Test { x }
+    trait::impl(T1, Test, struct {
+        function t1(self) {
+            return self.x + 1;
+        }
+    });
+    trait::impl(T2, Test, struct {
+        function t2(self) {
+            return self.x + 2;
+        }
+    });
+
+    let obj = Test { x = 3 };
+    test::assert(T1.t1(obj) == 4);
+    test::assert(T2.t2(obj) == 5);
+    test::assert(trait::cast(T1, obj).t1() == 4);
+    test::assert(trait::cast(T2, obj).t2() == 5);
+}
+
+export function test_multiple_structs_impl_one_trait() {
+    let T = trait::new("T", [trait::method("t")]);
+
+    struct S1 { x }
+    struct S2 { y }
+
+    trait::impl(T, S1, struct {
+        function t(self) {
+            return self.x * self.x;
+        }
+    });
+
+    trait::impl(T, S2, struct {
+        function t(self) {
+            return self.y + self.y;
+        }
+    });
+
+    let s1 = S1 { x = 10 };
+    let s2 = S2 { y = 10 };
+
+    test::assert(T.t(s1) == 100);
+    test::assert(T.t(s2) == 20);
+    test::assert(trait::cast(T, s1).t() == 100);
+    test::assert(trait::cast(T, s2).t() == 20);
+}
