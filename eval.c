@@ -169,9 +169,11 @@ static CB_INLINE int do_call(unsigned short num_args, struct cb_frame *frame,
 	}
 	size_t old_sp = *sp - *stack;
 	if (func->type == CB_FUNCTION_NATIVE) {
+		struct cb_value result;
 		size_t dest = *sp - *stack - num_args - 1;
 		failed = func->value.as_native(num_args, *sp - num_args,
-				&cb_vm_state.stack[dest]);
+				&result);
+		cb_vm_state.stack[dest] = result;
 	} else {
 		struct cb_code *code = func->value.as_user.code;
 
