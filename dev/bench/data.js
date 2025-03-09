@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741491317432,
+  "lastUpdate": 1741491616808,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -2114,6 +2114,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "spectral_norm",
             "value": 5151,
+            "unit": "ms"
+          },
+          {
+            "name": "binary_trees",
+            "value": 0,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "f3a83be20b1f35f46f04121d69fc878ce90f1c4c",
+          "message": "change back to storing native func result in local\n\nThe stack might be reallocated during the native call (in particular if\nit calls non-native functions) so it's not safe to pass it a reference\nto the current stack.",
+          "timestamp": "2025-03-08T22:34:25-05:00",
+          "tree_id": "81a344341312261c9fa7fec12b435aa35c8f1168",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/f3a83be20b1f35f46f04121d69fc878ce90f1c4c"
+        },
+        "date": 1741491616209,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 171715,
+            "unit": "ms"
+          },
+          {
+            "name": "nbody",
+            "value": 2577,
+            "unit": "ms"
+          },
+          {
+            "name": "spectral_norm",
+            "value": 5256,
             "unit": "ms"
           },
           {
