@@ -475,6 +475,14 @@ static int apply(size_t argc, struct cb_value *argv, struct cb_value *result)
 	CB_EXPECT_TYPE(CB_VALUE_ARRAY, argv[1]);
 
 	arr = argv[1].val.as_array;
+	if (arr->len < argv[0].val.as_function->arity) {
+		cb_str s = cb_agent_get_string(argv[0].val.as_function->name);
+		struct cb_value err;
+		cb_value_from_fmt(&err, "Too few arguments to function '%s'",
+				cb_strptr(&s));
+		cb_error_set(err);
+		return 1;
+	}
 
 	return cb_value_call(argv[0], arr->values, arr->len, result);
 }
