@@ -227,3 +227,26 @@ export function test_multiple_structs_impl_one_trait() {
     test::assert(trait::cast(T, s1).t() == 100);
     test::assert(trait::cast(T, s2).t() == 20);
 }
+
+export function test_impling_trait_twice() {
+    let T = trait::new("T", [trait::method("t")]);
+
+    struct S {}
+
+    trait::impl(T, S, struct {
+        function t(self) {}
+    });
+
+    let err;
+    try {
+        trait::impl(T, S, struct {
+            function t(self) {}
+        });
+    } catch (e) {
+        err = e;
+    }
+
+    test::assert(err == trait::TypeError {
+        message = "T is already implemented for S",
+    }, err);
+}

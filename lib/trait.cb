@@ -73,6 +73,12 @@ export function cast(trait, obj) {
 export function impl(trait, for_, impl_struct) {
   if (typeof(for_) != "struct spec") {
     throw TypeError { message = "Can only implement traits for structs" };
+  } else if (get_impl(trait, for_)) {
+    throw TypeError {
+      message = string_concat(
+        trait_name(trait), " is already implemented for ", structs::name(for_)
+      ),
+    };
   }
 
   let fields = concat(["_structty"], map(trait._methods, function (method) {
@@ -136,7 +142,12 @@ function trait_name(trait) {
 }
 
 function get_impl(trait, obj) {
-  let spec = structs::spec(obj);
+  let spec;
+  if (typeof(obj) == "struct") {
+    spec = structs::spec(obj);
+  } else {
+    spec = obj;
+  }
 
   for (let i = 0; i < _arraylist_impl::length(trait._impls); i++) {
     let impl = _arraylist_impl::get(trait._impls, i);
