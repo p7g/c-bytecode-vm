@@ -51,7 +51,8 @@
 	X("read_file_bytes", read_file_bytes, 1) \
 	X("toint", toint, 1) \
 	X("__gc_collect", __gc_collect, 0) \
-	X("__dis", __dis, 1)
+	X("__dis", __dis, 1) \
+	X("arguments", arguments, 0)
 
 INTRINSIC_LIST(DECL);
 
@@ -539,4 +540,21 @@ static int __dis(size_t argc, struct cb_value *argv, struct cb_value *result)
 
 	result->type = CB_VALUE_NULL;
 	return cb_disassemble_recursive(func->code);
+}
+
+static int arguments(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	struct cb_frame *frame = cb_vm_state.frame;
+	assert(frame);
+
+	struct cb_array *args = cb_array_new(frame->num_args);
+	for (unsigned i = 0; i < frame->num_args; i++) {
+		args->values[i] = cb_vm_state.stack[frame->bp + i + 1];
+	}
+
+	result->type = CB_VALUE_ARRAY;
+	result->val.as_array = args;
+
+	return 0;
 }
