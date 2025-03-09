@@ -2059,7 +2059,8 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 				ERROR_AT(NEXT(), "Too many methods");
 				return -1;
 			}
-			X(compile_function(state, &fields[num_fields + num_methods++], 1));
+			if (compile_function(state, &fields[num_fields + num_methods++], 1))
+				return -1;
 		} else if (in_methods) {
 			ERROR_AT(NEXT(), "All fields must come before methods");
 			return -1;
