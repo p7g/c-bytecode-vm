@@ -23,23 +23,27 @@ void cb_structs_build_spec(cb_modspec *spec)
 	CB_DEFINE_EXPORT(spec, "set", ident_set);
 }
 
+/* TODO: support methods */
 static int make_struct_spec(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	cb_str name;
+	struct cb_array *fields;
 	size_t i;
 
 	name = CB_EXPECT_STRING(argv[0]);
+	CB_EXPECT_TYPE(CB_VALUE_ARRAY, argv[1]);
+	fields = argv[1].val.as_array;
 
 	result->type = CB_VALUE_STRUCT_SPEC;
 	result->val.as_struct_spec = cb_struct_spec_new(
 			cb_agent_intern_string(cb_strptr(&name),
 				cb_strlen(name)),
-			argc - 1, 0);
+			fields->len, 0);
 
-	for (i = 1; i < argc; i += 1) {
-		name = CB_EXPECT_STRING(argv[i]);
-		cb_struct_spec_set_field_name(result->val.as_struct_spec, i - 1,
+	for (i = 0; i < fields->len; i += 1) {
+		name = CB_EXPECT_STRING(fields->values[i]);
+		cb_struct_spec_set_field_name(result->val.as_struct_spec, i,
 				cb_agent_intern_string(cb_strptr(&name),
 					cb_strlen(name)));
 	}
@@ -143,7 +147,7 @@ static int set_struct_field(size_t argc, struct cb_value *argv,
 
 void cb_structs_instantiate(struct cb_module *mod)
 {
-	CB_SET_EXPORT(mod, ident_new, cb_cfunc_new(ident_new, 1, make_struct_spec));
+	CB_SET_EXPORT(mod, ident_new, cb_cfunc_new(ident_new, 2, make_struct_spec));
 	CB_SET_EXPORT(mod, ident_fields,
 			cb_cfunc_new(ident_fields, 1, get_spec_fields));
 	CB_SET_EXPORT(mod, ident_spec,
