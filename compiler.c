@@ -2041,8 +2041,11 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 		if (first_field) {
 			first_field = 0;
 		} else {
-			if (!in_methods)
+			if (!in_methods) {
 				EXPECT(TOK_COMMA);
+			} else if (MATCH_P(TOK_COMMA)) {
+				ERROR_AT(NEXT(), "Methods should not be separated by commas");
+			}
 			/* support trailing comma */
 			if (MATCH_P(TOK_RIGHT_BRACE))
 				break;
