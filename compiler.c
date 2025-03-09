@@ -2092,8 +2092,8 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 		APPEND1(OP_LOAD_CONST, const_id);
 
 	if (in_methods) {
-		for (unsigned i = num_fields + num_methods - 1;
-				i >= methods_start; i--)
+		for (int i = num_fields + num_methods - 1;
+				i >= (ssize_t) methods_start; i--)
 			APPEND2(OP_SET_METHOD, i - methods_start, fields[i]);
 	}
 
