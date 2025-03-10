@@ -2,6 +2,7 @@
 
 Index:
 - [docs](#docs-module)
+- [trait](#trait-module)
 - [array](#array-module)
 - [list](#list-module)
 - [math](#math-module)
@@ -52,6 +53,89 @@ The interface for a documentation generator.
 ### function `module`
 
 Create an object to document members of a module.
+
+## trait module
+
+
+A trait is a reusable set of methods that can be used to extend the behavior of
+a type. It's an interface that defines a contract that must be implemented by
+any type that wishes to support the trait. Any objects that implement the trait
+can be converted to a _trait object_, which can be used to call the methods
+defined by the trait.
+
+For example, you can define a `Printable` trait with a method `print()`:
+```c++
+let Printable = trait::new("Printable", [trait::method("print")]);
+
+trait::impl(Printable, MyType, struct {
+  function print(self) {
+    println("MyType ", self.value);
+  }
+});
+
+# Both equivalent:
+Printable.print(MyType { value = 42 });
+trait::cast(Printable, MyType { value = 42 }).print();
+```
+
+
+### function `implements(obj, trait)`
+
+Check if an object implements a trait.
+
+If `obj` is a trait object, `implements` will return true if its trait is
+`trait`. Otherwise return true if `obj` implements the trait and could be cast
+to a trait object for `trait`.
+
+### function `downcast(traitobject)`
+
+Retrieve the underlying object from a trait object.
+
+### function `impl(trait, type, implementation)`
+
+Implement a trait for some type.
+
+The `implementation` should be a struct containing methods for each method
+defined in the trait. For example:
+
+```c++
+trait::impl(ToString, MyType, struct {
+  function to_string(self) {
+    # ...
+  }
+});
+```
+
+### function `primitive(typename)`
+
+Used to specify a primitive type like `"string"` as the implementor of a trait. Example:
+
+```c++
+trait::impl(ToString, trait::primitive("string"), struct {
+  function to_string(self) {
+    return self;
+  }
+});
+```
+
+
+### function `cast(trait, obj)`
+
+Create a trait object for the given trait and object.
+
+`obj` must be an object that implements the trait. Any trait methods can be
+called directly on the trait object.
+
+### function `new(name, methods)`
+
+Create a new trait with the given name and methods.
+
+Any implementors must define all methods, though the signature of the methods is
+not checked.
+
+### function `method(name)`
+
+Create a trait method declaration for use with `trait::new()`
 
 ## array module
 

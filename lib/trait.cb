@@ -1,6 +1,30 @@
 import _arraylist_impl;
 import _array;
+import docs;
 import structs;
+
+let docs = docs::module("trait", "
+A trait is a reusable set of methods that can be used to extend the behavior of
+a type. It's an interface that defines a contract that must be implemented by
+any type that wishes to support the trait. Any objects that implement the trait
+can be converted to a _trait object_, which can be used to call the methods
+defined by the trait.
+
+For example, you can define a `Printable` trait with a method `print()`:
+```c++
+let Printable = trait::new(\"Printable\", [trait::method(\"print\")]);
+
+trait::impl(Printable, MyType, struct {
+  function print(self) {
+    println(\"MyType \", self.value);
+  }
+});
+
+# Both equivalent:
+Printable.print(MyType { value = 42 });
+trait::cast(Printable, MyType { value = 42 }).print();
+```
+");
 
 export struct TypeError { message }
 
@@ -10,6 +34,8 @@ struct Primitive { type }
 export function method(name) {
   return Method { name = name };
 }
+
+docs.add("function", "method(name)", "Create a trait method declaration for use with `trait::new()`");
 
 function concat(a1, a2) {
   let a1len = _array::length(a1),
@@ -73,6 +99,14 @@ export function new(name, methods) {
   return trait;
 }
 
+docs.add(
+  "function",
+  "new(name, methods)",
+  "Create a new trait with the given name and methods.
+
+Any implementors must define all methods, though the signature of the methods is
+not checked.");
+
 export function cast(trait, obj) {
   if (!is_trait(trait)) {
     throw TypeError {
@@ -83,9 +117,31 @@ export function cast(trait, obj) {
   return instantiate_traitobject(trait, obj);
 }
 
+docs.add(
+  "function",
+  "cast(trait, obj)",
+  "Create a trait object for the given trait and object.
+
+`obj` must be an object that implements the trait. Any trait methods can be
+called directly on the trait object.");
+
 export function primitive(ty) {
   return Primitive { type = ty };
 }
+
+docs.add(
+  "function",
+  "primitive(typename)",
+  "Used to specify a primitive type like `\"string\"` as the implementor of a trait. Example:
+
+```c++
+trait::impl(ToString, trait::primitive(\"string\"), struct {
+  function to_string(self) {
+    return self;
+  }
+});
+```
+");
 
 export function impl(trait, for_, impl_struct) {
   let for_type = get_type(for_);
@@ -126,6 +182,22 @@ export function impl(trait, for_, impl_struct) {
   _arraylist_impl::push(trait._impls, impl);
 }
 
+docs.add(
+  "function",
+  "impl(trait, type, implementation)",
+  "Implement a trait for some type.
+
+The `implementation` should be a struct containing methods for each method
+defined in the trait. For example:
+
+```c++
+trait::impl(ToString, MyType, struct {
+  function to_string(self) {
+    # ...
+  }
+});
+```");
+
 export function downcast(traitobject) {
   try {
     return traitobject._obj;
@@ -135,6 +207,8 @@ export function downcast(traitobject) {
     };
   }
 }
+
+docs.add("function", "downcast(traitobject)", "Retrieve the underlying object from a trait object.");
 
 export function implements(obj, trait) {
   if (!is_trait(trait)) {
@@ -148,6 +222,15 @@ export function implements(obj, trait) {
     return get_impl(trait, get_type(obj)) != null;
   }
 }
+
+docs.add(
+  "function",
+  "implements(obj, trait)",
+  "Check if an object implements a trait.
+
+If `obj` is a trait object, `implements` will return true if its trait is
+`trait`. Otherwise return true if `obj` implements the trait and could be cast
+to a trait object for `trait`.");
 
 function is_trait(trait) {
   try {
