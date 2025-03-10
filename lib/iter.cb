@@ -16,8 +16,50 @@ export let Collector = _iter::Collector;
 
 doc.add(
   "trait",
+  "Iterable",
+  "A trait for objects that can be iterated over.",
+);
+
+doc.add(
+  "method",
+  "iter()",
+  "Returns an iterator for the object.",
+);
+
+doc.add(
+  "trait",
+  "Iterator",
+  "A trait for objects that can produce a sequence of values.",
+);
+
+doc.add(
+  "method",
+  "next()",
+  "Returns the next value in the sequence, or STOP if there are no more values.",
+);
+
+doc.add(
+  "trait",
   "Collector",
   "A trait for converting an iterator into an arbitrary collection.",
+);
+
+doc.add(
+  "method",
+  "init()",
+  "Initializes the collection for reduction.",
+);
+
+doc.add(
+  "method",
+  "reduce()",
+  "Reduces the iterator into the collection by adding an item.",
+);
+
+doc.add(
+  "method",
+  "finalize()",
+  "Finalizes the collection by returning the reduced result.",
 );
 
 export let next = Iterator.next;

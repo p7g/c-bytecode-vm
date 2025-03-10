@@ -385,9 +385,37 @@ Create an iterator that counts from 0 to `to`.
 
 Create an iterator that counts up from `n` indefinitely.
 
+### method `finalize()`
+
+Finalizes the collection by returning the reduced result.
+
+### method `reduce()`
+
+Reduces the iterator into the collection by adding an item.
+
+### method `init()`
+
+Initializes the collection for reduction.
+
 ### trait `Collector`
 
 A trait for converting an iterator into an arbitrary collection.
+
+### method `next()`
+
+Returns the next value in the sequence, or STOP if there are no more values.
+
+### trait `Iterator`
+
+A trait for objects that can produce a sequence of values.
+
+### method `iter()`
+
+Returns an iterator for the object.
+
+### trait `Iterable`
+
+A trait for objects that can be iterated over.
 
 ### object `STOP`
 
