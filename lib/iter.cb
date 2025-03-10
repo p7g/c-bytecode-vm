@@ -288,7 +288,7 @@ trait::impl(Iterator, Flat, struct {
     }
 
     self.current = next(self.it);
-    if (self.current = STOP) {
+    if (self.current == STOP) {
       return STOP;
     }
     return next(self);
@@ -426,17 +426,17 @@ export struct Peekable {
   peeked,
 
   function peek(n = 1) {
-    if (list::length(this.peeked) >= i) {
-      return list::get(peeked, i);
+    if (list::length(this.peeked) >= n) {
+      return list::get(this.peeked, n - 1);
     }
 
     let el;
     for (let i = 0; i < n; i += 1) {
       el = next(this._it);
       if (el == STOP) {
-        break;
+        return null;
       }
-      list::append(peeked, el);
+      list::append(this.peeked, el);
     }
 
     return el;

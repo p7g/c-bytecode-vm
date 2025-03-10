@@ -65,3 +65,20 @@ export function test_string_collector() {
     test::assert(iter::collect(str, string::collector) == str);
     test::assert(iter::collect(iter::range(10), string::collector) == "0123456789");
 }
+
+export function test_peekable() {
+    let it = iter::peekable(iter::range(4));
+
+    test::assert(it.peek(2) == 1, "Expected peek to be 1");
+    test::assert(iter::next(it) == 0, "Expected next to be 0");
+
+    test::assert(it.peek() == 1, "Expected peek to be 1");
+    test::assert(iter::next(it) == 1, "Expected next to be 1");
+
+    test::assert(it.peek() == 2, "Expected peek to be null");
+    test::assert(iter::next(it) == 2, "Expected next to be 2");
+
+    test::assert(iter::next(it) == 3, "Expected next to be null");
+    println("PEEK", it.peek());
+    test::assert(it.peek() == null, "Expected peek to be null");
+}
