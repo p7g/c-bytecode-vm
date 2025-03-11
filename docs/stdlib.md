@@ -2,6 +2,7 @@
 
 Index:
 - [docs](#docs-module)
+- [trait](#trait-module)
 - [array](#array-module)
 - [list](#list-module)
 - [math](#math-module)
@@ -52,6 +53,89 @@ The interface for a documentation generator.
 ### function `module`
 
 Create an object to document members of a module.
+
+## trait module
+
+
+A trait is a reusable set of methods that can be used to extend the behavior of
+a type. It's an interface that defines a contract that must be implemented by
+any type that wishes to support the trait. Any objects that implement the trait
+can be converted to a _trait object_, which can be used to call the methods
+defined by the trait.
+
+For example, you can define a `Printable` trait with a method `print()`:
+```c++
+let Printable = trait::new("Printable", [trait::method("print")]);
+
+trait::impl(Printable, MyType, struct {
+  function print(self) {
+    println("MyType ", self.value);
+  }
+});
+
+# Both equivalent:
+Printable.print(MyType { value = 42 });
+trait::cast(Printable, MyType { value = 42 }).print();
+```
+
+
+### function `implements(obj, trait)`
+
+Check if an object implements a trait.
+
+If `obj` is a trait object, `implements` will return true if its trait is
+`trait`. Otherwise return true if `obj` implements the trait and could be cast
+to a trait object for `trait`.
+
+### function `downcast(traitobject)`
+
+Retrieve the underlying object from a trait object.
+
+### function `impl(trait, type, implementation)`
+
+Implement a trait for some type.
+
+The `implementation` should be a struct containing methods for each method
+defined in the trait. For example:
+
+```c++
+trait::impl(ToString, MyType, struct {
+  function to_string(self) {
+    # ...
+  }
+});
+```
+
+### function `primitive(typename)`
+
+Used to specify a primitive type like `"string"` as the implementor of a trait. Example:
+
+```c++
+trait::impl(ToString, trait::primitive("string"), struct {
+  function to_string(self) {
+    return self;
+  }
+});
+```
+
+
+### function `cast(trait, obj)`
+
+Create a trait object for the given trait and object.
+
+`obj` must be an object that implements the trait. Any trait methods can be
+called directly on the trait object.
+
+### function `new(name, methods)`
+
+Create a new trait with the given name and methods.
+
+Any implementors must define all methods, though the signature of the methods is
+not checked.
+
+### function `method(name)`
+
+Create a trait method declaration for use with `trait::new()`
 
 ## array module
 
@@ -111,10 +195,6 @@ Find the index of the element for which `predicate` returns true. If there is no
 ### object `collector`
 
 A collector for converting an iterator into an array.
-
-### function `iter(array)`
-
-Create an iterator from array `array`.
 
 ### function `length(array)`
 
@@ -183,10 +263,6 @@ Insert `value` at the front of `list`
 ### function `length(list)`
 
 Get the length of the list.
-
-### function `iter(list)`
-
-Create an iterator over `list`.
 
 ### function `new()`
 
@@ -393,9 +469,37 @@ Create an iterator that counts from 0 to `to`.
 
 Create an iterator that counts up from `n` indefinitely.
 
-### struct `collector`
+### method `finalize()`
 
-An struct defining the required functions to convert an iterator into an arbitrary collection.
+Finalizes the collection by returning the reduced result.
+
+### method `reduce()`
+
+Reduces the iterator into the collection by adding an item.
+
+### method `init()`
+
+Initializes the collection for reduction.
+
+### trait `Collector`
+
+A trait for converting an iterator into an arbitrary collection.
+
+### method `next()`
+
+Returns the next value in the sequence, or STOP if there are no more values.
+
+### trait `Iterator`
+
+A trait for objects that can produce a sequence of values.
+
+### method `iter()`
+
+Returns an iterator for the object.
+
+### trait `Iterable`
+
+A trait for objects that can be iterated over.
 
 ### object `STOP`
 
@@ -476,10 +580,6 @@ Create an empty arraylist with default initial capacity.
 
 Create an empty arraylist with the given initial capacity.
 
-### function `iter(list)`
-
-Create an iterator over arraylist `list`.
-
 ### function `from_array(len, array)`
 
 Create a new arraylist from `array`. The `len` argument should be the length
@@ -518,10 +618,6 @@ Set the value of `key` in `list` to `value`.
 A collector for converting an iterator of
 entries into an assoclist.
 
-### function `iter(list)`
-
-Create an iterator over the entries of `list`.
-
 ### function `length`
 
 Check the number of items in the list.
@@ -533,10 +629,6 @@ Create an empty assoclist.
 ## bytes module
 
 A compact byte array type.
-
-### function `iter(bytes)`
-
-Create an iterator over `bytes`.
 
 ### object `collector`
 
@@ -711,10 +803,6 @@ Parse `str` as an integer of base `base`. Currently only works for base 10.
 A collector to convert an iterator of characters
 or strings into a string.
 
-### function `iter(str)`
-
-Create an iterator over the characters in `str`.
-
 ### function `from_bytes(bytes)`
 
 Convert a byte array to a string.
@@ -883,10 +971,6 @@ Get an iterator over the keys in `map`.
 ### function `size(map)`
 
 Return the number of values in `map`.
-
-### function `iter(map)`
-
-Get an iterator over the key-value pairs in `map`.
 
 ### function `entries(map)`
 

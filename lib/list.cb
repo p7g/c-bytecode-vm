@@ -1,6 +1,7 @@
+import _iter;
 import array;
 import docs;
-import _iter;
+import trait;
 
 let doc = docs::module("list", "A doubly-linked list implementation.");
 
@@ -22,19 +23,30 @@ export function new() {
 
 doc.add("function", "new()", "Create a new, empty linked list.");
 
-export function iter(self) {
-  let current = self.first;
-  return function list_iterator() {
-    if (current == null) {
+trait::impl(_iter::Iterable, List, struct {
+  function iter(self) {
+    return ListIterator { current = self.first };
+  }
+});
+
+struct ListIterator { current }
+
+trait::impl(_iter::Iterable, ListIterator, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(_iter::Iterator, ListIterator, struct {
+  function next(self) {
+    if (self.current == null) {
       return _iter::STOP;
     }
-    let node = current;
-    current = node.next;
+    let node = self.current;
+    self.current = node.next;
     return node.value;
-  };
-}
-
-doc.add("function", "iter(list)", "Create an iterator over `list`.");
+  }
+});
 
 export function length(self) {
   return self.length;
@@ -126,7 +138,7 @@ export function get(list, i) {
     current = current.next;
     i -= 1;
   }
-  return current;
+  return current.value;
 }
 
 doc.add(
@@ -140,7 +152,9 @@ Note that this function is `O(n)`.",
 export function foreach(self, func) {
   let current = self.first;
   for (let i = 0; current; i += 1) {
-    func(current.value, i, self);
+    if (func(current.value, i, self) == _iter::STOP) {
+      break;
+    }
     current = current.next;
   }
 }
@@ -177,14 +191,24 @@ export function reverse(self) {
 
 doc.add("function", "reverse(list)", "Make a new linked list that is the reverse of `list`.");
 
-export let collector = _iter::collector {
-  init = new,
-  reduce = function (list, value) {
+struct ListCollector {}
+
+export let collector = ListCollector {};
+
+trait::impl(_iter::Collector, ListCollector, struct {
+  function init(self) {
+    return new();
+  }
+
+  function reduce(self, list, value) {
     append(list, value);
     return list;
-  },
-  finalize = function (list) { return list; },
-};
+  }
+
+  function finalize(self, list) {
+    return list;
+  }
+});
 
 doc.add("object", "collector", "A collector to convert an iterator into a list.");
 

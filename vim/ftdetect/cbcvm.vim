@@ -1,1 +1,1 @@
-autocmd BufRead,BufNewFile *.rbcvm set filetype=cbcvm
+autocmd BufRead,BufNewFile *.cb set filetype=cbcvm

@@ -1,4 +1,5 @@
 import _array;
+import _iter_stop;
 
 export struct ArrayList {
   length,
@@ -87,6 +88,8 @@ export function foreach(self, func) {
   let array = self.array;
 
   for (let i = 0; i < len; i += 1) {
-    func(array[i], i, self);
+    if (func(array[i], i, self) == _iter_stop::STOP) {
+      break;
+    }
   }
 }

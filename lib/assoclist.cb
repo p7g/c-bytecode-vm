@@ -1,6 +1,7 @@
 import arraylist;
 import docs;
 import iter;
+import trait;
 
 let doc = docs::module(
   "assoclist",
@@ -19,18 +20,23 @@ function get_entry(self, key) {
   });
 }
 
-export let iter = arraylist::iter;
+struct AssocListCollector {}
+export let collector = AssocListCollector {};
 
-doc.add("function", "iter(list)", "Create an iterator over the entries of `list`.");
+trait::impl(iter::Collector, AssocListCollector, struct {
+  function init(self) {
+    return new();
+  }
 
-export let collector = iter::collector {
-  init = new,
-  reduce = function (list, [key, value]) {
+  function reduce(self, list, [key, value]) {
     set(list, key, value);
     return list;
-  },
-  finalize = function (list) { return list; },
-};
+  }
+
+  function finalize(self, list) {
+    return list;
+  }
+});
 
 doc.add("object", "collector", "A collector for converting an iterator of
 entries into an assoclist.");

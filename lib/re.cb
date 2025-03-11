@@ -12,9 +12,9 @@ let doc = docs::module("re", "Primitive regular expressions.");
 
 function insert_explicit_concat_operator(exp) {
     let output = arraylist::new();
-    let tokens = iter::peekable(string::iter(exp));
+    let tokens = iter::peekable(exp);
 
-    iter::foreach(tokens.iter, function (token) {
+    iter::foreach(tokens, function (token) {
         arraylist::push(output, token);
 
         if (token == '(' || token == '|') {
@@ -54,7 +54,7 @@ function to_postfix(exp) {
     let output = arraylist::new();
     let operator_stack = arraylist::new();
 
-    array::foreach(string::chars(exp), function (token) {
+    iter::foreach(exp, function (token) {
         if (string::contains(".|*?+", token)) {
             while (arraylist::length(operator_stack)
                     && peek(operator_stack) != '('
@@ -193,7 +193,7 @@ function to_nfa(postfix_exp) {
     let stack = arraylist::new();
     let len = string::length(postfix_exp);
 
-    iter::foreach(string::iter(postfix_exp), function (token) {
+    iter::foreach(postfix_exp, function (token) {
         if (token == '*') {
             arraylist::push(stack, closure(arraylist::pop(stack)));
         } else if (token == '|') {

@@ -29,10 +29,10 @@ struct Response {
     _io,
 }
 
-function parse_headers(next_line) {
+function parse_headers(lines) {
     let headers = hashmap::new();
     let line;
-    while ((line = next_line())) {
+    while ((line = iter::next(lines)) && line != iter::STOP) {
         let kv = string::split(line, ':', 1);
         if (array::length(kv) != 2) {
             throw ParseError { message = "Invalid header" };
@@ -41,7 +41,7 @@ function parse_headers(next_line) {
         name = string::strip(name);
         value = string::strip(value);
         let name_lower = string::to_lowercase(name);
-       hashmap::set(headers, name_lower, Header {
+        hashmap::set(headers, name_lower, Header {
             name = name,
             value = value,
         });
@@ -50,15 +50,15 @@ function parse_headers(next_line) {
 }
 
 export function recv_request(reader) {
-    let next_line = iter::map(io::lines(reader, EOL), string::from_bytes);
+    let lines = iter::map(io::lines(reader, EOL), string::from_bytes);
 
-    let start_line_parts = string::split(next_line(), ' ', 2);
+    let start_line_parts = string::split(iter::next(lines), ' ', 2);
     if (array::length(start_line_parts) != 3) {
         throw ParseError { message = "Invalid start line" };
     }
     let [method, path, http_version] = start_line_parts;
     # TODO: validate method and http_version
-    let headers = parse_headers(next_line);
+    let headers = parse_headers(lines);
 
     return Request {
         method = method,
@@ -73,15 +73,15 @@ export function recv_request(reader) {
 }
 
 export function recv_response(reader) {
-    let next_line = iter::map(io::lines(reader, EOL), string::from_bytes);
+    let lines = iter::map(io::lines(reader, EOL), string::from_bytes);
 
-    let start_line_parts = string::split(next_line(), ' ', 2);
+    let start_line_parts = string::split(iter::next(lines), ' ', 2);
     if (array::length(start_line_parts) != 3) {
         throw ParseError { message = "Invalid start line" };
     }
     let [http_version, status_code, message] = start_line_parts;
     # TODO: validate status_code and http_version
-    let headers = parse_headers(next_line);
+    let headers = parse_headers(lines);
 
     return Response {
         status_code = string::parse_integer(status_code),

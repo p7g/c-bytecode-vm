@@ -2,6 +2,7 @@ import _array;
 import _arraylist_impl;
 import docs;
 import iter;
+import trait;
 
 let doc = docs::module("arraylist", "A growable array.");
 
@@ -16,20 +17,30 @@ doc.add(
 of `array`.",
 );
 
-export function iter(self) {
-  let i = 0;
+trait::impl(iter::Iterable, ArrayList, struct {
+  function iter(self) {
+    return ArrayListIterator { list = self, i = 0 };
+  }
+});
 
-  return function arraylist_iterator() {
-    if (i >= self.length) {
+struct ArrayListIterator { list, i }
+
+trait::impl(iter::Iterable, ArrayListIterator, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(iter::Iterator, ArrayListIterator, struct {
+  function next(self) {
+    if (self.i >= self.list.length) {
       return iter::STOP;
     }
-    let val = get(self, i);
-    i += 1;
+    let val = get(self.list, self.i);
+    self.i += 1;
     return val;
-  };
-}
-
-doc.add("function", "iter(list)", "Create an iterator over arraylist `list`.");
+  }
+});
 
 export let with_capacity = _arraylist_impl::with_capacity;
 
@@ -84,11 +95,23 @@ doc.add(
   "Push `value` on to the end of `list`, growing it if necessary.",
 );
 
-export let collector = iter::collector {
-  init = new,
-  reduce = push,
-  finalize = function (list) { return list; },
-};
+struct ArrayListCollector {}
+export let collector = ArrayListCollector {};
+
+trait::impl(iter::Collector, ArrayListCollector, struct {
+  function init(self) {
+    return new();
+  }
+
+  function reduce(self, list, value) {
+    push(list, value);
+    return list;
+  }
+
+  function finalize(self, list) {
+    return list;
+  }
+});
 
 doc.add("object", "collector", "A collector for converting an iterator into an arraylist.");
 

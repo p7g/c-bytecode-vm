@@ -1,0 +1,558 @@
+import _iter;
+import docs;
+import list;
+import math;
+import op;
+import trait;
+
+let doc = docs::module("iter", "Lazy iterators.");
+
+export let STOP = _iter::STOP;
+doc.add("object", "STOP", "A sentinel value indicating that an iterator has been exhausted.");
+
+export let Iterable = _iter::Iterable;
+export let Iterator = _iter::Iterator;
+export let Collector = _iter::Collector;
+
+doc.add(
+  "trait",
+  "Iterable",
+  "A trait for objects that can be iterated over.",
+);
+
+doc.add(
+  "method",
+  "iter()",
+  "Returns an iterator for the object.",
+);
+
+doc.add(
+  "trait",
+  "Iterator",
+  "A trait for objects that can produce a sequence of values.",
+);
+
+doc.add(
+  "method",
+  "next()",
+  "Returns the next value in the sequence, or STOP if there are no more values.",
+);
+
+doc.add(
+  "trait",
+  "Collector",
+  "A trait for converting an iterator into an arbitrary collection.",
+);
+
+doc.add(
+  "method",
+  "init()",
+  "Initializes the collection for reduction.",
+);
+
+doc.add(
+  "method",
+  "reduce()",
+  "Reduces the iterator into the collection by adding an item.",
+);
+
+doc.add(
+  "method",
+  "finalize()",
+  "Finalizes the collection by returning the reduced result.",
+);
+
+export let next = Iterator.next;
+export let iter = Iterable.iter;
+
+struct Count { i }
+
+trait::impl(Iterable, Count, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, Count, struct {
+  function next(self) {
+    let val = self.i;
+    self.i += 1;
+    return val;
+  }
+});
+
+export function count(n) {
+  return Count { i = n };
+}
+
+doc.add("function", "count(n)", "Create an iterator that counts up from `n` indefinitely.");
+
+struct Range { i, to }
+
+trait::impl(Iterable, Range, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, Range, struct {
+  function next(self) {
+    if (self.i >= self.to) {
+      return STOP;
+    }
+    let val = self.i;
+    self.i += 1;
+    return val;
+  }
+});
+
+export function range(to) {
+  return Range { i = 0, to = to };
+}
+
+doc.add("function", "range(to)", "Create an iterator that counts from 0 to `to`.");
+
+struct Enumerate { i, it }
+
+trait::impl(Iterable, Enumerate, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, Enumerate, struct {
+  function next(self) {
+    let next_item = next(self.it);
+    if (next_item == STOP) {
+      return STOP;
+    }
+    let result = [self.i, next_item];
+    self.i += 1;
+    return result;
+  }
+});
+
+export function enumerate(it, start=0) {
+  return Enumerate { i = start, it = iter(it) };
+}
+
+doc.add("function", "enumerate(it)", "Create an iterator that yields pairs of index and value from `it`.");
+
+export function foreach(_it, fn) {
+  let it = iter(_it);
+  for (let val; (val = next(it)) != STOP;) {
+    if (fn(val) == STOP) {
+        break;
+    }
+  }
+}
+
+doc.add(
+  "function",
+  "foreach(it, fn)",
+  "Call the function `fn` for every element of `it`. This evaluates the iterator.",
+);
+
+export function collect(it, collector=_iter::array_collector) {
+  collector = trait::cast(Collector, collector);
+  return collector.finalize(
+    fold(collector.reduce, iter(it), collector.init()),
+  );
+}
+
+doc.add(
+  "function",
+  "collect(it)",
+  "Evaluate an iterator, returning an array of the values it yields.",
+);
+
+struct Map { it, fn }
+
+trait::impl(Iterable, Map, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, Map, struct {
+  function next(self) {
+    let val = next(self.it);
+    if (val == STOP) {
+      return STOP;
+    }
+    return self.fn(val);
+  }
+});
+
+export function map(it, fn) {
+  return Map { it = iter(it), fn = fn };
+}
+
+doc.add(
+  "function",
+  "map(it, fn)",
+  "Return a new iterator that yields the values of `it` applied to `fn`.",
+);
+
+struct Take { it, i, n }
+
+trait::impl(Iterable, Take, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, Take, struct {
+  function next(self) {
+    if (self.i >= self.n) {
+      return STOP;
+    }
+    self.i += 1;
+    return next(self.it);
+  }
+});
+
+export function take(_it, n) {
+  return Take { it = iter(_it), i = 0, n = n };
+}
+
+doc.add(
+  "function",
+  "take(it, n)",
+  "Create an iterator that evaluates the first `n` elements of `it`.
+
+Note that evaluating this iterator partially evalutaes `it`.",
+);
+
+export function drop(_it, n) {
+  let it = iter(_it);
+  for (let i = 0; i < n; i += 1) {
+    if (next(it) == STOP) {
+      break;
+    }
+  }
+  return it;
+}
+
+doc.add(
+  "function",
+  "drop(it, n)",
+  "Create an iterator that ignores the first `n` elements of `it`.
+
+Note that calling this function immediately evaluates and drops the first `n`
+values of `it`.",
+);
+
+struct TakeWhile { it, pred, done }
+
+trait::impl(Iterable, TakeWhile, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, TakeWhile, struct {
+  function next(self) {
+    if (self.done) {
+      return STOP;
+    }
+
+    let val = next(self.it);
+    if (val == STOP || !self.pred(val)) {
+      self.done = true;
+      return STOP;
+    }
+
+    return val;
+  }
+});
+
+export function take_while(_it, pred) {
+  return TakeWhile { it = iter(_it), pred = pred, done = false };
+}
+
+doc.add(
+  "function",
+  "take_while(it, pred)",
+  "Create an iterator that yields the values of `it` until `pred` returns false.",
+);
+
+struct Zip { a, b }
+
+trait::impl(Iterable, Zip, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, Zip, struct {
+  function next(self) {
+    let val_a = next(self.a),
+      val_b = next(self.b);
+
+    if (val_a == STOP && val_b == STOP) {
+      return STOP;
+    } else if (val_a == STOP) {
+      return [null, val_b];
+    } else if (val_b == STOP) {
+      return [val_a, null];
+    } else {
+      return [val_a, val_b];
+    }
+  }
+});
+
+export function zip(_a, _b) {
+  let a = iter(_a);
+  let b = iter(_b);
+  return Zip { a=a, b=b };
+}
+
+doc.add("function", "zip(a, b)", "Create an iterator that joins `a` and `b` pair-wise.");
+
+struct Flat { it, current }
+
+trait::impl(Iterable, Flat, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, Flat, struct {
+  function next(self) {
+    if (self.current) {
+      let val = next(self.current);
+      if (val == STOP) {
+        self.current = null;
+        return next(self);
+      }
+      return val;
+    }
+
+    self.current = next(self.it);
+    if (self.current == STOP) {
+      return STOP;
+    }
+    return next(self);
+  }
+});
+
+export function flat(_it) {
+  return Flat { it = iter(_it) };
+}
+
+doc.add("function", "flat(it)", "Flattens an iterator of iterators.");
+
+export function fold1(reducer, it) {
+  it = iter(it);
+  return fold(reducer, it, next(it));
+}
+
+doc.add(
+  "function",
+  "fold1(reducer, it)",
+  "Reduce the iterator, using the first value as the initial value of the accumulator.",
+);
+
+export function fold(reducer, it, init) {
+  foreach(it, function (item) {
+    init = reducer(init, item);
+  });
+  return init;
+}
+
+doc.add(
+  "function",
+  "fold(reducer, it, init)",
+  "Reduce the iterator, using `init` as the initial value of the accumulator.",
+);
+
+export function max(it) {
+  return fold1(math::max, it);
+}
+
+doc.add(
+  "function",
+  "max(it)",
+  "Find the largest item in the iterator (using `>`).",
+);
+
+export function min(it) {
+  return fold(math::min, it);
+}
+
+doc.add(
+  "function",
+  "min(it)",
+  "Find the smallest item in the iterator (using `<`).",
+);
+
+struct Repeat { val, times }
+
+trait::impl(Iterable, Repeat, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, Repeat, struct {
+  function next(self) {
+    if (self.times <= 0) {
+      return STOP;
+    }
+    self.times -= 1;
+    return self.val;
+  }
+});
+
+export function repeat(val, times) {
+  return Repeat { val = val, times = times };
+}
+
+doc.add(
+  "function",
+  "repeat(val, n)",
+  "Create an iterator that repeats `val` `n` times.",
+);
+
+struct Intersperse {
+  it,
+  sep,
+  yield_sep,
+}
+
+trait::impl(Iterable, Intersperse, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, Intersperse, struct {
+  function next(self) {
+    if (self.yield_sep) {
+      self.yield_sep = false;
+      return self.sep;
+    }
+
+    let val = next(self.it);
+    if (val == STOP) {
+      return STOP;
+    }
+    self.yield_sep = true;
+    return val;
+  }
+});
+
+export function intersperse(_it, sep) {
+  return Intersperse {
+    it = iter(_it),
+    sep = sep,
+    yield_sep = false,
+  };
+}
+
+doc.add(
+  "function",
+  "intersperse(it, val)",
+  "Yield `val` in between each element of `it`.",
+);
+
+export function sum(_it) {
+    return fold1(op::add, _it);
+}
+
+doc.add("function", "sum(it)", "Sum the elements of `it`.");
+
+export struct Peekable {
+  _it,
+  peeked,
+
+  function peek(n = 1) {
+    if (list::length(this.peeked) >= n) {
+      return list::get(this.peeked, n - 1);
+    }
+
+    let el;
+    for (let i = 0; i < n; i += 1) {
+      el = next(this._it);
+      if (el == STOP) {
+        return null;
+      }
+      list::append(this.peeked, el);
+    }
+
+    return el;
+  }
+}
+
+trait::impl(Iterable, Peekable, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, Peekable, struct {
+  function next(self) {
+    if (list::length(self.peeked) > 0) {
+      return list::unshift(self.peeked);
+    }
+    return next(self._it);
+  }
+});
+
+export function peekable(it) {
+    return Peekable {
+      _it = iter(it),
+      peeked = list::new(),
+    };
+}
+
+doc.add(
+    "function",
+    "peekable(it)",
+    "",
+);
+
+struct Slice { it, i, start, end }
+
+trait::impl(Iterable, Slice, struct {
+  function iter(self) {
+    return self;
+  }
+});
+
+trait::impl(Iterator, Slice, struct {
+  function next(self) {
+    while (self.i < self.start) {
+      if (next(self.it) == STOP) {
+        return STOP;
+      }
+      self.i += 1;
+    }
+
+    if (self.end != null && self.i >= self.end) {
+      return STOP;
+    }
+
+    let value = next(self.it);
+    if (value != STOP) {
+      self.i += 1;
+    }
+    return value;
+  }
+});
+
+export function slice(it, start, end=null) {
+    return Slice {
+      it = iter(it),
+      i = 0,
+      start = start,
+      end = end,
+    };
+}
+
+doc.add(
+    "function",
+    "slice(it, start, end=...)",
+    "",
+);

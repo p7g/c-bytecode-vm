@@ -23,5 +23,6 @@ import path;
 import re;
 import string;
 import test;
+import trait;
 
 docs::generate(docs::print_generator(docs::single_page_markdown()));

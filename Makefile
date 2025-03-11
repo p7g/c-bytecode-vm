@@ -1,6 +1,6 @@
 WARNINGS=-Wnull-dereference -Wall -Winline -Wextra -Wno-unused-parameter
 CFLAGS+=-g -std=gnu11 $(WARNINGS) -I$(CURDIR) -I$(CURDIR)/vendor
-LDFLAGS+=-lm -lreadline -Lvendor/utf8proc vendor/utf8proc/libutf8proc.a
+LDLIBS+=-lm -lreadline vendor/utf8proc/libutf8proc.a
 SANITIZERS+=address,undefined
 
 ifeq ($(TARGET),release)
@@ -25,7 +25,7 @@ OBJ := $(patsubst %.c,%.o,$(SRC))
 DEP := $(patsubst %.o,%.d,$(OBJ))
 
 cbcvm: $(OBJ) vendor/utf8proc/libutf8proc.a
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) $(LDFLAGS) $(LDLIBS)
 
 -include $(DEP)
 
@@ -38,7 +38,7 @@ vendor/utf8proc/libutf8proc.a:
 # Generate a release binary using profile-guided optimization
 profile-opt:
 	CFLAGS='-fprofile-generate' $(MAKE) clean cbcvm TARGET=release
-	./cbcvm bf.rbcvm bench.b
+	./cbcvm bf.cb bench.b
 	$(MAKE) clean
 	CFLAGS='-fprofile-use -fprofile-correction' $(MAKE) TARGET=release
 	find . -name '*.gcda' -delete

@@ -2041,8 +2041,11 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 		if (first_field) {
 			first_field = 0;
 		} else {
-			if (!in_methods)
+			if (!in_methods) {
 				EXPECT(TOK_COMMA);
+			} else if (MATCH_P(TOK_COMMA)) {
+				ERROR_AT(NEXT(), "Methods should not be separated by commas");
+			}
 			/* support trailing comma */
 			if (MATCH_P(TOK_RIGHT_BRACE))
 				break;
@@ -2056,7 +2059,8 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 				ERROR_AT(NEXT(), "Too many methods");
 				return -1;
 			}
-			X(compile_function(state, &fields[num_fields + num_methods++], 1));
+			if (compile_function(state, &fields[num_fields + num_methods++], 1))
+				return -1;
 		} else if (in_methods) {
 			ERROR_AT(NEXT(), "All fields must come before methods");
 			return -1;
@@ -2092,8 +2096,8 @@ static ssize_t compile_struct_decl(struct cstate *state, size_t *name_out,
 		APPEND1(OP_LOAD_CONST, const_id);
 
 	if (in_methods) {
-		for (unsigned i = num_fields + num_methods - 1;
-				i >= methods_start; i--)
+		for (int i = num_fields + num_methods - 1;
+				i >= (ssize_t) methods_start; i--)
 			APPEND2(OP_SET_METHOD, i - methods_start, fields[i]);
 	}
 

@@ -38,7 +38,7 @@ function parse(it) {
     let ops = arraylist::new();
     let c;
 
-    while ((c = it()) != iter::STOP) {
+    while ((c = iter::next(it)) != iter::STOP) {
         if (c == '+') {
             arraylist::push(ops, Op{type="inc", value=1});
         } else if (c == '-') {
@@ -81,8 +81,8 @@ function run(tape, ops) {
 
 let args = argv();
 if (array::length(args) != 1) {
-    println("Usage: ./cbcvm bf3.rbcvm <program>");
+    println("Usage: ./cbcvm bf.cb <program>");
 } else {
-    let it = array::iter(string::chars(fs::read_file(args[0])));
+    let it = iter::iter(fs::read_file(args[0]));
     run(tape_new(), parse(it));
 }

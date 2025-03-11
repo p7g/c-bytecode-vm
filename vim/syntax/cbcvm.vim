@@ -30,7 +30,7 @@ syn keyword cbcvmStructure struct nextgroup=cbcvmFunction skipwhite
 syn keyword cbcvmIntrinsics print println tostring typeof string_chars
             \ string_from_chars string_bytes string_concat ord chr truncate32
             \ tofloat read_file read_file_bytes argv __upvalues apply now toint
-            \ __gc_collect __dis
+            \ __gc_collect __dis arguments
 syn match cbcvmBraces "[{}\[\]]"
 syn match cbcvmParens "[()]"
 

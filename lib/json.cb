@@ -158,8 +158,8 @@ function tokenize(input) {
   return arraylist::to_array(tokens);
 }
 
-function parse_value(next, peek) {
-  let token = next();
+function parse_value(tokens) {
+  let token = iter::next(tokens);
   let type = token.type;
   let value = token.value;
 
@@ -178,9 +178,9 @@ function parse_value(next, peek) {
     let values = hashmap::new();
     let is_first = true;
 
-    while (peek().type != T_RIGHT_BRACE) {
+    while (tokens.peek().type != T_RIGHT_BRACE) {
       if (!is_first) {
-        let comma = next();
+        let comma = iter::next(tokens);
         if (comma.type != T_COMMA) {
           throw UnexpectedTokenError {
               message = string_concat("Expected comma, found '", comma.value, "'"),
@@ -190,7 +190,7 @@ function parse_value(next, peek) {
         is_first = false;
       }
 
-      let key = parse_value(next, peek);
+      let key = parse_value(tokens);
 
       if (typeof(key) != "string") {
         throw UnexpectedTokenError {
@@ -198,27 +198,27 @@ function parse_value(next, peek) {
         };
       }
 
-      let colon = next();
+      let colon = iter::next(tokens);
       if (colon.type != T_COLON) {
         throw UnexpectedTokenError {
             message = string_concat("Expected colon, found '", comma.value, "'"),
         };
       }
 
-      let map_value = parse_value(next, peek);
+      let map_value = parse_value(tokens);
       hashmap::set(values, key, map_value);
     }
 
-    next();  # consume right brace
+    iter::next(tokens);  # consume right brace
 
     ret = values;
   } else if (type == T_LEFT_BRACKET) {
     let values = arraylist::new();
 
     let is_first = true;
-    while (peek().type != T_RIGHT_BRACKET) {
+    while (tokens.peek().type != T_RIGHT_BRACKET) {
       if (!is_first) {
-        let comma = next();
+        let comma = iter::next(tokens);
         if (comma.type != T_COMMA) {
           throw UnexpectedTokenError {
               message = string_concat("Expected comma, found '", comma.value, "'"),
@@ -228,11 +228,11 @@ function parse_value(next, peek) {
         is_first = false;
       }
 
-      let value = parse_value(next, peek);
+      let value = parse_value(tokens);
       arraylist::push(values, value);
     }
 
-    next(); # consume right bracket
+    iter::next(tokens); # consume right bracket
 
     ret = arraylist::to_array(values);
   } else {
@@ -246,20 +246,7 @@ function parse_value(next, peek) {
 
 export function parse(input) {
   let tokens = tokenize(input);
-  let len = array::length(tokens);
-  let i = 0;
-
-  function peek() {
-    return tokens[i];
-  }
-
-  function next() {
-    let value = tokens[i];
-    i += 1;
-    return value;
-  }
-
-  let data = parse_value(next, peek);
+  let data = parse_value(iter::peekable(tokens));
 
   if (i != len) {
     throw InvalidJsonError {

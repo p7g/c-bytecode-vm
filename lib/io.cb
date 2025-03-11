@@ -71,16 +71,27 @@ export function readto(reader, sequence) {
     return buf;
 }
 
-export function lines(reader, line_ending="\n") {
-    let seq = string::bytes(line_ending);
-    return function lines_next() {
-        let bytes = readto(reader, seq);
+struct Lines { reader, line_ending }
+
+trait::impl(iter::Iterable, Lines, struct {
+    function iter(self) {
+        return self;
+    }
+});
+
+trait::impl(iter::Iterator, Lines, struct {
+    function next(self) {
+        let bytes = readto(self.reader, self.line_ending);
         if (bytes::length(bytes) == 0) {
             return iter::STOP;
         }
-        let end = bytes::length(bytes) - bytes::length(seq);
+        let end = bytes::length(bytes) - bytes::length(self.line_ending);
         return bytes::slice(bytes, 0, end);
-    };
+    }
+});
+
+export function lines(reader, line_ending="\n") {
+    return Lines { reader = reader, line_ending = string::bytes(line_ending) };
 }
 
 export function write(writer, data) {

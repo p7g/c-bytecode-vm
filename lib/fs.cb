@@ -6,6 +6,7 @@ import errno;
 import fn;
 import iter;
 import string;
+import trait;
 
 import _fs;
 
@@ -56,27 +57,41 @@ doc.add("function", "read_file(name)", "Read the file called `fname` to completi
 
 This should also work with fifos and stuff.");
 
+struct DirectoryEntries { dirp }
+
+trait::impl(iter::Iterable, DirectoryEntries, struct {
+    function iter(self) {
+        return self;
+    }
+});
+
+trait::impl(iter::Iterator, DirectoryEntries, struct {
+    function next(self) {
+        if (self.dirp == null) {
+            return iter::STOP;
+        }
+        errno::set(0);
+        let ent = _fs::readdir(self.dirp);
+        if (ent == null) {
+            if (errno::get()) {
+                perror("directory_entries");
+            }
+            _fs::closedir(self.dirp);
+            self.dirp = null;
+            return iter::STOP;
+        } else if (ent == "." || ent == "..") {
+            return iter::next(self);
+        }
+        return ent;
+    }
+});
+
 export function directory_entries(path) {
     let dirp = _fs::opendir(path);
     if (dirp == null) {
         perror("directory_entries");
     }
-
-    return function next() {
-        errno::set(0);
-        let ent = _fs::readdir(dirp);
-        if (ent == null) {
-            if (errno::get()) {
-                perror("directory_entries");
-            }
-            _fs::closedir(dirp);
-            dirp = null;
-            return iter::STOP;
-        } else if (ent == "." || ent == "..") {
-            return next();
-        }
-        return ent;
-    };
+    return DirectoryEntries { dirp = dirp };
 }
 
 doc.add(
