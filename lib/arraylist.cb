@@ -33,10 +33,10 @@ trait::impl(iter::Iterable, ArrayListIterator, struct {
 
 trait::impl(iter::Iterator, ArrayListIterator, struct {
   function next(self) {
-    if (self.i >= self.list.length) {
+    if (self.i >= self.list.length()) {
       return iter::STOP;
     }
-    let val = get(self.list, self.i);
+    let val = self.list.get(self.i);
     self.i += 1;
     return val;
   }
@@ -104,7 +104,7 @@ trait::impl(iter::Collector, ArrayListCollector, struct {
   }
 
   function reduce(self, list, value) {
-    push(list, value);
+    list.push(value);
     return list;
   }
 
@@ -132,16 +132,7 @@ doc.add(
 );
 
 export function find_index(self, func) {
-  let len = self.length;
-  let array = self.array;
-
-  for (let i = 0; i < len; i += 1) {
-    if (func(array[i], i, self)) {
-      return i;
-    }
-  }
-
-  return -1;
+  return self.find_index(func);
 }
 
 doc.add(
@@ -152,15 +143,7 @@ if none exists.",
 );
 
 export function map(self, func) {
-  let len = self.length;
-  let cap = capacity(self);
-  let new_array = _array::new(cap);
-
-  foreach(self, function(val, i) {
-    new_array[i] = func(val);
-  });
-
-  return from_array(len, new_array);
+  return self.map(func);
 }
 
 doc.add(
@@ -171,13 +154,7 @@ the corresponding element of `list`.",
 );
 
 export function find(self, func) {
-  let index = find_index(self, func);
-
-  if (index < 0) {
-    return null;
-  }
-
-  return get(self, index);
+  return self.find(func);
 }
 
 doc.add(
@@ -187,7 +164,7 @@ doc.add(
 );
 
 export function some(self, f) {
-    return -1 != find_index(self, f);
+  return self.some(f);
 }
 
 doc.add(
@@ -197,9 +174,7 @@ doc.add(
 );
 
 export function contains(self, a) {
-    return some(self, function (b) {
-        return a == b;
-    });
+  return self.contains(a);
 }
 
 doc.add(
