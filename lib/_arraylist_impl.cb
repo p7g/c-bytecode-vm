@@ -134,37 +134,75 @@ export function new() {
 }
 
 export function length(self) {
-  return self.length();
+  return self._length;
 }
 
 export function capacity(self) {
-  return self.capacity();
+  return _array::length(self._array);
 }
 
 export function get(self, idx) {
-  return self.get(idx);
+  return self._array[idx];
 }
 
 export function set(self, idx, value) {
-  self.set(idx, value);
+  self._array[idx] = value;
 }
 
 export function delete(self, index) {
-  self.delete(index);
+  let len = self._length;
+
+  for (let i = index + 1; i < len; i += 1) {
+    self.set(i - 1, self.get(i));
+  }
+
+  self._length = len - 1;
 }
 
 export function to_array(self) {
-  return self.to_array();
+  let new_array = _array::new(self._length);
+
+  self.foreach(function(val, i) {
+    new_array[i] = val;
+  });
+
+  return new_array;
 }
 
 export function push(self, value) {
-  return self.push(value);
+  let next_idx = self._length;
+  let array = self._array;
+  let len = _array::length(array);
+
+  if (next_idx >= len) {
+    let new_array = _array::new(2 * len);
+    for (let i = 0; i < next_idx; i += 1) {
+      new_array[i] = array[i];
+    }
+    self._array = array = new_array;
+  }
+
+  array[next_idx] = value;
+  self._length = next_idx + 1;
+  return self;  # Return `self` to enable use as a reducer function.
 }
 
 export function pop(self) {
-  return self.pop();
+  if (self._length <= 0) {
+    return null;
+  }
+
+  let i = self._length = self._length - 1;
+  return self._array[i];
 }
 
 export function foreach(self, func) {
-  return self.foreach(func);
+  let len = self._length;
+  let array = self._array;
+
+  for (let i = 0; i < len; i += 1) {
+    if (func(array[i], i, self) == _iter_stop::STOP) {
+      break;
+    }
+  }
 }
