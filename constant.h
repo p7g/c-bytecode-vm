@@ -58,7 +58,7 @@ struct cb_const_struct {
 };
 
 struct cb_const_user_function {
-	size_t name, arity, num_opt_params;
+	size_t name, arity;
 	struct cb_code *code;
 };
 

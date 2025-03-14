@@ -1576,8 +1576,7 @@ static int compile_const_function(struct cstate *state, size_t **free_vars_out,
 
 	func_out->code = create_code(&inner_state);
 	func_out->name = name_id;
-	func_out->arity = num_params;
-	func_out->num_opt_params = num_opt_params;
+	func_out->arity = num_params - num_opt_params;
 
 	scope_free(inner_fn_state.scope);
 

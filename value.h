@@ -62,7 +62,6 @@ struct cb_code;
 struct cb_user_function {
 	struct cb_code *code;
 	struct cb_upvalue **upvalues;
-	size_t num_opt_params;
 };
 
 struct cb_function {

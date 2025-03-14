@@ -136,7 +136,6 @@ struct cb_value cb_const_to_value(const struct cb_const *const_)
 		}
 		for (int i = 0; i < const_func->code->nupvalues; i += 1)
 			func->value.as_user.upvalues[i] = NULL;
-		func->value.as_user.num_opt_params = const_func->num_opt_params;
 
 		ret.type = CB_VALUE_FUNCTION;
 		ret.val.as_function = func;

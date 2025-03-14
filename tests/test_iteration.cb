@@ -79,6 +79,5 @@ export function test_peekable() {
     test::assert(iter::next(it) == 2, "Expected next to be 2");
 
     test::assert(iter::next(it) == 3, "Expected next to be null");
-    println("PEEK", it.peek());
     test::assert(it.peek() == null, "Expected peek to be null");
 }

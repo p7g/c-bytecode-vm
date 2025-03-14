@@ -143,7 +143,6 @@ static CB_INLINE int do_call(unsigned short num_args, struct cb_frame *frame,
 	struct cb_value func_val;
 	struct cb_function *func;
 	int failed;
-	int num_opt_params;
 
 	func_val = *(*sp - num_args - 1);
 
@@ -156,10 +155,7 @@ static CB_INLINE int do_call(unsigned short num_args, struct cb_frame *frame,
 	}
 
 	func = func_val.val.as_function;
-	num_opt_params = func->type == CB_FUNCTION_USER
-		? func->value.as_user.num_opt_params
-		: 0;
-	if (func->arity - num_opt_params > num_args) {
+	if (func->arity > num_args) {
 		cb_str s = cb_agent_get_string(func->name);
 		struct cb_value err;
 		cb_value_from_fmt(&err, "Too few arguments to function '%s'\n",
@@ -182,9 +178,9 @@ static CB_INLINE int do_call(unsigned short num_args, struct cb_frame *frame,
 		next_frame.num_args = num_args;
 		next_frame.module_id = cb_modspec_id(code->modspec);
 		next_frame.code = code;
-		next_frame.bp = *sp - *stack - num_args - 1;
+		next_frame.bp = old_sp - num_args - 1;
 
-		ensure_stack(code->stack_size, *sp - *stack);
+		ensure_stack(code->stack_size, old_sp);
 		failed = cb_eval(&next_frame);
 	}
 
