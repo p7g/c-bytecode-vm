@@ -9,18 +9,17 @@ struct Tape {
     data,
 
     function get() {
-        return arraylist::get(this.data, this.pos);
+        return this.data.get(this.pos);
     }
 
     function inc(n) {
-        arraylist::set(this.data, this.pos,
-            arraylist::get(this.data, this.pos) + n);
+        this.data.set(this.pos, this.data.get(this.pos) + n);
     }
 
     function move(n) {
         this.pos += n;
-        if (this.pos >= arraylist::length(this.data)) {
-            arraylist::push(this.data, 0);
+        if (this.pos >= this.data.length()) {
+            this.data.push(0);
         }
     }
 }
@@ -40,23 +39,23 @@ function parse(it) {
 
     while ((c = iter::next(it)) != iter::STOP) {
         if (c == '+') {
-            arraylist::push(ops, Op{type="inc", value=1});
+            ops.push(Op{type="inc", value=1});
         } else if (c == '-') {
-            arraylist::push(ops, Op{type="inc", value=-1});
+            ops.push(Op{type="inc", value=-1});
         } else if (c == '>') {
-            arraylist::push(ops, Op{type="move", value=1});
+            ops.push(Op{type="move", value=1});
         } else if (c == '<') {
-            arraylist::push(ops, Op{type="move", value=-1});
+            ops.push(Op{type="move", value=-1});
         } else if (c == '.') {
-            arraylist::push(ops, Op{type="print"});
+            ops.push(Op{type="print"});
         } else if (c == '[') {
-            arraylist::push(ops, Op{type="loop", value=parse(it)});
+            ops.push(Op{type="loop", value=parse(it)});
         } else if (c == ']') {
             break;
         }
     }
 
-    return arraylist::to_array(ops);
+    return ops.to_array();
 }
 
 function run(tape, ops) {
