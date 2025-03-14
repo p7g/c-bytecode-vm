@@ -353,35 +353,71 @@ Standard library documentation lives in the source code. The generated markdown
 file can be found
 [here](https://github.com/p7g/c-bytecode-vm/blob/master/docs/stdlib.md).
 
-Here are some idioms that have appeared in the standard library:
+Here are some patterns that have appeared in the standard library:
 
 ### Iteration
 
-This language has no generators, nor any built-in iteration protocol. The way
-this is done in the standard library (see the [iter] module) is using closures.
+Using [traits], the [iter] module defines an iteration protocol. This protocol
+involves 2 traits: `Iterable` and `Iterator`.
 
-[iter]: https://github.com/p7g/c-bytecode-vm/blob/main/lib/iter.cb
+[traits]: /blob/main/lib/trait.cb
+[iter]: /blob/main/lib/iter.cb
 
-This is easiest to illustrate with an example:
-```js
-function range(to) {
-  let i = 0;
+The `Iterable` trait makes an object iterable (as the name suggests). It has a
+single method called `iter(self)` that must return an `Iterator`. Objects of any
+type that implements this trait can be passed as the iterable argument to any
+function in the `iter` module.
 
-  return function next() {
-    if (i == to) {
-      return null;
+An `Iterator` object is a stateful iterator with a `next(self)` parameter, which
+must return the next item in the sequence.
+
+Here's an example of both:
+
+```c++
+struct Range { start, stop, step }
+struct RangeIterator { range, i }
+
+trait::impl(iter::Iterable, Range, struct {
+  function iter(self) {
+    return RangeIterator { range = self }
+  }
+});
+
+trait::impl(iter::Iterator, RangeIterator, struct {
+  function next(self) {
+    if (self.i == null) {
+      self.i = self.range.start;
     }
-    let val = i;
-    i += 1;
-    return val;
-  };
-}
 
-test::assert(iter::collect(range(10)) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    if (self.i >= self.range.end) {
+      return iter::STOP;
+    }
+
+    let { i } = self;
+    self.i += self.range.step;
+    return i;
+  }
+});
+
+function range(start, stop=null, step=null) {
+  if (stop == null) {
+    return Range { start = 0, stop = start, step = 1 };
+  } else {
+    if (step == null) {
+      step = 1;
+    }
+    return Range { start = start, stop = stop, step = step };
+  }
+}
 ```
 
-Using constructs like these, iteration can be performed like in JavaScript:
-```js
+It's common to implement `iter::Iterable` for any type that also implements
+`iter::Iterator`; that way you can use existing iterators as arguments for
+`iter` functions.
+
+Once you have an object that implements the iteration protocol, you can use it
+like this:
+```c++
 iter::foreach(range(10), function (n) {
   println(n);
 });
