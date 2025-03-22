@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "agent.h"
+#include "builtin_modules.h"
 #include "cbcvm.h"
 #include "cb_util.h"
 #include "compiler.h"
@@ -295,6 +296,70 @@ static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 	printf("\n\n");
 }
 #endif
+
+/* FIXME: hacky as */
+static int method_caller(size_t argc, struct cb_value *argv,
+		struct cb_value *result)
+{
+	struct cb_value receiver, func;
+	struct cb_frame *frame, new_frame;
+	struct cb_user_function *ufunc;
+	struct cb_code *code;
+
+	receiver = cb_cfunc_load_upvalue(0);
+	func = cb_cfunc_load_upvalue(1);
+	assert(func.val.as_function->type == CB_FUNCTION_USER);
+	ufunc = &func.val.as_function->value.as_user;
+	code = ufunc->code;
+
+	frame = cb_vm_state.frame;
+	ensure_stack(code->stack_size + 1, *frame->sp - cb_vm_state.stack);
+	memmove(argv, argv + 1, argc);
+
+	cb_vm_state.stack[frame->bp] = receiver;
+	cb_vm_state.stack[frame->bp + 1] = func;
+
+	new_frame.parent = frame;
+	new_frame.module_id = cb_modspec_id(code->modspec);
+	new_frame.is_function = 1;
+	new_frame.is_native = 0;
+	new_frame.num_args = argc;
+	new_frame.code = code;
+	new_frame.bp = frame->bp + 1;
+
+	int failed = cb_eval(&new_frame);
+	cb_vm_state.frame = frame;
+	*result = cb_vm_state.stack[new_frame.bp];
+	return failed;
+}
+
+static void set_upvalue(struct cb_upvalue **uv, struct cb_value value)
+{
+	(*uv) = malloc(sizeof(struct cb_upvalue));
+	(*uv)->refcount = 1;
+	(*uv)->is_closed = 1;
+	(*uv)->v.value = value;
+}
+
+static struct cb_value make_method_caller(struct cb_value receiver,
+		struct cb_function *method)
+{
+	struct cb_value bound_method = cb_cfunc_new(method->name, method->arity,
+			method_caller);
+	const int num_upvalues = 2;
+	struct cb_upvalue **method_upvalues = malloc(
+			num_upvalues * sizeof(struct cb_upvalue *));
+	bound_method.val.as_function->nupvalues = num_upvalues;
+	bound_method.val.as_function->upvalues = method_upvalues;
+
+	set_upvalue(&method_upvalues[0], receiver);
+	set_upvalue(&method_upvalues[1], (struct cb_value) {
+		.type = CB_VALUE_FUNCTION,
+		.val = { .as_function = method },
+	});
+
+	return bound_method;
+}
 
 int eval_depth = 0;
 
@@ -1085,20 +1150,28 @@ DO_OP_LOAD_STRUCT: {
 	}
 	ssize_t idx;
 	val = cb_struct_get_field(s, fname, &idx);
-	if (!val) {
-		cb_str fname_str, specname_str;
+	struct cb_value result;
+	if (val) {
+		result = *val;
+	} else {
+		struct cb_function *method =
+			cb_struct_spec_get_method(s->spec, fname);
+		if (method == NULL) {
+			cb_str fname_str, specname_str;
 
-		fname_str = cb_agent_get_string(fname);
-		specname_str = cb_agent_get_string(s->spec->name);
-		ERROR("No such field '%s' on struct '%s'",
-				cb_strptr(&fname_str),
-				cb_strptr(&specname_str));
+			fname_str = cb_agent_get_string(fname);
+			specname_str = cb_agent_get_string(s->spec->name);
+			ERROR("No such field '%s' on struct '%s'",
+					cb_strptr(&fname_str),
+					cb_strptr(&specname_str));
+		}
+		result = make_method_caller(recv, method);
 	}
 	if (ic->index != -1) {
 		ic->spec = s->spec;
 		ic->index = idx;
 	}
-	PUSH(*val);
+	PUSH(result);
 	DISPATCH();
 }
 

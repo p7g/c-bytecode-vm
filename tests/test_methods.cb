@@ -1,0 +1,14 @@
+import test;
+
+function test_method_call() {
+    let s = struct {
+        function hello(name) {
+            return string_concat("Hello, ", name, "!");
+        }
+    };
+
+    test::assert(s.hello("World") == "Hello, World!");
+
+    let hello = s.hello;
+    test::assert(hello("World") == "Hello, World!");
+}
