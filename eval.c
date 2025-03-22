@@ -163,22 +163,34 @@ static CB_INLINE int do_call(unsigned short num_args, struct cb_frame *frame,
 		cb_error_set(err);
 		return 1;
 	}
+
 	size_t old_sp = *sp - *stack;
+	struct cb_frame next_frame;
+	next_frame.is_function = 1;
+	next_frame.num_args = num_args;
+	next_frame.bp = old_sp - num_args - 1;
+
 	if (func->type == CB_FUNCTION_NATIVE) {
+		/* FIXME: somehow get module ID of native func */
+		next_frame.module_id = (size_t) -1;
+		next_frame.code = NULL;
+		next_frame.is_native = 1;
+		next_frame.sp = cb_vm_state.frame->sp;
+		next_frame.parent = cb_vm_state.frame;
+		cb_vm_state.frame = &next_frame;
+
 		struct cb_value result;
 		size_t dest = *sp - *stack - num_args - 1;
 		failed = func->value.as_native(num_args, *sp - num_args,
 				&result);
 		cb_vm_state.stack[dest] = result;
+		cb_vm_state.frame = next_frame.parent;
 	} else {
 		struct cb_code *code = func->value.as_user.code;
 
-		struct cb_frame next_frame;
-		next_frame.is_function = 1;
-		next_frame.num_args = num_args;
 		next_frame.module_id = cb_modspec_id(code->modspec);
 		next_frame.code = code;
-		next_frame.bp = old_sp - num_args - 1;
+		next_frame.is_native = 0;
 
 		ensure_stack(code->stack_size, old_sp);
 		failed = cb_eval(&next_frame);
@@ -259,14 +271,14 @@ static void debug_state(size_t sp, size_t pc, struct cb_frame *frame)
 		funcname = "top";
 	} else {
 		struct cb_value func = cb_vm_state.stack[frame->bp];
-		assert(CB_VALUE_IS_USER_FN(&func));
+		assert(func.type == CB_VALUE_FUNCTION);
 		size_t name = func.val.as_function->name;
 		funcname_str = cb_agent_get_string(name);
 		funcname = cb_strptr(&funcname_str);
 	}
 
 	printf("%s%s%s\n", modname, !frame->is_function ? " " : ".", funcname);
-	printf("pc: %zu, sp: %zu, stack_size: %hu\n", pc, sp, frame->code->stack_size);
+	printf("pc: %zu, sp: %zu, bp: %zu\n", pc, sp, frame->bp);
 	cb_disassemble_one(frame->code->bytecode[pc], pc);
 	printf("> %s", sp ? (sp > 10 ? "... " : "") : "(empty)");
 	int _first = 1;

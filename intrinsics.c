@@ -547,7 +547,8 @@ static int arguments(size_t argc, struct cb_value *argv,
 		struct cb_value *result)
 {
 	struct cb_frame *frame = cb_vm_state.frame;
-	assert(frame);
+	assert(frame && frame->parent);
+	frame = frame->parent;
 
 	struct cb_array *args = cb_array_new(frame->num_args);
 	for (unsigned i = 0; i < frame->num_args; i++) {

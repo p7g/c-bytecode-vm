@@ -21,7 +21,8 @@ struct cb_upvalue {
 struct cb_frame {
 	struct cb_frame *parent;
 	size_t module_id;
-	unsigned is_function, num_args;
+	int is_function, is_native;
+	unsigned num_args;
 	struct cb_code *code;
 	size_t bp;
 	/* A pointer to the sp variable for the GC */
