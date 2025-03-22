@@ -32,5 +32,7 @@ void cb_instantiate_builtin_modules(void);
 
 struct cb_struct_spec *cb_declare_struct(const char *name, unsigned nfields, ...);
 struct cb_struct *cb_struct_make(struct cb_struct_spec *spec, ...);
+struct cb_value cb_cfunc_load_upvalue(size_t i);
+void cb_cfunc_store_upvalue(size_t i, struct cb_value);
 
 #endif

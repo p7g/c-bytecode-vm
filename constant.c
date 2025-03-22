@@ -130,12 +130,11 @@ struct cb_value cb_const_to_value(const struct cb_const *const_)
 		func->arity = const_func->arity;
 		func->value.as_user.code = const_func->code;
 		if (const_func->code->nupvalues) {
-			func->value.as_user.upvalues = malloc(
-					const_func->code->nupvalues
+			func->upvalues = malloc(const_func->code->nupvalues
 					* sizeof(struct cb_upvalue *));
 		}
 		for (int i = 0; i < const_func->code->nupvalues; i += 1)
-			func->value.as_user.upvalues[i] = NULL;
+			func->upvalues[i] = NULL;
 
 		ret.type = CB_VALUE_FUNCTION;
 		ret.val.as_function = func;

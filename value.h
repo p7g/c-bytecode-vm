@@ -61,7 +61,6 @@ struct cb_code;
 
 struct cb_user_function {
 	struct cb_code *code;
-	struct cb_upvalue **upvalues;
 };
 
 struct cb_function {
@@ -72,6 +71,10 @@ struct cb_function {
 		cb_native_function *as_native;
 		struct cb_user_function as_user;
 	} value;
+	/* nupvalues is only set for native functions; for user functions use
+	   value.as_user->code.nupvalues */
+	size_t nupvalues;
+	struct cb_upvalue **upvalues;
 };
 
 struct cb_array;
@@ -105,7 +108,7 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b);
 double cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok);
 cb_str cb_value_to_string(struct cb_value val);
 int cb_value_is_truthy(struct cb_value *val);
-void cb_function_add_upvalue(struct cb_user_function *fn, size_t idx,
+void cb_function_add_upvalue(struct cb_function *fn, size_t idx,
 		struct cb_upvalue *uv);
 int cb_value_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		struct cb_value *result);
@@ -129,6 +132,7 @@ ssize_t cb_value_from_string(struct cb_value *val, const char *str);
 ssize_t cb_value_from_fmt(struct cb_value *val, const char *fmt, ...);
 struct cb_bytes *cb_bytes_new(size_t size);
 struct cb_value cb_bytes_new_value(size_t size);
+size_t cb_function_upvalue_count(const struct cb_function *func);
 
 const char *cb_value_type_name(enum cb_value_type type);
 const char *cb_value_type_of(struct cb_value *val);

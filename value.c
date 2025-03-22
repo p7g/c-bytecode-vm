@@ -21,36 +21,33 @@
 
 static void cb_function_deinit(void *ptr)
 {
-	struct cb_user_function ufn;
 	struct cb_function *fn = ptr;
+	size_t upvalue_count;
 
-	if (fn->type != CB_FUNCTION_USER)
+	upvalue_count = cb_function_upvalue_count(fn);
+	if (upvalue_count == 0)
 		return;
 
-	ufn = fn->value.as_user;
-
-	if (ufn.code->nupvalues) {
-		for (unsigned i = 0; i < ufn.code->nupvalues; i += 1) {
-			if (ufn.upvalues[i] == NULL)
-				continue;
-			if (ufn.upvalues[i]->refcount != 0)
-				ufn.upvalues[i]->refcount -= 1;
-			if (ufn.upvalues[i]->refcount == 0)
-				free(ufn.upvalues[i]);
-			if (cb_vm_state.upvalues != NULL) {
-				for (unsigned j = 0;
-						j < cb_vm_state.upvalues_idx;
-						j += 1) {
-					if (cb_vm_state.upvalues[j]
-							== ufn.upvalues[i]) {
-						cb_vm_state.upvalues[j] = NULL;
-						break;
-					}
+	for (unsigned i = 0; i < upvalue_count; i += 1) {
+		if (fn->upvalues[i] == NULL)
+			continue;
+		if (fn->upvalues[i]->refcount != 0)
+			fn->upvalues[i]->refcount -= 1;
+		if (fn->upvalues[i]->refcount == 0)
+			free(fn->upvalues[i]);
+		if (cb_vm_state.upvalues != NULL) {
+			for (unsigned j = 0;
+					j < cb_vm_state.upvalues_idx;
+					j += 1) {
+				if (cb_vm_state.upvalues[j]
+						== fn->upvalues[i]) {
+					cb_vm_state.upvalues[j] = NULL;
+					break;
 				}
 			}
 		}
-		free(ufn.upvalues);
 	}
+	free(fn->upvalues);
 }
 
 CB_INLINE struct cb_function *cb_function_new(void)
@@ -69,6 +66,8 @@ struct cb_value cb_cfunc_new(size_t name, size_t arity,
 	func->name = name;
 	func->type = CB_FUNCTION_NATIVE;
 	func->value.as_native = fn;
+	func->upvalues = NULL;
+	func->nupvalues = 0;
 	func_val.type = CB_VALUE_FUNCTION;
 	func_val.val.as_function = func;
 
@@ -599,7 +598,7 @@ double cb_value_cmp(struct cb_value *a, struct cb_value *b, int *ok)
 #undef OK
 }
 
-void cb_function_add_upvalue(struct cb_user_function *fn,
+void cb_function_add_upvalue(struct cb_function *fn,
 		size_t idx, struct cb_upvalue *uv)
 {
 	uv->refcount += 1;
@@ -690,21 +689,23 @@ cb_gc_hold_key *cb_array_gc_hold(struct cb_array *arr)
 void cb_function_mark(struct cb_function *fn)
 {
 	struct cb_upvalue *uv;
+	size_t upvalue_count;
 
 	if (cb_gc_is_marked(&fn->gc_header))
 		return;
 	cb_gc_mark(&fn->gc_header);
 
-	if (fn->type == CB_FUNCTION_USER) {
-		struct cb_user_function *ufunc = &fn->value.as_user;
-		for (unsigned i = 0;
-				i < ufunc->code->nupvalues;
-				i += 1) {
-			uv = ufunc->upvalues[i];
+	upvalue_count = cb_function_upvalue_count(fn);
+	if (upvalue_count != 0) {
+		for (unsigned i = 0; i < upvalue_count; i += 1) {
+			uv = fn->upvalues[i];
 			if (uv->is_closed)
 				queue_mark(&uv->v.value);
 		}
+	}
 
+	if (fn->type == CB_FUNCTION_USER) {
+		struct cb_user_function *ufunc = &fn->value.as_user;
 		cb_code_mark(ufunc->code);
 	}
 }
@@ -846,4 +847,13 @@ struct cb_value cb_bytes_new_value(size_t size)
 	val.val.as_bytes = cb_bytes_new(size);
 
 	return val;
+}
+
+CB_INLINE size_t cb_function_upvalue_count(const struct cb_function *func)
+{
+	if (func->type == CB_FUNCTION_USER) {
+		return func->value.as_user.code->nupvalues;
+	} else {
+		return func->nupvalues;
+	}
 }

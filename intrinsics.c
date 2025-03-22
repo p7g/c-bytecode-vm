@@ -441,25 +441,18 @@ static int argv(size_t argc, struct cb_value *argv_, struct cb_value *result)
 
 static int upvalues(size_t argc, struct cb_value *argv, struct cb_value *result)
 {
-	struct cb_user_function *func;
-	int i;
+	struct cb_function *funcval;
+	size_t upvalue_count;
 
 	CB_EXPECT_TYPE(CB_VALUE_FUNCTION, argv[0]);
 
-	if (argv[0].val.as_function->type != CB_FUNCTION_USER) {
-		struct cb_value err;
-		cb_value_from_string(&err,
-				"__upvalues: Cannot get upvalues of native function");
-		cb_error_set(err);
-		return 1;
-	}
-
-	func = &argv[0].val.as_function->value.as_user;
+	funcval = argv[0].val.as_function;
+	upvalue_count = cb_function_upvalue_count(funcval);
 	result->type = CB_VALUE_ARRAY;
-	result->val.as_array = cb_array_new(func->code->nupvalues);
+	result->val.as_array = cb_array_new(upvalue_count);
 
-	for (i = 0; i < func->code->nupvalues; i += 1) {
-		struct cb_upvalue *uv = func->upvalues[i];
+	for (unsigned i = 0; i < upvalue_count; i += 1) {
+		struct cb_upvalue *uv = funcval->upvalues[i];
 		struct cb_value v = cb_load_upvalue(uv);
 		result->val.as_array->values[i] = v;
 	}

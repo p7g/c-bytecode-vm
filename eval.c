@@ -90,7 +90,7 @@ CB_INLINE struct cb_value cb_load_upvalue(struct cb_upvalue *uv)
 	return cb_vm_state.stack[uv->v.idx];
 }
 
-static CB_INLINE void store_upvalue(struct cb_upvalue *uv, struct cb_value val)
+CB_INLINE void cb_store_upvalue(struct cb_upvalue *uv, struct cb_value val)
 {
 	if (uv->is_closed) {
 		uv->v.value = val;
@@ -686,8 +686,7 @@ DO_OP_BIND_LOCAL: {
 		add_upvalue(uv);
 	}
 
-	cb_function_add_upvalue(&func.val.as_function->value.as_user, dest_idx,
-			uv);
+	cb_function_add_upvalue(func.val.as_function, dest_idx, uv);
 
 	PUSH(func);
 	DISPATCH();
@@ -704,8 +703,8 @@ DO_OP_BIND_UPVALUE: {
 	if (!CB_VALUE_IS_USER_FN(func))
 		ERROR("Can only bind upvalues to user functions");
 
-	cb_function_add_upvalue(&func->val.as_function->value.as_user, dest_idx,
-		self->val.as_function->value.as_user.upvalues[upvalue_idx]);
+	cb_function_add_upvalue(func->val.as_function, dest_idx,
+		self->val.as_function->upvalues[upvalue_idx]);
 
 	DISPATCH();
 }
@@ -718,7 +717,7 @@ DO_OP_LOAD_UPVALUE: {
 	self = bp;
 	assert(CB_VALUE_IS_USER_FN(self));
 
-	uv = self->val.as_function->value.as_user.upvalues[idx];
+	uv = self->val.as_function->upvalues[idx];
 	result = cb_load_upvalue(uv);
 	PUSH(result);
 
@@ -734,8 +733,8 @@ DO_OP_STORE_UPVALUE: {
 	assert(CB_VALUE_IS_USER_FN(self));
 
 	/* FIXME: Store self cb_user_function in local */
-	uv = self->val.as_function->value.as_user.upvalues[idx];
-	store_upvalue(uv, TOP());
+	uv = self->val.as_function->upvalues[idx];
+	cb_store_upvalue(uv, TOP());
 
 	DISPATCH();
 }

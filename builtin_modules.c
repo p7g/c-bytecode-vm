@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -125,4 +126,30 @@ struct cb_struct *cb_struct_make(struct cb_struct_spec *spec, ...)
 
 	va_end(args);
 	return s;
+}
+
+static struct cb_upvalue *cfunc_get_upvalue(size_t i)
+{
+	struct cb_frame *frame;
+	struct cb_value funcval;
+	struct cb_function *func;
+
+	frame = cb_vm_state.frame;
+	funcval = cb_vm_state.stack[frame->bp];
+	assert(funcval.type == CB_VALUE_FUNCTION);
+	func = funcval.val.as_function;
+	assert(func->type == CB_FUNCTION_NATIVE);
+	assert(i < func->nupvalues);
+
+	return func->upvalues[i];
+}
+
+struct cb_value cb_cfunc_load_upvalue(size_t i)
+{
+	return cb_load_upvalue(cfunc_get_upvalue(i));
+}
+
+void cb_cfunc_store_upvalue(size_t i, struct cb_value val)
+{
+	cb_store_upvalue(cfunc_get_upvalue(i), val);
 }
