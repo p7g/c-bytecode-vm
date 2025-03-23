@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742666238875,
+  "lastUpdate": 1742696487265,
   "repoUrl": "https://github.com/p7g/c-bytecode-vm",
   "entries": {
     "c-bytecode-vm benchmark": [
@@ -2466,6 +2466,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "spectral_norm",
             "value": 5302,
+            "unit": "ms"
+          },
+          {
+            "name": "binary_trees",
+            "value": 0,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "committer": {
+            "email": "775.pg.12@gmail.com",
+            "name": "Patrick Gingras",
+            "username": "p7g"
+          },
+          "distinct": true,
+          "id": "3fb48f5f1bcab8dd7ae4115903c45276fc62d0e7",
+          "message": "support putting things with identity in hashmap",
+          "timestamp": "2025-03-22T22:15:59-04:00",
+          "tree_id": "2ee60bb65a9b015f93ca2c826988ddffc5806c95",
+          "url": "https://github.com/p7g/c-bytecode-vm/commit/3fb48f5f1bcab8dd7ae4115903c45276fc62d0e7"
+        },
+        "date": 1742696486103,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bench.b",
+            "value": 192778,
+            "unit": "ms"
+          },
+          {
+            "name": "nbody",
+            "value": 2672,
+            "unit": "ms"
+          },
+          {
+            "name": "spectral_norm",
+            "value": 5203,
             "unit": "ms"
           },
           {
