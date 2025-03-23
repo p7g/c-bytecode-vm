@@ -1,11 +1,15 @@
 import bytes;
 import docs;
+import trait;
 
 export struct Error {
     message,
 }
 
 let doc = docs::module("hash", "Hashing functions.");
+
+export let Hashable = trait::new("Hashable", [trait::method("hash")]);
+export let hash = Hashable.hash;
 
 let FNV_OFFSET_BASIS_32 = 2166136261;
 let FNV_PRIME_32 = 16777619;
@@ -30,55 +34,44 @@ doc.add(
   "Applies the 32bit FNV-1a hashing algorithm to a byte array.",
 );
 
-export function int(n) {
-  return n;
-}
+trait::impl(Hashable, trait::primitive("integer"), struct {
+    function hash(self) {
+        return self;
+    }
+});
 
-doc.add("function", "int(n)", "A hashing function for integer values.");
+trait::impl(Hashable, trait::primitive("char"), struct {
+    function hash(self) {
+        return ord(self);
+    }
+});
 
-export function char(c) {
-  return int(ord(c));
-}
+trait::impl(Hashable, trait::primitive("string"), struct {
+    function hash(self) {
+        # FIXME: Should probably normalize the string (either here or when
+        # creating the string)
+        return fnv1a(string_bytes(self));
+    }
+});
 
-doc.add("function", "char(c)", "A hashing function for character values.");
+trait::impl(Hashable, trait::primitive("boolean"), struct {
+    function hash(self) {
+        if (self) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+});
 
-export function string(str) {
-  return fnv1a(string_bytes(str));
-}
-
-doc.add("function", "string(s)", "A hash function for strings.");
-
-export function bool(b) {
-    if (b) {
-        return 1;
-    } else {
+trait::impl(Hashable, trait::primitive("null"), struct {
+    function hash(self) {
         return 0;
     }
-}
+});
 
-doc.add("function", "bool(b)", "A hash function for booleans.");
-
-export function double(d) {
-    throw Error { message = "double hash is not implemented" };
-}
-
-export function primitive(value) {
-    let ty = typeof(value);
-    if (ty == "string") {
-        return string(value);
-    } else if (ty == "char") {
-        return char(value);
-    } else if (ty == "integer") {
-        return int(value);
-    } else if (ty == "boolean") {
-        return bool(value);
-    } else if (ty == "null") {
-        return 0;
-    } else if (ty == "bytes") {
-        return fnv1a(value);
-    } else {
-        throw Error { message = string_concat("Unhashable type ", ty) };
+trait::impl(Hashable, trait::primitive("bytes"), struct {
+    function hash(self) {
+        return fnv1a(self);
     }
-}
-
-doc.add("function", "primitive(value)", "A hash function for primitive types.");
+});

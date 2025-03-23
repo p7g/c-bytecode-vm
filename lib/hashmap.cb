@@ -11,7 +11,7 @@ let LOAD_FACTOR = 0.7;
 let TOMBSTONE = struct {};
 
 export struct HashMap {
-  cap, load, hash_fn, buckets, first_insert, last_insert
+  cap, load, buckets, first_insert, last_insert
 }
 
 struct Bucket { key, value, prev, next }
@@ -19,7 +19,7 @@ struct Bucket { key, value, prev, next }
 let default_hash = hash::primitive;
 
 function do_hash(self, key) {
-  return self.hash_fn(key) & self.cap - 1;
+  return hash::hash(key) & self.cap - 1;
 }
 
 function grow(self) {
@@ -44,12 +44,10 @@ function next_hash(self, hash) {
 
 export struct Options {
     initial_capacity,
-    hash_function,
 }
 
 let DEFAULT_OPTIONS = Options {
     initial_capacity = INITIAL_CAPACITY,
-    hash_function = default_hash,
 };
 
 struct HashMapCollector { options }
@@ -83,7 +81,6 @@ export function new(options=DEFAULT_OPTIONS) {
   return HashMap{
     cap=options.initial_capacity,
     load=0,
-    hash_fn=options.hash_function,
     buckets=array::new(options.initial_capacity),
     first_insert=null,
     last_insert=null,
