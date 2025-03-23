@@ -441,25 +441,37 @@ cb_str cb_value_to_string(struct cb_value val)
 	return buf;
 }
 
+static CB_INLINE int str_eq(struct cb_value *a, struct cb_value *b)
+{
+	cb_str a_str, b_str;
+
+	if (a->type == CB_VALUE_INTERNED_STRING)
+		a_str = cb_agent_get_string(a->val.as_interned_string);
+	else if (a->type == CB_VALUE_STRING)
+		a_str = a->val.as_string->string;
+	else
+		return 0;
+
+	if (b->type == CB_VALUE_INTERNED_STRING)
+		b_str = cb_agent_get_string(b->val.as_interned_string);
+	else if (b->type == CB_VALUE_STRING)
+		b_str = b->val.as_string->string;
+	else
+		return 0;
+
+	return cb_strcmp(a_str, b_str) == 0;
+}
+
 int cb_value_eq(struct cb_value *a, struct cb_value *b)
 {
 	if (a == b)
 		return 1;
-	if (a->type == CB_VALUE_INTERNED_STRING && b->type == CB_VALUE_STRING) {
-		cb_str astr = cb_agent_get_string(a->val.as_interned_string),
-		       bstr = b->val.as_string->string;
-		if (cb_strlen(astr) != cb_strlen(bstr))
-			return 0;
-		return !memcmp(cb_strptr(&bstr), cb_strptr(&bstr),
-				cb_strlen(astr));
-	} else if (b->type == CB_VALUE_INTERNED_STRING
-			&& a->type == CB_VALUE_STRING) {
-		cb_str astr = cb_agent_get_string(b->val.as_interned_string),
-		       bstr = a->val.as_string->string;
-		if (cb_strlen(astr) != cb_strlen(bstr))
-			return 0;
-		return !memcmp(cb_strptr(&astr), cb_strptr(&bstr),
-				cb_strlen(astr));
+
+	if (a->type == CB_VALUE_INTERNED_STRING
+			|| a->type == CB_VALUE_STRING
+			|| b->type == CB_VALUE_INTERNED_STRING
+			|| b->type == CB_VALUE_STRING) {
+		return str_eq(a, b);
 	}
 	if (a->type != b->type)
 		return 0;
@@ -489,9 +501,6 @@ int cb_value_eq(struct cb_value *a, struct cb_value *b)
 		}
 		return 1;
 	}
-	case CB_VALUE_STRING:
-		return !cb_strcmp(a->val.as_string->string,
-				b->val.as_string->string);
 	case CB_VALUE_BYTES: {
 		struct cb_bytes *bytes_a, *bytes_b;
 		bytes_a = a->val.as_bytes;
