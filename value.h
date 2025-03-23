@@ -133,6 +133,7 @@ ssize_t cb_value_from_fmt(struct cb_value *val, const char *fmt, ...);
 struct cb_bytes *cb_bytes_new(size_t size);
 struct cb_value cb_bytes_new_value(size_t size);
 size_t cb_function_upvalue_count(const struct cb_function *func);
+int cb_value_id(struct cb_value value, intptr_t *id_out);
 
 const char *cb_value_type_name(enum cb_value_type type);
 const char *cb_value_type_of(struct cb_value *val);

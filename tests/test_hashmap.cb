@@ -30,6 +30,13 @@ export function test_basics() {
     test::assert(hashmap::has(m, 1), "has 1");
     test::assert(hashmap::get(m, 1) == "one", "1 is one");
     test::assert(hashmap::size(m) == 3);
+
+    let s = struct {};
+    test::assert(!hashmap::has(m, s));
+    hashmap::set(m, s, "S");
+    test::assert(hashmap::has(m, s));
+    test::assert(hashmap::get(m, s) == "S");
+    test::assert(hashmap::size(m) == 4);
 }
 
 function iterlength(it) {

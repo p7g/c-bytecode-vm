@@ -16,10 +16,15 @@ export struct HashMap {
 
 struct Bucket { key, value, prev, next }
 
-let default_hash = hash::primitive;
-
 function do_hash(self, key) {
-  return hash::hash(key) & self.cap - 1;
+  try {
+    return hash::hash(key) & self.cap - 1;
+  } catch (exc) {
+    if (!trait::implements(key, hash::Hashable)) {
+        return id(key) & self.cap - 1;
+    }
+    throw exc;
+  }
 }
 
 function grow(self) {

@@ -346,6 +346,7 @@ least for now:
 - `__gc_collect`: Have the garbage collector run immediately. It has a scary
   name because it seems like a scary thing to do.
 - `__dis`: Print the disassembly of the given function directly to stdout.
+- `id`: Get the ID of the given value if it has one.
 
 ## Standard Library
 

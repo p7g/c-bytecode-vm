@@ -866,3 +866,49 @@ CB_INLINE size_t cb_function_upvalue_count(const struct cb_function *func)
 		return func->nupvalues;
 	}
 }
+
+int cb_value_id(struct cb_value value, intptr_t *id_out)
+{
+	union {
+		void *as_ptr;
+		intptr_t as_int;
+	} result;
+
+	switch (value.type) {
+	case CB_VALUE_NULL:
+	case CB_VALUE_INT:
+	case CB_VALUE_DOUBLE:
+	case CB_VALUE_BOOL:
+	case CB_VALUE_CHAR:
+	case CB_VALUE_INTERNED_STRING:
+	case CB_VALUE_STRING:
+		return 1;
+
+	case CB_VALUE_BYTES:
+		result.as_ptr = value.val.as_bytes;
+		break;
+
+	case CB_VALUE_ARRAY:
+		result.as_ptr = value.val.as_array;
+		break;
+
+	case CB_VALUE_FUNCTION:
+		result.as_ptr = value.val.as_function;
+		break;
+
+	case CB_VALUE_STRUCT_SPEC:
+		result.as_ptr = value.val.as_struct_spec;
+		break;
+
+	case CB_VALUE_STRUCT:
+		result.as_ptr = value.val.as_struct;
+		break;
+
+	case CB_VALUE_USERDATA:
+		result.as_ptr = value.val.as_userdata;
+		break;
+	}
+
+	*id_out = result.as_int;
+	return 0;
+}

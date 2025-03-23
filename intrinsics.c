@@ -52,7 +52,8 @@
 	X("toint", toint, 1) \
 	X("__gc_collect", __gc_collect, 0) \
 	X("__dis", __dis, 1) \
-	X("arguments", arguments, 0)
+	X("arguments", arguments, 0) \
+	X("id", id, 1)
 
 INTRINSIC_LIST(DECL);
 
@@ -557,6 +558,20 @@ static int arguments(size_t argc, struct cb_value *argv,
 
 	result->type = CB_VALUE_ARRAY;
 	result->val.as_array = args;
+
+	return 0;
+}
+
+static int id(size_t argc, struct cb_value *argv, struct cb_value *result)
+{
+	result->type = CB_VALUE_INT;
+
+	if (cb_value_id(argv[0], &result->val.as_int)) {
+		struct cb_value err;
+		cb_value_from_fmt(&err, "Value of type %s has no identity", cb_value_type_friendly_name(argv[0].type));
+		cb_error_set(err);
+		return 1;
+	}
 
 	return 0;
 }
