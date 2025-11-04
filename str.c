@@ -5,6 +5,7 @@
 
 #include "utf8proc/utf8proc.h"
 
+#include "alloc.h"
 #include "cb_util.h"
 #include "str.h"
 
@@ -62,7 +63,7 @@ void cb_str_init(struct cb_str *str, size_t len)
 	str->len = len;
 	str->ncodepoints = 0;
 	if (!CB_STR_CAN_INLINE(len))
-		str->chars.big = malloc(len + 1);
+		str->chars.big = cb_malloc(len + 1);
 }
 
 static char *str_init(struct cb_str *str, size_t len)
@@ -101,7 +102,7 @@ ssize_t cb_str_take_cstr(char *str, size_t len, cb_str *s)
 	s->len = len;
 	if (CB_STR_CAN_INLINE(len)) {
 		memcpy(s->chars.small, str, len);
-		free(str);
+		cb_free(str);
 	} else {
 		s->chars.big = str;
 	}
@@ -128,14 +129,14 @@ int cb_str_eq_cstr(cb_str s, const char *cstr, size_t len)
 void cb_str_free(cb_str s)
 {
 	if (!CB_STR_CAN_INLINE(s.len))
-		free(s.chars.big);
+		cb_free(s.chars.big);
 }
 
 char *cb_strdup_cstr(struct cb_str str)
 {
 	char *buf;
 
-	buf = malloc(str.len + 1);
+	buf = cb_malloc(str.len + 1);
 	memcpy(buf, cb_strptr(&str), cb_strlen(str));
 	buf[str.len] = 0;
 

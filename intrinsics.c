@@ -8,6 +8,7 @@
 #include "utf8proc/utf8proc.h"
 
 #include "agent.h"
+#include "alloc.h"
 #include "bytes.h"
 #include "disassemble.h"
 #include "error.h"
@@ -173,7 +174,7 @@ static int string_from_chars(size_t argc, struct cb_value *argv,
 	CB_EXPECT_TYPE(CB_VALUE_ARRAY, arr);
 
 	len = arr.val.as_array->len;
-	str = malloc(len * 4 + 1);
+	str = cb_malloc(len * 4 + 1);
 	pos = 0;
 
 	for (unsigned i = 0; i < len; i += 1) {
@@ -183,7 +184,7 @@ static int string_from_chars(size_t argc, struct cb_value *argv,
 			cb_value_from_string(&err,
 					"string_from_chars: Expected array of chars\n");
 			cb_error_set(err);
-			free(str);
+			cb_free(str);
 			return 1;
 		}
 		pos += utf8proc_encode_char(charval.val.as_char, str + pos);
@@ -234,7 +235,7 @@ static int string_concat(size_t argc, struct cb_value *argv,
 	}
 
 	offset = 0;
-	buf = malloc(len + 1);
+	buf = cb_malloc(len + 1);
 
 	for (unsigned i = 0; i < argc; i += 1) {
 		str = CB_EXPECT_STRING(argv[i]);
@@ -337,7 +338,7 @@ static int read_file(size_t argc, struct cb_value *argv,
 	len = ftell(f);
 	X(fseek(f, 0, SEEK_SET));
 
-	buf = malloc(len + 1);
+	buf = cb_malloc(len + 1);
 	buf[len] = 0;
 	fread(buf, sizeof(char), len, f);
 	fclose(f);
@@ -385,7 +386,7 @@ static int read_file_bytes(size_t argc, struct cb_value *argv,
 	len = ftell(f);
 	X(fseek(f, 0, SEEK_SET));
 
-	buf = malloc(len + 1);
+	buf = cb_malloc(len + 1);
 	fread(buf, sizeof(char), len, f);
 	fclose(f);
 
@@ -402,7 +403,7 @@ static int read_file_bytes(size_t argc, struct cb_value *argv,
 		};
 	}
 
-	free(buf);
+	cb_free(buf);
 	return 0;
 }
 

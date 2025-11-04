@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "agent.h"
+#include "alloc.h"
 #include "cb_util.h"
 #include "cbcvm.h"
 #include "error.h"
@@ -26,6 +27,24 @@ static size_t amount_allocated = 0;
 static size_t next_allocation_threshold = GC_INITIAL_THRESHOLD;
 static size_t hint = 0;
 static int gc_enabled = 0;
+
+CB_INLINE void *cb_gc_alloc(size_t bytes, cb_deinit_fn deinit_fn)
+{
+	void *ptr;
+
+	if (cb_gc_should_collect() || cb_options.stress_gc) {
+		cb_gc_collect();
+	}
+
+	assert(bytes >= sizeof(cb_gc_header));
+	ptr = cb_malloc(bytes);
+	cb_gc_register((cb_gc_header*) ptr, bytes, deinit_fn);
+
+	/* if (cb_options.debug_gc) */
+	/* 	printf("GC: allocated %zu bytes at %p\n", bytes, ptr); */
+
+	return ptr;
+}
 
 CB_INLINE void cb_gc_register(struct cb_gc_header *obj, size_t size,
 		cb_deinit_fn *deinit_fn)
@@ -90,7 +109,7 @@ void cb_gc_queue_mark(void *obj, void (*mark_fn)(void *obj))
 {
 	struct mark_queue_node *node;
 
-	node = malloc(sizeof(struct mark_queue_node));
+	node = cb_malloc(sizeof(struct mark_queue_node));
 	node->next = mark_queue;
 	node->obj = obj;
 	node->mark_fn = mark_fn;
@@ -106,7 +125,7 @@ static void evaluate_mark_queue(void)
 		tmp = mark_queue;
 		mark_queue = tmp->next;
 		tmp->mark_fn(tmp->obj);
-		free(tmp);
+		cb_free(tmp);
 	}
 }
 
@@ -120,7 +139,7 @@ static struct cext_root *cext_root = NULL;
 
 struct cext_root *cb_gc_hold(void *obj, void (*mark_fn)(void *obj))
 {
-	struct cext_root *node = malloc(sizeof(struct cext_root));
+	struct cext_root *node = cb_malloc(sizeof(struct cext_root));
 	node->prev = NULL;
 	node->next = cext_root;
 	node->obj = obj;
@@ -137,7 +156,7 @@ void cb_gc_release(struct cext_root *node)
 		node->next->prev = node->prev;
 	if (node == cext_root)
 		cext_root = node->next;
-	free(node);
+	cb_free(node);
 }
 
 static void mark(void)
@@ -198,7 +217,7 @@ static size_t sweep(void)
 				tmp->deinit(tmp);
 			/* DEBUG_LOG("freeing object at %p", tmp); */
 			amount_allocated -= tmp->size;
-			free(tmp);
+			cb_free(tmp);
 			nfreed += 1;
 		} else {
 			/* DEBUG_LOG("not freeing object at %p", tmp); */

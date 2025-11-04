@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "alloc.h"
 #include "builtin_modules.h"
 #include "bytes.h"
 #include "error.h"
@@ -371,11 +372,11 @@ static int recv_impl(size_t argc, struct cb_value *argv,
 	fd = EXPECT_SOCKET(argv[0]);
 	CONVERT_TO_C_INT(amount, argv[1]);
 
-	data = malloc(amount * sizeof(char));
+	data = cb_malloc(amount * sizeof(char));
 	received = recv(fd, data, amount, 0);
 	bytes = cb_bytes_new(received);
 	memcpy(cb_bytes_ptr(bytes), data, received);
-	free(data);
+	cb_free(data);
 
 	result->type = CB_VALUE_BYTES;
 	result->val.as_bytes = bytes;

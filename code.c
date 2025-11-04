@@ -10,18 +10,18 @@
 static void code_deinit(void *code_ptr)
 {
 	struct cb_code *code = (struct cb_code *)code_ptr;
-	free(code->bytecode);
+	cb_free(code->bytecode);
 	for (int i = 0; i < code->nconsts; i += 1)
 		cb_const_free(&code->const_pool[i]);
-	free(code->const_pool);
-	free(code->ic);
+	cb_free(code->const_pool);
+	cb_free(code->ic);
 	if (code->loc)
-		free(code->loc);
+		cb_free(code->loc);
 }
 
 struct cb_code *cb_code_new(void)
 {
-	return cb_malloc(sizeof(struct cb_code), code_deinit);
+	return cb_gc_alloc(sizeof(struct cb_code), code_deinit);
 }
 
 static void code_mark_fn(void *obj)

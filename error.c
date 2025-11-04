@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "agent.h"
+#include "alloc.h"
 #include "error.h"
 #include "eval.h"
 #include "module.h"
@@ -29,13 +30,13 @@ void cb_error_set(struct cb_value value)
 {
 	struct cb_error *err;
 
-	err = malloc(sizeof(struct cb_error));
+	err = cb_malloc(sizeof(struct cb_error));
 	err->tb = NULL;
 	err->value = value;
 
 	/* FIXME: handle errors raised while handling errors */
 	if (cb_vm_state.error)
-		free(cb_vm_state.error);
+		cb_free(cb_vm_state.error);
 
 	cb_vm_state.error = err;
 }
@@ -57,11 +58,11 @@ void cb_error_recover(void)
 	tb = cb_vm_state.error->tb;
 	while (tb) {
 		tmp = tb->next;
-		free(tb);
+		cb_free(tb);
 		tb = tmp;
 	}
 
-	free(cb_vm_state.error);
+	cb_free(cb_vm_state.error);
 	cb_vm_state.error = NULL;
 }
 
@@ -72,7 +73,7 @@ void cb_traceback_add_frame(struct cb_frame *frame, size_t ip)
 
 	assert(cb_vm_state.error);
 
-	tb = malloc(sizeof(struct cb_traceback));
+	tb = cb_malloc(sizeof(struct cb_traceback));
 	tb->frame = *frame;
 	tb->ip = ip;
 	if (frame->is_function)

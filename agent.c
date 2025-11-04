@@ -14,6 +14,7 @@
 #endif
 
 #include "agent.h"
+#include "alloc.h"
 #include "builtin_modules.h"
 #include "cb_util.h"
 #include "error.h"
@@ -67,7 +68,7 @@ static char *get_stdlib_dir()
 	dir = dirname(exe_path);
 	size_t sz = snprintf(NULL, 0, "%s/lib", dir) + 1;
 
-	char *result = malloc(sizeof(char) * sz);
+	char *result = cb_malloc(sizeof(char) * sz);
 	snprintf(result, sz, "%s/lib", dir);
 
 	return result;
@@ -124,7 +125,7 @@ void cb_agent_deinit(void)
 		cb_str_free(agent.string_table[i]);
 
 	if (agent.string_table)
-		free(agent.string_table);
+		cb_free(agent.string_table);
 	if (agent.modules) {
 		for (i = 0; i < agent.next_module_id; i += 1) {
 			/* Some entries in the modules array are only reserved,
@@ -132,16 +133,16 @@ void cb_agent_deinit(void)
 			if (agent.modules[i])
 				cb_modspec_free(agent.modules[i]);
 		}
-		free(agent.modules);
+		cb_free(agent.modules);
 	}
 
 	agent.string_table = NULL;
 	agent.modules = NULL;
 
-	free(agent.import_paths[0]);
+	cb_free(agent.import_paths[0]);
 	agent.import_paths[0] = NULL;
 	if (agent.cbcvm_path) {
-		free(agent.cbcvm_path);
+		cb_free(agent.cbcvm_path);
 		agent.cbcvm_path = NULL;
 		for (i = 1; i < MAX_IMPORT_PATHS && agent.import_paths[i];
 				i += 1) {
@@ -166,7 +167,7 @@ ssize_t cb_agent_intern_string(const char *str, size_t len)
 	size_t id;
 
 	if (!agent.string_table) {
-		agent.string_table = malloc(sizeof(cb_str)
+		agent.string_table = cb_malloc(sizeof(cb_str)
 				* INITIAL_STRING_TABLE_SIZE);
 		agent.string_table_size = INITIAL_STRING_TABLE_SIZE;
 	}
@@ -328,7 +329,7 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 	if (!agent.import_paths[0])
 		buf_len = 6;
 
-	char *buf = malloc(sizeof(char) * buf_len + 1);
+	char *buf = cb_malloc(sizeof(char) * buf_len + 1);
 	size_t nwritten = 0;
 	for (i = -1; i < MAX_IMPORT_PATHS && (i == -1 || agent.import_paths[i]);
 			i += 1) {
@@ -349,7 +350,7 @@ FILE *cb_agent_resolve_import(cb_str import_name, const char *pwd,
 			(int) cb_strlen(import_name), cb_strptr(&import_name),
 			buf);
 	cb_error_set(err);
-	free(buf);
+	cb_free(buf);
 	return NULL;
 
 #undef CHECK_LEN

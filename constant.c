@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "agent.h"
+#include "alloc.h"
 #include "code.h"
 #include "constant.h"
 #include "struct.h"
@@ -33,7 +34,7 @@ void cb_const_free(struct cb_const *obj)
 		struct cb_const_array *arr = obj->val.as_array;
 		for (unsigned i = 0; i < arr->len; i += 1)
 			cb_const_free(&arr->elements[i]);
-		free(arr);
+		cb_free(arr);
 		break;
 	}
 
@@ -41,12 +42,12 @@ void cb_const_free(struct cb_const *obj)
 		struct cb_const_struct *struct_ = obj->val.as_struct;
 		for (unsigned i = 0; i < struct_->nfields; i += 1)
 			cb_const_free(&struct_->fields[i].value);
-		free(struct_);
+		cb_free(struct_);
 		break;
 	}
 
 	case CB_CONST_FUNCTION:
-		free(obj->val.as_function);
+		cb_free(obj->val.as_function);
 		break;
 
 	case CB_CONST_MODULE:
@@ -130,7 +131,7 @@ struct cb_value cb_const_to_value(const struct cb_const *const_)
 		func->arity = const_func->arity;
 		func->value.as_user.code = const_func->code;
 		if (const_func->code->nupvalues) {
-			func->upvalues = malloc(const_func->code->nupvalues
+			func->upvalues = cb_malloc(const_func->code->nupvalues
 					* sizeof(struct cb_upvalue *));
 		}
 		for (int i = 0; i < const_func->code->nupvalues; i += 1)

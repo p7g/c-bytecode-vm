@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc.h"
 #include "builtin_modules.h"
 #include "code.h"
 #include "disassemble.h"
@@ -152,7 +153,7 @@ err:
 
 end:
 	if (path)
-		free(path);
+		cb_free(path);
 
 	result->type = CB_VALUE_NULL;
 	return retval;

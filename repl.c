@@ -6,6 +6,7 @@
 #include <readline/history.h>
 
 #include "agent.h"
+#include "alloc.h"
 #include "builtin_modules.h"
 #include "cbcvm.h"
 #include "code.h"
@@ -23,7 +24,7 @@ static char *history_file_path(void)
 	char *home = getenv("HOME");
 
 	int needed_size = snprintf(NULL, 0, "%s/.cbcvm_history", home);
-	buf = malloc(sizeof(char) * (needed_size + 1));
+	buf = cb_malloc(sizeof(char) * (needed_size + 1));
 	snprintf(buf, needed_size + 1, "%s/.cbcvm_history", home);
 	buf[needed_size] = 0;
 

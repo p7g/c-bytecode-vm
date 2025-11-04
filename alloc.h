@@ -3,8 +3,8 @@
 
 #include <stddef.h>
 
-#include "gc.h"
-
-void *cb_malloc(size_t bytes, cb_deinit_fn deinit_fn);
+void *cb_calloc(size_t size, size_t count);
+void *cb_malloc(size_t size);
+void cb_free(void *ptr);
 
 #endif

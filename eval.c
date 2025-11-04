@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "agent.h"
+#include "alloc.h"
 #include "builtin_modules.h"
 #include "cbcvm.h"
 #include "cb_util.h"
@@ -32,14 +33,14 @@ void init_module(struct cb_module *mod, const cb_modspec *spec)
 
 void cb_vm_init(void)
 {
-	cb_vm_state.upvalues = calloc(32, sizeof(struct cb_upvalue *));
+	cb_vm_state.upvalues = cb_calloc(32, sizeof(struct cb_upvalue *));
 	cb_vm_state.upvalues_idx = 0;
 	cb_vm_state.upvalues_size = 32;
 	/* Start with stack size 1 to avoid UB from applying offset to NULL */
-	cb_vm_state.stack = malloc(sizeof(struct cb_value));
+	cb_vm_state.stack = cb_malloc(sizeof(struct cb_value));
 	cb_vm_state.stack_size = 1;
 
-	cb_vm_state.modules = calloc(cb_agent_modspec_count(),
+	cb_vm_state.modules = cb_calloc(cb_agent_modspec_count(),
 			sizeof(struct cb_module));
 	for (size_t i = 0; i < cb_agent_modspec_count(); i += 1)
 		init_module(&cb_vm_state.modules[i], cb_agent_get_modspec(i));
@@ -53,14 +54,14 @@ void cb_vm_deinit(void)
 		if (!cb_module_is_zero(cb_vm_state.modules[i]))
 			cb_module_free(&cb_vm_state.modules[i]);
 	}
-	free(cb_vm_state.modules);
+	cb_free(cb_vm_state.modules);
 	cb_vm_state.modules = NULL;
 
-	free(cb_vm_state.upvalues);
+	cb_free(cb_vm_state.upvalues);
 	cb_vm_state.upvalues = NULL;
 
 	if (cb_vm_state.stack)
-		free(cb_vm_state.stack);
+		cb_free(cb_vm_state.stack);
 }
 
 void cb_vm_grow_modules_array()
@@ -335,7 +336,7 @@ static int method_caller(size_t argc, struct cb_value *argv,
 
 static void set_upvalue(struct cb_upvalue **uv, struct cb_value value)
 {
-	(*uv) = malloc(sizeof(struct cb_upvalue));
+	(*uv) = cb_malloc(sizeof(struct cb_upvalue));
 	(*uv)->refcount = 1;
 	(*uv)->is_closed = 1;
 	(*uv)->v.value = value;
@@ -347,7 +348,7 @@ static struct cb_value make_method_caller(struct cb_value receiver,
 	struct cb_value bound_method = cb_cfunc_new(method->name, method->arity,
 			method_caller);
 	const int num_upvalues = 2;
-	struct cb_upvalue **method_upvalues = malloc(
+	struct cb_upvalue **method_upvalues = cb_malloc(
 			num_upvalues * sizeof(struct cb_upvalue *));
 	bound_method.val.as_function->nupvalues = num_upvalues;
 	bound_method.val.as_function->upvalues = method_upvalues;
@@ -755,7 +756,7 @@ DO_OP_BIND_LOCAL: {
 	}
 
 	if (!uv) {
-		uv = malloc(sizeof(struct cb_upvalue));
+		uv = cb_malloc(sizeof(struct cb_upvalue));
 		uv->refcount = 0;
 		uv->is_closed = 0;
 		uv->v.idx = idx;

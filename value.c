@@ -34,7 +34,7 @@ static void cb_function_deinit(void *ptr)
 		if (fn->upvalues[i]->refcount != 0)
 			fn->upvalues[i]->refcount -= 1;
 		if (fn->upvalues[i]->refcount == 0)
-			free(fn->upvalues[i]);
+			cb_free(fn->upvalues[i]);
 		if (cb_vm_state.upvalues != NULL) {
 			for (unsigned j = 0;
 					j < cb_vm_state.upvalues_idx;
@@ -47,12 +47,12 @@ static void cb_function_deinit(void *ptr)
 			}
 		}
 	}
-	free(fn->upvalues);
+	cb_free(fn->upvalues);
 }
 
 CB_INLINE struct cb_function *cb_function_new(void)
 {
-	return cb_malloc(sizeof(struct cb_function), cb_function_deinit);
+	return cb_gc_alloc(sizeof(struct cb_function), cb_function_deinit);
 }
 
 struct cb_value cb_cfunc_new(size_t name, size_t arity,
@@ -76,7 +76,7 @@ struct cb_value cb_cfunc_new(size_t name, size_t arity,
 
 CB_INLINE struct cb_array *cb_array_new(size_t len)
 {
-	struct cb_array *mem = cb_malloc(sizeof(struct cb_array)
+	struct cb_array *mem = cb_gc_alloc(sizeof(struct cb_array)
 			+ sizeof(struct cb_value) * len, NULL);
 	mem->len = len;
 	return mem;
@@ -91,7 +91,7 @@ static void deinit_string(void *s_ptr)
 
 CB_INLINE struct cb_string *cb_string_new(void)
 {
-	return cb_malloc(sizeof(struct cb_string), deinit_string);
+	return cb_gc_alloc(sizeof(struct cb_string), deinit_string);
 }
 
 CB_INLINE int cb_value_is_truthy(struct cb_value *val)
@@ -154,7 +154,7 @@ int repr_enter(cb_gc_header *obj)
 			return 1;
 	}
 
-	tmp = malloc(sizeof(struct repr_stack));
+	tmp = cb_malloc(sizeof(struct repr_stack));
 	tmp->next = repr_stack;
 	tmp->obj = obj;
 	repr_stack = tmp;
@@ -171,7 +171,7 @@ void repr_leave(cb_gc_header *obj)
 			prev = &tmp->next, tmp = tmp->next);
 	if (tmp != NULL) {
 		*prev = tmp->next;
-		free(tmp);
+		cb_free(tmp);
 	}
 }
 
@@ -832,20 +832,20 @@ ssize_t cb_value_from_fmt(struct cb_value *val, const char *fmt, ...)
 	va_start(args, fmt);
 	size_t len = vsnprintf(NULL, 0, fmt, args);
 	va_end(args);
-	char *str = malloc(sizeof(char) * len + 1);
+	char *str = cb_malloc(sizeof(char) * len + 1);
 	va_start(args, fmt);
 	vsnprintf(str, len + 1, fmt, args);
 	str[len] = 0;
 	va_end(args);
 
 	ssize_t result = cb_value_from_string(val, str);
-	free(str);
+	cb_free(str);
 	return result;
 }
 
 struct cb_bytes *cb_bytes_new(size_t size)
 {
-	return cb_malloc(sizeof(struct cb_bytes) + size, NULL);
+	return cb_gc_alloc(sizeof(struct cb_bytes) + size, NULL);
 }
 
 struct cb_value cb_bytes_new_value(size_t size)

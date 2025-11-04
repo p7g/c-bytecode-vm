@@ -3,23 +3,18 @@
 #include <stdlib.h>
 
 #include "alloc.h"
-#include "cbcvm.h"
-#include "gc.h"
 
-void *cb_malloc(size_t bytes, cb_deinit_fn deinit_fn)
+void *cb_calloc(size_t size, size_t count)
 {
-	void *ptr;
+	return calloc(size, count);
+}
 
-	if (cb_gc_should_collect() || cb_options.stress_gc) {
-		cb_gc_collect();
-	}
+void *cb_malloc(size_t size)
+{
+	return malloc(size);
+}
 
-	assert(bytes >= sizeof(cb_gc_header));
-	ptr = malloc(bytes);
-	cb_gc_register((cb_gc_header*) ptr, bytes, deinit_fn);
-
-	/* if (cb_options.debug_gc) */
-	/* 	printf("GC: allocated %zu bytes at %p\n", bytes, ptr); */
-
-	return ptr;
+void cb_free(void *ptr)
+{
+	free(ptr);
 }

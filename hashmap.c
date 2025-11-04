@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "alloc.h"
 #include "cb_util.h"
 #include "hashmap.h"
 #include "value.h"
@@ -44,8 +45,8 @@ struct cb_hashmap *cb_hashmap_new(void)
 {
 	struct cb_hashmap *m;
 
-	m = malloc(sizeof(struct cb_hashmap));
-	m->entries = calloc(INITIAL_SIZE, sizeof(struct entry));
+	m = cb_malloc(sizeof(struct cb_hashmap));
+	m->entries = cb_calloc(INITIAL_SIZE, sizeof(struct entry));
 	m->size = INITIAL_SIZE;
 	m->num_entries = 0;
 	/* Initial hashmap version is 0 so zeroed out inline cache
@@ -57,8 +58,8 @@ struct cb_hashmap *cb_hashmap_new(void)
 
 void cb_hashmap_free(cb_hashmap *m)
 {
-	free(m->entries);
-	free(m);
+	cb_free(m->entries);
+	cb_free(m);
 }
 
 static void maybe_grow(struct cb_hashmap *m)
@@ -72,7 +73,7 @@ static void maybe_grow(struct cb_hashmap *m)
 	old_entries = m->entries;
 	old_size = m->size;
 	m->size = NEXT_CAPACITY(m->size);
-	m->entries = calloc(m->size, sizeof(struct entry));
+	m->entries = cb_calloc(m->size, sizeof(struct entry));
 	m->num_entries = 0;
 	m->version += 1;
 
@@ -82,7 +83,7 @@ static void maybe_grow(struct cb_hashmap *m)
 			cb_hashmap_set(m, entry->key, entry->value);
 	}
 
-	free(old_entries);
+	cb_free(old_entries);
 }
 
 static void inc_num_entries(cb_hashmap *m)

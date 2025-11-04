@@ -13,6 +13,7 @@
 #include "utf8proc/utf8proc.h"
 
 #include "agent.h"
+#include "alloc.h"
 #include "builtin_modules.h"
 #include "cb_util.h"
 #include "code.h"
@@ -436,7 +437,7 @@ struct scope {
 
 static struct scope *scope_new()
 {
-	return calloc(1, sizeof(struct scope));
+	return cb_calloc(1, sizeof(struct scope));
 }
 
 static void scope_free(struct scope *s)
@@ -447,10 +448,10 @@ static void scope_free(struct scope *s)
 	while (current) {
 		tmp = current;
 		current = current->next;
-		free(tmp);
+		cb_free(tmp);
 	}
 
-	free(s);
+	cb_free(s);
 }
 
 static struct scope *scope_new_child(struct scope *parent)
@@ -490,7 +491,7 @@ static size_t scope_add_binding(struct scope *s, ssize_t name, int upvalue)
 	size_t id;
 	struct binding *new_binding;
 
-	new_binding = malloc(sizeof(struct binding));
+	new_binding = cb_malloc(sizeof(struct binding));
 	new_binding->name = name;
 	new_binding->is_upvalue = upvalue;
 
@@ -548,7 +549,7 @@ static struct cb_bytecode *cb_bytecode_new()
 {
 	struct cb_bytecode *bc;
 
-	bc = malloc(sizeof(struct cb_bytecode));
+	bc = cb_malloc(sizeof(struct cb_bytecode));
 
 	bc->code = NULL;
 	bc->size = bc->len = 0;
@@ -571,13 +572,13 @@ static void cb_bytecode_free(struct cb_bytecode *bc)
 	while (current) {
 		tmp = current;
 		current = current->next;
-		free(tmp);
+		cb_free(tmp);
 	}
 	if (bc->code)
-		free(bc->code);
+		cb_free(bc->code);
 	if (bc->label_addresses)
-		free(bc->label_addresses);
-	free(bc);
+		cb_free(bc->label_addresses);
+	cb_free(bc);
 }
 
 static size_t bytecode_label(struct cb_bytecode *bc)
@@ -626,7 +627,7 @@ static void bytecode_mark_label(struct cb_bytecode *bc, size_t label)
 			bytecode_update_size_t(bc, tmp->address, op.as_size_t);
 
 			*prev = current;
-			free(tmp);
+			cb_free(tmp);
 		} else {
 			prev = &tmp->next;
 		}
@@ -658,7 +659,7 @@ static size_t bytecode_address_of(struct cb_bytecode *bc, size_t label,
 	if (bc->label_addresses[label] == -1) {
 		value = 0;
 
-		addr = malloc(sizeof(struct pending_address));
+		addr = cb_malloc(sizeof(struct pending_address));
 		addr->label = label;
 		addr->address = bc->len;
 		addr->next = bc->pending_addresses;
@@ -680,7 +681,7 @@ static cb_instruction *bytecode_finalize(struct cb_bytecode *bc, size_t *len)
 	}
 
 	if (bc->label_addresses) {
-		free(bc->label_addresses);
+		cb_free(bc->label_addresses);
 		bc->label_addresses = NULL;
 	}
 	*len = bc->len;
@@ -788,7 +789,7 @@ static struct parse_state *parse_state_new(const utf8proc_uint8_t *input,
 {
 	struct parse_state *ps;
 
-	ps = malloc(sizeof(struct parse_state));
+	ps = cb_malloc(sizeof(struct parse_state));
 	ps->did_peek = 0;
 	lex_state_init(&ps->lex_state, name, input, input_len);
 
@@ -797,14 +798,14 @@ static struct parse_state *parse_state_new(const utf8proc_uint8_t *input,
 
 static void parse_state_free(struct parse_state *ps)
 {
-	free(ps);
+	cb_free(ps);
 }
 
 static struct module_state *module_state_new(cb_modspec *spec)
 {
 	struct module_state *state;
 
-	state = malloc(sizeof(struct module_state));
+	state = cb_malloc(sizeof(struct module_state));
 	state->spec = spec;
 	state->imported = cb_hashmap_new();
 
@@ -814,7 +815,7 @@ static struct module_state *module_state_new(cb_modspec *spec)
 static void module_state_free(struct module_state *state)
 {
 	cb_hashmap_free(state->imported);
-	free(state);
+	cb_free(state);
 }
 
 static void cstate_init(struct cstate *const state,
@@ -839,9 +840,9 @@ static void cstate_deinit(const struct cstate *state)
 	if (state->bytecode)
 		cb_bytecode_free(state->bytecode);
 	if (state->consts)
-		free(state->consts);
+		cb_free(state->consts);
 	if (state->loc)
-		free(state->loc);
+		cb_free(state->loc);
 }
 
 static void cstate_inherit(struct cstate *dest, const struct cstate *src)
@@ -1121,7 +1122,7 @@ static struct cb_code *create_code(struct cstate *state)
 
 	if (state->loc_len != 0)
 		state->loc[state->loc_len - 1].end = state->bytecode->len;
-	code->loc = malloc(sizeof(struct cb_loc) * state->loc_len);
+	code->loc = cb_malloc(sizeof(struct cb_loc) * state->loc_len);
 	unsigned loc_len = 0;
 	for (unsigned i = 0; i < state->loc_len; i++) {
 		struct loc *in = &state->loc[i];
@@ -1140,7 +1141,7 @@ static struct cb_code *create_code(struct cstate *state)
 	code->const_pool = realloc(state->consts,
 			state->consts_len * sizeof(struct cb_const));
 	code->modspec = state->module_state->spec;
-	code->ic = calloc(code->bytecode_len, sizeof(union cb_inline_cache));
+	code->ic = cb_calloc(code->bytecode_len, sizeof(union cb_inline_cache));
 	code->max_try_depth = state->max_try_depth;
 
 	/* ownership taken */
@@ -1608,11 +1609,11 @@ static int compile_function(struct cstate *state, size_t *name_out,
 	struct cb_const func_const;
 	struct binding *binding;
 
-	func = malloc(sizeof(struct cb_const_user_function));
+	func = cb_malloc(sizeof(struct cb_const_user_function));
 	free_var_len = compile_const_function(state, &free_vars, func,
 			&binding_id, is_method);
 	if (free_var_len < 0) {
-		free(func);
+		cb_free(func);
 		return 1;
 	}
 
@@ -1649,7 +1650,7 @@ static int compile_function(struct cstate *state, size_t *name_out,
 	}
 
 	if (free_vars != NULL)
-		free(free_vars);
+		cb_free(free_vars);
 
 	return 0;
 }
@@ -1964,20 +1965,20 @@ static int compile_import_statement(struct cstate *state)
 				== sizeof("<script>") - 1
 				&& !memcmp("<script>", cb_strptr(&_name),
 					sizeof("<script>") - 1)) {
-			filename = malloc(1);
+			filename = cb_malloc(1);
 			*filename = 0;
 		} else {
 			char *real_path = realpath(cb_strptr(&_name), NULL);
 			const char *dir_name = dirname(real_path);
 			size_t len = strlen(dir_name);
-			filename = malloc(len + 1);
+			filename = cb_malloc(len + 1);
 			filename[len] = 0;
 			memcpy(filename, dir_name, strlen(dir_name));
-			free(real_path);
+			cb_free(real_path);
 		}
 
 		f = cb_agent_resolve_import(modname_str, filename, NULL);
-		free(filename);
+		cb_free(filename);
 		if (!f)
 			goto error;
 
@@ -2302,7 +2303,7 @@ static int compile_int_expression(struct cstate *state)
 	/* FIXME: find way to parse int from non-null-terminated string
 	 * This allocation should not be necessary */
 	len = tok_len(&tok);
-	buf = malloc(len + 1);
+	buf = cb_malloc(len + 1);
 	memcpy(buf, tok_start(state, &tok), len);
 	buf[len] = 0;
 
@@ -2310,7 +2311,7 @@ static int compile_int_expression(struct cstate *state)
 		scanned = sscanf(buf, "0x%zx%c", &num, &c);
 	else
 		scanned = sscanf(buf, "%zd%c", &num, &c);
-	free(buf);
+	cb_free(buf);
 	if (scanned == 1) {
 		size_t const_id = const_int(state, num);
 		APPEND1(OP_LOAD_CONST, const_id);
@@ -2465,12 +2466,12 @@ static int compile_double_expression(struct cstate *state)
 	/* FIXME: find way to parse double from non-null-terminated string
 	 * This allocation should not be necessary */
 	len = tok_len(&tok);
-	buf = malloc(len + 1);
+	buf = cb_malloc(len + 1);
 	memcpy(buf, tok_start(state, &tok), len);
 	buf[len] = 0;
 
 	val = strtod(buf, NULL);
-	free(buf);
+	cb_free(buf);
 
 	size_t const_id = const_double(state, val);
 	APPEND1(OP_LOAD_CONST, const_id);
@@ -2516,7 +2517,7 @@ static int compile_string_expression(struct cstate *state)
 	tok = EXPECT(TOK_STRING);
 	toklen = tok_len(&tok) - 2;
 	lit = tok_start(state, &tok) + 1;
-	str = malloc(toklen + 1);
+	str = cb_malloc(toklen + 1);
 
 	for (i = len = 0; i < toklen; i += 1) {
 		if (lit[i] != '\\') {
@@ -2528,7 +2529,7 @@ static int compile_string_expression(struct cstate *state)
 	str[len] = 0;
 
 	id = cb_agent_intern_string(str, len);
-	free(str);
+	cb_free(str);
 
 	APPEND1(OP_CONST_STRING, id);
 
@@ -3084,7 +3085,7 @@ static int read_file(FILE *f, char **out, size_t *filesize_out)
 	filesize = ftell(f);
 	HANDLE_ERROR(fseek(f, 0, SEEK_SET), perror("fseek"));
 
-	*out = malloc(sizeof(char) * filesize + 1);
+	*out = cb_malloc(sizeof(char) * filesize + 1);
 	fread(*out, sizeof(char), filesize, f);
 	(*out)[filesize] = 0;
 	if (filesize_out)
@@ -3096,7 +3097,7 @@ static int read_file(FILE *f, char **out, size_t *filesize_out)
 
 error:
 	if (*out)
-		free(*out);
+		cb_free(*out);
 epilogue:
 	if (f)
 		fclose(f);
@@ -3142,7 +3143,7 @@ int cb_compile_file(cb_modspec *module, FILE *f)
 	X(read_file(f, &input, &input_size));
 
 	result = cb_compile_string(module, input, input_size);
-	free(input);
+	cb_free(input);
 
 	return result;
 }

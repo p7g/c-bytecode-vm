@@ -12,7 +12,7 @@ static void struct_spec_deinit(void *obj)
 {
 	struct cb_struct_spec *spec = (struct cb_struct_spec *) obj;
 	if (spec->methods)
-		free(spec->methods);
+		cb_free(spec->methods);
 }
 
 struct cb_struct_spec *cb_struct_spec_new(size_t name, size_t nfields,
@@ -20,13 +20,13 @@ struct cb_struct_spec *cb_struct_spec_new(size_t name, size_t nfields,
 {
 	struct cb_struct_spec *spec;
 
-	spec = cb_malloc(sizeof(struct cb_struct_spec)
+	spec = cb_gc_alloc(sizeof(struct cb_struct_spec)
 			+ sizeof(size_t) * nfields, struct_spec_deinit);
 	spec->name = name;
 	spec->nfields = nfields;
 	spec->nmethods = nmethods;
 	if (nmethods > 0)
-		spec->methods = calloc(nmethods, sizeof(struct cb_method));
+		spec->methods = cb_calloc(nmethods, sizeof(struct cb_method));
 	else
 		spec->methods = NULL;
 
@@ -73,7 +73,7 @@ struct cb_struct *cb_struct_spec_instantiate(struct cb_struct_spec *spec)
 	struct cb_struct *val;
 	size_t i;
 
-	val = cb_malloc(sizeof(struct cb_struct) +
+	val = cb_gc_alloc(sizeof(struct cb_struct) +
 			spec->nfields * sizeof(struct cb_value), NULL);
 	val->spec = spec;
 

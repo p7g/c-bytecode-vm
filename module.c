@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "agent.h"
+#include "alloc.h"
 #include "code.h"
 #include "cb_util.h"
 #include "module.h"
@@ -20,7 +21,7 @@ struct modspec *cb_modspec_new(size_t name)
 {
 	struct modspec *spec;
 
-	spec = malloc(sizeof(struct modspec));
+	spec = cb_malloc(sizeof(struct modspec));
 	spec->id = cb_agent_reserve_modspec_id();
 	spec->name = name;
 	spec->exports = NULL;
@@ -35,8 +36,8 @@ void cb_modspec_free(struct modspec *spec)
 {
 	cb_agent_clear_modspec(spec);
 	if (spec->exports)
-		free(spec->exports);
-	free(spec);
+		cb_free(spec->exports);
+	cb_free(spec);
 }
 
 CB_INLINE size_t cb_modspec_id(const struct modspec *spec)
