@@ -74,7 +74,7 @@ void cb_vm_grow_modules_array()
 
 static void add_upvalue(struct cb_upvalue *uv)
 {
-	if (cb_vm_state.upvalues_idx >= cb_vm_state.upvalues_size) {
+	if (CB_UNLIKELY(cb_vm_state.upvalues_idx >= cb_vm_state.upvalues_size)) {
 		cb_vm_state.upvalues_size <<= 1;
 		cb_vm_state.upvalues = realloc(cb_vm_state.upvalues,
 				cb_vm_state.upvalues_size
@@ -85,7 +85,7 @@ static void add_upvalue(struct cb_upvalue *uv)
 
 CB_INLINE struct cb_value cb_load_upvalue(struct cb_upvalue *uv)
 {
-	if (uv->is_closed)
+	if (CB_UNLIKELY(uv->is_closed))
 		return uv->v.value;
 
 	return cb_vm_state.stack[uv->v.idx];
@@ -93,7 +93,7 @@ CB_INLINE struct cb_value cb_load_upvalue(struct cb_upvalue *uv)
 
 CB_INLINE void cb_store_upvalue(struct cb_upvalue *uv, struct cb_value val)
 {
-	if (uv->is_closed) {
+	if (CB_UNLIKELY(uv->is_closed)) {
 		uv->v.value = val;
 		return;
 	}
@@ -105,8 +105,11 @@ static int cb_eval(struct cb_frame *frame);
 
 void ensure_stack(size_t needed_size, size_t sp)
 {
-	if (cb_vm_state.stack_size < sp + needed_size) {
+	if (CB_UNLIKELY(cb_vm_state.stack_size < sp + needed_size)) {
 		cb_vm_state.stack_size = sp + needed_size;
+		while (cb_vm_state.stack_size < sp + needed_size) {
+			cb_vm_state.stack_size <<= 1;
+		}
 		cb_vm_state.stack = realloc(cb_vm_state.stack,
 				cb_vm_state.stack_size * sizeof(struct cb_value));
 	}
@@ -147,7 +150,7 @@ static CB_INLINE int do_call(unsigned short num_args, struct cb_frame *frame,
 
 	func_val = *(*sp - num_args - 1);
 
-	if (func_val.type != CB_VALUE_FUNCTION) {
+	if (CB_UNLIKELY(func_val.type != CB_VALUE_FUNCTION)) {
 		struct cb_value err;
 		cb_value_from_fmt(&err, "Value of type '%s' is not callable\n",
 				cb_value_type_friendly_name(func_val.type));
@@ -156,7 +159,7 @@ static CB_INLINE int do_call(unsigned short num_args, struct cb_frame *frame,
 	}
 
 	func = func_val.val.as_function;
-	if (func->arity > num_args) {
+	if (CB_UNLIKELY(func->arity > num_args)) {
 		cb_str s = cb_agent_get_string(func->name);
 		struct cb_value err;
 		cb_value_from_fmt(&err, "Too few arguments to function '%s'\n",
@@ -171,7 +174,7 @@ static CB_INLINE int do_call(unsigned short num_args, struct cb_frame *frame,
 	next_frame.num_args = num_args;
 	next_frame.bp = old_sp - num_args - 1;
 
-	if (func->type == CB_FUNCTION_NATIVE) {
+	if (CB_UNLIKELY(func->type == CB_FUNCTION_NATIVE)) {
 		/* FIXME: somehow get module ID of native func */
 		next_frame.module_id = (size_t) -1;
 		next_frame.code = NULL;
@@ -213,7 +216,7 @@ int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 	struct cb_user_function *user_func;
 	cb_native_function *native_func;
 
-	if (fn.type != CB_VALUE_FUNCTION) {
+	if (CB_UNLIKELY(fn.type != CB_VALUE_FUNCTION)) {
 		struct cb_value err;
 		cb_value_from_fmt(&err, "Value of type '%s' is not callable",
 				cb_value_type_friendly_name(fn.type));
@@ -221,7 +224,7 @@ int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		return -1;
 	}
 
-	if (fn.val.as_function->type == CB_FUNCTION_USER) {
+	if (CB_LIKELY(fn.val.as_function->type == CB_FUNCTION_USER)) {
 		struct cb_module *module;
 
 		user_func = &fn.val.as_function->value.as_user;
@@ -242,7 +245,7 @@ int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		frame.module_id = cb_modspec_id(user_func->code->modspec);
 		frame.bp = bp;
 		module = &cb_vm_state.modules[frame.module_id];
-		if (cb_module_is_zero(*module))
+		if (CB_UNLIKELY(cb_module_is_zero(*module)))
 			init_module(module, user_func->code->modspec);
 
 		ret = cb_eval(&frame);
@@ -333,7 +336,7 @@ static int method_caller(size_t argc, struct cb_value *argv,
 	return failed;
 }
 
-static void set_upvalue(struct cb_upvalue **uv, struct cb_value value)
+static CB_INLINE void set_upvalue(struct cb_upvalue **uv, struct cb_value value)
 {
 	(*uv) = malloc(sizeof(struct cb_upvalue));
 	(*uv)->refcount = 1;
@@ -363,6 +366,9 @@ static struct cb_value make_method_caller(struct cb_value receiver,
 
 int eval_depth = 0;
 
+uint64_t op_pairs[OP_MAX][OP_MAX] = {0};
+
+
 static int cb_eval(struct cb_frame *frame)
 {
 #define TABLE_ENTRY(OP) &&DO_##OP,
@@ -378,11 +384,14 @@ static int cb_eval(struct cb_frame *frame)
 # define DEBUG_STATE()
 #endif
 
+	uint8_t prev = 255;
 #define NEXT() (*ip++)
 #define DISPATCH() ({ \
 		DEBUG_STATE(); \
 		op.as_size_t = NEXT(); \
 		assert(op.unary.op < OP_MAX); \
+		if (prev != 255) op_pairs[prev][op.unary.op]++; \
+		prev = op.unary.op; \
 		goto *dispatch_table[op.unary.op]; \
 	})
 #define ARG (op.unary.arg)
@@ -391,7 +400,7 @@ static int cb_eval(struct cb_frame *frame)
 
 #define RET_WITH_TRACE() ({ \
 		cb_traceback_add_frame(frame, ip - 1 - bytecode); \
-		if (try_stack != try_stack_base) { \
+		if (CB_UNLIKELY(try_stack != try_stack_base)) { \
 			ip = bytecode + try_stack[-1]; \
 			retval = 0; \
 			DISPATCH(); \
@@ -423,7 +432,7 @@ static int cb_eval(struct cb_frame *frame)
 	struct cb_value *stack = cb_vm_state.stack;
 	struct cb_value *bp = stack + frame->bp;
 	struct cb_value *sp = bp + frame->is_function + frame->num_args;
-	cb_instruction *bytecode = frame->code->bytecode;
+	cb_instruction *bytecode = __builtin_assume_aligned(frame->code->bytecode, 64);
 	cb_instruction *ip = bytecode;
 	int retval = 0;
 	struct cb_const *consts = frame->code->const_pool;
@@ -438,7 +447,7 @@ static int cb_eval(struct cb_frame *frame)
 	frame->parent = cb_vm_state.frame;
 	cb_vm_state.frame = frame;
 
-	if (++eval_depth >= 1000) {
+	if (CB_UNLIKELY(++eval_depth >= 1000)) {
 		ERROR("Stack overflow");
 	}
 
@@ -449,7 +458,7 @@ DO_OP_HALT:
 end:
 	eval_depth -= 1;
 	cb_vm_state.frame = cb_vm_state.frame->parent;
-	if (retval && !cb_vm_state.frame) {
+	if (CB_UNLIKELY(retval && !cb_vm_state.frame)) {
 		fprintf(stderr, "Traceback (most recent call last):\n");
 		struct cb_traceback *tb;
 		for (tb = cb_error_tb(); tb; tb = tb->next)
@@ -560,7 +569,7 @@ DO_OP_MOD: {
 	struct cb_value a, b, result;
 	b = POP();
 	a = POP();
-	if (a.type != CB_VALUE_INT || b.type != CB_VALUE_INT)
+	if (CB_UNLIKELY(a.type != CB_VALUE_INT || b.type != CB_VALUE_INT))
 		ERROR("Operands to '%%' must be integers\n");
 	result.type = CB_VALUE_INT;
 	result.val.as_int = a.val.as_int % b.val.as_int;
@@ -610,7 +619,7 @@ DO_OP_JUMP_IF_FALSE: {
 }
 
 DO_OP_CALL_METHOD:
-	if (do_call(ARG, frame, &stack, &bp, &sp)) {
+	if (CB_UNLIKELY(do_call(ARG, frame, &stack, &bp, &sp))) {
 		retval = 1;
 		RET_WITH_TRACE();
 	}
@@ -621,7 +630,7 @@ DO_OP_CALL_METHOD:
 	DISPATCH();
 
 DO_OP_CALL:
-	if (do_call(ARG, frame, &stack, &bp, &sp)) {
+	if (CB_UNLIKELY(do_call(ARG, frame, &stack, &bp, &sp))) {
 		retval = 1;
 		RET_WITH_TRACE();
 	}
@@ -678,12 +687,13 @@ DO_OP_LOAD_GLOBAL: {
 
 	struct cb_load_global_cache *ic = &CACHE().load_global;
 	/* non-zero version means that there is a cache. */
-	if (ic->version != 0 && ic->version == cb_hashmap_version(GLOBALS())) {
+	if (CB_LIKELY(ic->version != 0
+				&& ic->version == cb_hashmap_version(GLOBALS()))) {
 		value = cb_hashmap_get_index(GLOBALS(), ic->index);
 	} else {
 		int empty;
 		ssize_t idx = cb_hashmap_find(GLOBALS(), id, &empty);
-		if (empty) {
+		if (CB_UNLIKELY(empty)) {
 			cb_str s = cb_agent_get_string(id);
 			ERROR("Unbound global '%s'", cb_strptr(&s));
 		}
@@ -713,13 +723,14 @@ DO_OP_STORE_GLOBAL: {
 	id = ARG;
 
 	struct cb_load_global_cache *ic = &CACHE().load_global;
-	if (ic->version != 0 && ic->version == cb_hashmap_version(GLOBALS())) {
+	if (CB_LIKELY(ic->version != 0
+				&& ic->version == cb_hashmap_version(GLOBALS()))) {
 		cb_hashmap_set_index(GLOBALS(), ic->index, TOP());
 	} else {
 		int empty;
 		ssize_t idx = cb_hashmap_find(GLOBALS(), id, &empty);
 		/* ignore storing globals that haven't been declared */
-		if (!empty) {
+		if (CB_LIKELY(!empty)) {
 			ic->index = idx;
 			ic->version = cb_hashmap_version(GLOBALS());
 			cb_hashmap_set_index(GLOBALS(), idx, TOP());
@@ -737,8 +748,8 @@ DO_OP_BIND_LOCAL: {
 	size_t idx = LOCAL_IDX(ARG2);
 
 	func = POP();
-	if (func.type != CB_VALUE_FUNCTION
-			|| func.val.as_function->type != CB_FUNCTION_USER)
+	if (CB_UNLIKELY(func.type != CB_VALUE_FUNCTION
+			|| func.val.as_function->type != CB_FUNCTION_USER))
 		ERROR("Can only bind upvalues to user functions");
 
 	uv = NULL;
@@ -777,8 +788,6 @@ DO_OP_BIND_UPVALUE: {
 	self = bp;
 	assert(CB_VALUE_IS_USER_FN(self));
 	func = &TOP();
-	if (!CB_VALUE_IS_USER_FN(func))
-		ERROR("Can only bind upvalues to user functions");
 
 	cb_function_add_upvalue(func->val.as_function, dest_idx,
 		self->val.as_function->upvalues[upvalue_idx]);
@@ -828,7 +837,7 @@ DO_OP_LOAD_FROM_MODULE: {
 
 	struct cb_load_from_module_cache *ic = &CACHE().load_from_module;
 
-	if (ic->version == 0) {
+	if (CB_UNLIKELY(ic->version == 0)) {
 		int empty;
 		export_name = cb_modspec_get_export_name(mod->spec, export_id);
 		idx = cb_hashmap_find(mod->global_scope, export_name, &empty);
@@ -863,28 +872,37 @@ DO_OP_NEW_ARRAY_WITH_VALUES: {
 
 #define EXPECT_INT_INDEX(V) ({ \
 		struct cb_value v = (V); \
-		if (v.type != CB_VALUE_INT) \
+		if (CB_UNLIKELY(v.type != CB_VALUE_INT)) \
 			ERROR("Array index must be integer, got %s", \
 					cb_value_type_friendly_name(v.type)); \
-		else if (v.val.as_int < 0) \
+		else if (CB_UNLIKELY(v.val.as_int < 0)) \
 			ERROR("Array index must be positive or 0."); \
 		v.val.as_int; \
 	})
 #define ARRAY_PTR(ARR, IDX) ({ \
 		struct cb_value _arr = (ARR); \
-		if (_arr.type != CB_VALUE_ARRAY) \
+		if (CB_UNLIKELY(_arr.type != CB_VALUE_ARRAY)) \
 			ERROR("Can only index arrays, got %s", \
 					cb_value_type_friendly_name(_arr.type)); \
-		size_t _idx = EXPECT_INT_INDEX(IDX); \
-		if (_idx >= _arr.val.as_array->len) \
+		size_t _idx = (IDX); \
+		if (CB_UNLIKELY(_idx >= _arr.val.as_array->len)) \
 			ERROR("Index %zu greater than array length %zu", \
 					_idx, _arr.val.as_array->len); \
 		&_arr.val.as_array->values[_idx]; \
 	})
 
 DO_OP_ARRAY_GET: {
-	struct cb_value arr, idx, val;
-	idx = POP();
+	struct cb_value arr, val;
+	size_t idx = EXPECT_INT_INDEX(POP());
+	arr = POP();
+	val = *ARRAY_PTR(arr, idx);
+	PUSH(val);
+	DISPATCH();
+}
+
+DO_OP_ARRAY_GET_CONST: {
+	struct cb_value arr, val;
+	size_t idx = ARG;
 	arr = POP();
 	val = *ARRAY_PTR(arr, idx);
 	PUSH(val);
@@ -892,9 +910,10 @@ DO_OP_ARRAY_GET: {
 }
 
 DO_OP_ARRAY_SET: {
-	struct cb_value arr, idx, val;
+	struct cb_value arr, val;
+	size_t idx;
 	val = POP();
-	idx = POP();
+	idx = EXPECT_INT_INDEX(POP());
 	arr = POP();
 	*ARRAY_PTR(arr, idx) = val;
 	PUSH(val);
@@ -927,7 +946,7 @@ DO_OP_NOT_EQUAL: {
 #define CMP(A, B) ({ \
 		int _ok; \
 		double _result = cb_value_cmp(&(A), &(B), &_ok); \
-		if (!_ok) \
+		if (CB_UNLIKELY(!_ok)) \
 			ERROR("Cannot compare values of types %s and %s", \
 					cb_value_type_friendly_name((A).type), \
 					cb_value_type_friendly_name((B).type)); \
@@ -988,10 +1007,10 @@ DO_OP_GREATER_THAN_EQUAL: {
 		struct cb_value a, b, result; \
 		b = POP(); \
 		a = POP(); \
-		if (a.type != CB_VALUE_INT) \
+		if (CB_UNLIKELY(a.type != CB_VALUE_INT)) \
 			ERROR("Bitwise operands must be integers, got %s", \
 					cb_value_type_friendly_name(a.type)); \
-		if (b.type != CB_VALUE_INT) \
+		if (CB_UNLIKELY(b.type != CB_VALUE_INT)) \
 			ERROR("Bitwise operands must be integers, got %s", \
 					cb_value_type_friendly_name(b.type)); \
 		result.type = CB_VALUE_INT; \
@@ -1014,7 +1033,7 @@ DO_OP_BITWISE_XOR:
 DO_OP_BITWISE_NOT: {
 	struct cb_value a;
 	a = POP();
-	if (a.type != CB_VALUE_INT)
+	if (CB_UNLIKELY(a.type != CB_VALUE_INT))
 		ERROR("Bitwise operands must be integers, got %s",
 				cb_value_type_friendly_name(a.type));
 	a.val.as_int = ~a.val.as_int;
@@ -1092,7 +1111,7 @@ DO_OP_SET_METHOD: {
 DO_OP_LOAD_METHOD: {
 	size_t method_name = ARG;
 	struct cb_value recv = TOP();
-	if (recv.type != CB_VALUE_STRUCT)
+	if (CB_UNLIKELY(recv.type != CB_VALUE_STRUCT))
 		ERROR("Cannot get method of non-struct type %s",
 				cb_value_type_friendly_name(recv.type));
 
@@ -1102,12 +1121,12 @@ DO_OP_LOAD_METHOD: {
 	struct cb_function *method = cb_struct_spec_get_method(spec, method_name);
 
 	struct cb_value funcval;
-	if (method) {
+	if (CB_LIKELY(method)) {
 		funcval.type = CB_VALUE_FUNCTION;
 		funcval.val.as_function = method;
 	} else {
 		struct cb_value *field = cb_struct_get_field(s, method_name, NULL);
-		if (!field) {
+		if (CB_UNLIKELY(!field)) {
 			cb_str spec_name_str, method_name_str;
 			spec_name_str = cb_agent_get_string(spec->name);
 			method_name_str = cb_agent_get_string(method_name);
@@ -1130,7 +1149,7 @@ DO_OP_LOAD_THIS:
 DO_OP_LOAD_STRUCT: {
 	size_t fname = ARG;
 	struct cb_value recv = POP();
-	if (recv.type != CB_VALUE_STRUCT)
+	if (CB_UNLIKELY(recv.type != CB_VALUE_STRUCT))
 		ERROR("Cannot get field of non-struct type %s",
 				cb_value_type_friendly_name(recv.type));
 	struct cb_struct *s = recv.val.as_struct;
@@ -1138,8 +1157,8 @@ DO_OP_LOAD_STRUCT: {
 	struct cb_load_struct_cache *ic = &CACHE().load_struct;
 
 	struct cb_value *val;
-	if (ic->spec != NULL) {
-		if (ic->spec == s->spec) {
+	if (CB_LIKELY(ic->spec != NULL)) {
+		if (CB_LIKELY(ic->spec == s->spec)) {
 			val = &s->fields[ic->index];
 			PUSH(*val);
 			DISPATCH();
@@ -1151,12 +1170,12 @@ DO_OP_LOAD_STRUCT: {
 	ssize_t idx;
 	val = cb_struct_get_field(s, fname, &idx);
 	struct cb_value result;
-	if (val) {
+	if (CB_LIKELY(val)) {
 		result = *val;
 	} else {
 		struct cb_function *method =
 			cb_struct_spec_get_method(s->spec, fname);
-		if (method == NULL) {
+		if (CB_UNLIKELY(method == NULL)) {
 			cb_str fname_str, specname_str;
 
 			fname_str = cb_agent_get_string(fname);
@@ -1167,7 +1186,7 @@ DO_OP_LOAD_STRUCT: {
 		}
 		result = make_method_caller(recv, method);
 	}
-	if (ic->index != -1) {
+	if (CB_LIKELY(ic->index != -1)) {
 		ic->spec = s->spec;
 		ic->index = idx;
 	}
@@ -1179,13 +1198,13 @@ DO_OP_LOAD_STRUCT: {
 	size_t fname = ARG; \
 	struct cb_value val = POP(); \
 	struct cb_value recv = POP(); \
-	if (recv.type != CB_VALUE_STRUCT) \
+	if (CB_UNLIKELY(recv.type != CB_VALUE_STRUCT)) \
 		ERROR("Cannot set field of non-struct type %s", \
 				cb_value_type_friendly_name(recv.type)); \
 	struct cb_struct *s = recv.val.as_struct; \
 	struct cb_load_struct_cache *ic = &CACHE().load_struct; \
-	if (ic->spec != NULL) { \
-		if (ic->spec == s->spec) { \
+	if (CB_LIKELY(ic->spec != NULL)) { \
+		if (CB_LIKELY(ic->spec == s->spec)) { \
 			s->fields[ic->index] = val; \
 			PUSH(RET); \
 			DISPATCH(); \
@@ -1195,7 +1214,7 @@ DO_OP_LOAD_STRUCT: {
 		ic->index = -1; \
 	} \
 	ssize_t idx; \
-	if (cb_struct_set_field(s, fname, val, &idx)) { \
+	if (CB_UNLIKELY(cb_struct_set_field(s, fname, val, &idx))) { \
 		cb_str _fname_str, _specname_str; \
 		_fname_str = cb_agent_get_string(fname); \
 		_specname_str = cb_agent_get_string(s->spec->name); \
@@ -1203,7 +1222,7 @@ DO_OP_LOAD_STRUCT: {
 				cb_strptr(&_fname_str), \
 				cb_strptr(&_specname_str)); \
 	} \
-	if (ic->index != -1) { \
+	if (CB_LIKELY(ic->index != -1)) { \
 		ic->spec = s->spec; \
 		ic->index = idx; \
 	} \
@@ -1228,7 +1247,7 @@ DO_OP_STORE_STRUCT: {
 DO_OP_NEW_STRUCT: {
 	struct cb_value struct_obj;
 	struct cb_value spec_obj = POP();
-	if (spec_obj.type != CB_VALUE_STRUCT_SPEC) {
+	if (CB_UNLIKELY(spec_obj.type != CB_VALUE_STRUCT_SPEC)) {
 		ERROR("Cannot instantiate struct from %s object",
 				cb_value_type_friendly_name(spec_obj.type));
 	}
@@ -1289,7 +1308,7 @@ DO_OP_IMPORT_MODULE: {
 	code = cb_modspec_code(modspec);
 	mod_id = cb_modspec_id(modspec);
 	mod = &cb_vm_state.modules[mod_id];
-	if (mod->evaluated) {
+	if (CB_LIKELY(mod->evaluated)) {
 		DISPATCH();
 	}
 
@@ -1327,6 +1346,7 @@ DO_OP_APPLY_DEFAULT_ARG: {
 	if (frame->num_args > param_num)
 		ip = bytecode + next_param_addr;
 	DISPATCH();
+}
 
 DO_OP_THROW: {
 	struct cb_value err;
@@ -1354,7 +1374,6 @@ DO_OP_CATCH: {
 	cb_error_recover();
 	PUSH(err);
 	DISPATCH();
-}
 }
 
 #undef CACHE

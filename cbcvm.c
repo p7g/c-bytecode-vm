@@ -13,6 +13,7 @@
 #include "eval.h"
 #include "gc.h"
 #include "intrinsics.h"
+#include "opcode.h"
 #include "str.h"
 #include "repl.h"
 #include "value.h"
@@ -161,6 +162,15 @@ int main(int argc, char **argv) {
 	// puts("nops:");
 	// for (int i = 0; i < OP_MAX; i += 1)
 	// 	printf("\t%24s: %zu\n", cb_opcode_name(i), cb_metrics.nops[i]);
+	for (int i = 0; i < OP_MAX; i++) {
+		for (int j = 0; j < OP_MAX; j++) {
+			if (op_pairs[i][j] == 0)
+				continue;
+			fprintf(stderr, "%s, %s: %llu\n", cb_opcode_name(i),
+					cb_opcode_name(j),
+					op_pairs[i][j]);
+		}
+	}
 
 	return result;
 }

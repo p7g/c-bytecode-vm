@@ -1,0 +1,27 @@
+struct Transformation {
+    q, r, s, t, k,
+
+    next,
+    extract,
+    compose,
+    qrst,
+}
+
+function new_transformation(q, r, s, t) {
+    let self = Transformation { q=q, r=r, s=s, t=t, k=0 };
+
+    self:next = function next(self) {
+        self:q = self:k = self:k + 1;
+    };
+
+    self:extract = function extract(self, j) {
+    };
+
+    self:compose = function compose(self, a) {
+    };
+
+    self:qrst = function qrst(self, q, r, s, t) {
+    };
+
+    return self;
+}

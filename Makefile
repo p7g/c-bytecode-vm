@@ -4,7 +4,7 @@ LDLIBS+=-lm -lreadline vendor/utf8proc/libutf8proc.a
 SANITIZERS+=address,undefined
 
 ifeq ($(TARGET),release)
-	CFLAGS+=-DNDEBUG -O3 -flto
+	CFLAGS+=-DNDEBUG -O3 -flto -fomit-frame-pointer -fno-asynchronous-unwind-tables -march=native
 else ifeq ($(TARGET),profile)
 	CFLAGS+=-DPROFILE -pg -O3 -flto --coverage
 endif
@@ -37,15 +37,17 @@ vendor/utf8proc/libutf8proc.a:
 
 # Generate a release binary using profile-guided optimization
 profile-opt:
-	CFLAGS='-fprofile-generate' $(MAKE) clean cbcvm TARGET=release
-	./cbcvm bf.cb bench.b
-	$(MAKE) clean
-	CFLAGS='-fprofile-use -fprofile-correction' $(MAKE) TARGET=release
+	CFLAGS='-fprofile-instr-generate' $(MAKE) clean cbcvm TARGET=release
+	LLVM_PROFILE_FILE='default_%p_%m.profraw' ./cbcvm bench/bf.cb bench/bench.b
+	llvm-profdata merge -o default.profdata default_*.profraw
+	rm cbcvm
+	CFLAGS='-fprofile-instr-use=default.profdata' $(MAKE) TARGET=release
 	find . -name '*.gcda' -delete
+	rm -f default_*.profraw default.profdata
 
 clean:
 	[ -f cbcvm ] && rm cbcvm || true
-	-rm $(OBJ) $(DEP)
+	-rm -f $(OBJ) $(DEP)
 	find . \( -name '*.gcda' -o -name '*.gcno' -o -name 'gmon.out' \) -delete
 	$(MAKE) -C vendor/utf8proc clean
 

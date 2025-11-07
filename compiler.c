@@ -684,7 +684,11 @@ static cb_instruction *bytecode_finalize(struct cb_bytecode *bc, size_t *len)
 		bc->label_addresses = NULL;
 	}
 	*len = bc->len;
-	cb_instruction *code = realloc(bc->code, bc->len * sizeof(cb_instruction));
+	cb_instruction *code;
+	posix_memalign((void**) &code, 64, bc->len * sizeof(cb_instruction));
+	memcpy(code, bc->code, bc->len * sizeof(cb_instruction));
+
+	free(bc->code);
 	bc->code = NULL;
 	bc->label_addr_size = bc->label_addr_len = 0;
 
@@ -1393,9 +1397,7 @@ static int compile_assignment_pattern(struct cstate *state,
 	case PATTERN_ARRAY:
 		for (i = 0; i < pat->p.array.nassigns; i += 1) {
 			APPEND(OP_DUP);
-			size_t const_id = const_int(state, i);
-			APPEND1(OP_LOAD_CONST, const_id);
-			APPEND(OP_ARRAY_GET);
+			APPEND1(OP_ARRAY_GET_CONST, i);
 			X(declare_name(state, pat->p.array.name_ids[i], export));
 		}
 		APPEND(OP_POP);
@@ -2612,9 +2614,7 @@ static int compile_array_expression(struct cstate *state)
 		X(compile_expression(state));
 		for (i = 0; i < pat.p.array.nassigns; i += 1) {
 			APPEND(OP_DUP);
-			size_t const_id = const_int(state, i);
-			APPEND1(OP_LOAD_CONST, const_id);
-			APPEND(OP_ARRAY_GET);
+			APPEND1(OP_ARRAY_GET_CONST, i);
 			X(store_name(state, pat.p.array.name_ids[i]));
 			APPEND(OP_POP);
 		}

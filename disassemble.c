@@ -141,7 +141,8 @@ int cb_disassemble_one(cb_instruction instruction, size_t offset)
 	case OP_CALL:
 	case OP_CALL_METHOD:
 	case OP_IMPORT_MODULE:
-	case OP_PUSH_TRY: {
+	case OP_PUSH_TRY:
+	case OP_ARRAY_GET_CONST: {
 		printf("%s(%zu)\n", cb_opcode_name(op), arg);
 		return 0;
 	}

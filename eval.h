@@ -6,6 +6,7 @@
 #include "code.h"
 #include "compiler.h"
 #include "gc.h"
+#include "opcode.h"
 #include "hashmap.h"
 #include "value.h"
 
@@ -70,5 +71,7 @@ int cb_vm_call(struct cb_value fn, struct cb_value *args, size_t args_len,
 		struct cb_value *result);
 struct cb_value cb_load_upvalue(struct cb_upvalue *uv);
 void cb_store_upvalue(struct cb_upvalue *uv, struct cb_value val);
+
+uint64_t op_pairs[OP_MAX][OP_MAX];
 
 #endif

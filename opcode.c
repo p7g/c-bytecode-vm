@@ -95,6 +95,7 @@ int cb_opcode_stack_effect(const cb_instruction instruction)
 	case OP_POP_TRY:
 	case OP_INC:
 	case OP_DEC:
+	case OP_ARRAY_GET_CONST:
 		return 0;
 
 	case OP_ALLOCATE_LOCALS:

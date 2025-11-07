@@ -1,0 +1,92 @@
+import array;
+import string;
+
+let IM = 139968,
+    IA = 3877,
+    IC = 29573,
+    SEED = 42;
+
+let seed = SEED;
+
+function fasta_rand(max) {
+    seed = (seed * IA + IC) % IM;
+    return max * seed / IM;
+}
+
+let ALU = string.chars(string.concat(
+    "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG",
+    "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA",
+    "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT",
+    "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA",
+    "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG",
+    "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC",
+    "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA",
+));
+
+let IUB = string.chars("acgtBDHKMNRSVWY");
+
+let IUB_P = [
+   0.27, 0.12, 0.12, 0.27, 
+   0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02 
+];
+
+let HomoSapiens = string.chars("acgt");
+let HomoSapiens_P = [
+   0.3029549426680,
+   0.1979883004921,
+   0.1975473066391,
+   0.3015094502008,
+];
+
+let LINELEN = 60;
+
+function repeat_fasta(seq, n) {
+    let length = array.length(seq);
+    let b = array.new(LINELEN);
+    let i;
+    for (i = 0; i < n; i = i + 1) {
+        b[i % LINELEN] = seq[i % length];
+        if (i % LINELEN == LINELEN - 1) {
+            println(string.from_chars(b));
+        }
+    }
+    if (i % LINELEN != 0) {
+        println(string.from_chars(array.slice(b, 0, i % LINELEN)));
+    }
+}
+
+function random_fasta(seq, probability, n) {
+    let length = array.length(seq);
+    let i;
+    let b = array.new(LINELEN);
+    for (i = 0; i < n; i = i + 1) {
+        let v = fasta_rand(1.0);
+        for (let j = 0; j < length; j = j + 1) {
+            v = v - probability[j];
+            if (v < 0) {
+                break;
+            }
+        }
+        b[i % LINELEN] = seq[j];
+        if (i % LINELEN == LINELEN - 1) {
+            println(string.from_chars(b));
+        }
+    }
+    if (i % LINELEN != 0) {
+        println(string.from_chars(array.slice(b, 0, i % LINELEN)));
+    }
+}
+
+let n = 1000;
+if (array.length(argv())) {
+    n = string.parse_integer(argv()[0]);
+}
+
+println(">ONE Homo sapiens alu");
+repeat_fasta(ALU, n * 2);
+
+println(">TWO IUB ambiguity codes");
+random_fasta(IUB, IUB_P, n * 3);
+
+println(">THREE Homo sapiens frequency");
+random_fasta(HomoSapiens, HomoSapiens_P, n * 5);

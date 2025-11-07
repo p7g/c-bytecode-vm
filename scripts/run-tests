@@ -12,9 +12,11 @@ import sys;
 import json;
 
 let tests_by_file = hashmap::new();
+let verbose = false;
+let xfail = false;
 
 iter::foreach(fs::directory_entries("tests"), function collect_test_modules(path) {
-    if (!string::startswith(path, "test")) {
+    if (!string::startswith(path, "test_")) {
         return;
     }
     path = path::join("tests", path);
@@ -22,7 +24,7 @@ iter::foreach(fs::directory_entries("tests"), function collect_test_modules(path
         let tests = arraylist::new();
         module::import_(path, path);
         iter::foreach(module::export_names(path), function collect_tests(export_) {
-            if (string::startswith(export_, "test")) {
+            if (string::startswith(export_, "test_")) {
                 arraylist::push(tests, export_);
             }
         });
@@ -39,19 +41,42 @@ println("Collected", ntests, "tests from", hashmap::size(tests_by_file), "module
 let failed = arraylist::new();
 
 iter::foreach(hashmap::entries(tests_by_file), function run_tests([filename, tests]) {
-    print(filename, "");
-    iter::foreach(tests, function run_test(test) {
-        test = module::get(filename, test);
+    if (verbose) {
+        println(filename);
+    } else {
+        print(filename, "");
+    }
+
+    iter::foreach(tests, function run_test(test_name) {
+        let test = module::get(filename, test_name);
+        if (verbose) {
+            print(string::concat("\t", test_name, " "));
+        }
         try {
             test();
-            print('.');
+            if (verbose) {
+                println("PASS");
+            } else {
+                print('.');
+            }
         } catch (error) {
-            print('F');
+            if (verbose) {
+                println("FAIL");
+            } else {
+                print('F');
+            }
             arraylist::push(failed, [test, error]);
+            if (xfail) {
+                return iter::STOP;
+            }
         }
     });
 
     print('\n');
+
+    if (xfail && arraylist::length(failed)) {
+        return iter::STOP;
+    }
 });
 
 println();
