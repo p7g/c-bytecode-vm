@@ -229,16 +229,16 @@ export function get(self, key) {
   let hashed = do_hash(self, key);
   let bucket = self.buckets[hashed];
 
-  if (bucket == null) {
-    return null;
-  }
-
   while (bucket != null && (bucket == TOMBSTONE || bucket.key != key)) {
     hashed = next_hash(self, hashed);
     bucket = self.buckets[hashed];
   }
 
-  return bucket.value;
+  if (bucket == null) {
+    return null;
+  } else {
+    return bucket.value;
+  }
 }
 
 doc.add("function", "get(map, key)", "Get the value associated with `key` from `map`.");
