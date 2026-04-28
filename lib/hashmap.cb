@@ -11,7 +11,126 @@ let LOAD_FACTOR = 0.7;
 let TOMBSTONE = struct {};
 
 export struct HashMap {
-  cap, load, buckets, first_insert, last_insert
+    cap, load, buckets, first_insert, last_insert,
+
+    function clear() {
+        this.buckets = array::new(this.cap);
+        this.first_insert = this.last_insert = null;
+        this.load = 0;
+    }
+
+    function get(key, default=null) {
+        let hashed = do_hash(this, key);
+        let bucket = this.buckets[hashed];
+
+        while (bucket != null && (bucket == TOMBSTONE || bucket.key != key)) {
+            hashed = next_hash(this, hashed);
+            bucket = this.buckets[hashed];
+        }
+
+        if (bucket == null) {
+            return default;
+        } else {
+            return bucket.value;
+        }
+    }
+
+    function set(key, value) {
+        let hashed = do_hash(this, key);
+
+        let bucket;
+        while (true) {
+            bucket = this.buckets[hashed];
+            if (bucket == null || bucket == TOMBSTONE || bucket.key == key) {
+                break;
+            }
+            hashed = next_hash(this, hashed);
+        }
+
+        if (bucket && bucket != TOMBSTONE) {
+            bucket.value = value;
+        } else {
+            let bucket = Bucket { key=key, value=value, prev=this.last_insert };
+            this.buckets[hashed] = bucket;
+            if (!this.first_insert) {
+                this.first_insert = this.last_insert = bucket;
+            } else {
+                this.last_insert.next = bucket;
+                this.last_insert = bucket;
+            }
+            this.load += 1;
+
+            if (this.load / this.cap > LOAD_FACTOR) {
+                grow(this);
+            }
+        }
+    }
+
+    function delete(key) {
+        let hashed = do_hash(this, key);
+
+        let bucket;
+        while (true) {
+            bucket = self.buckets[hashed];
+            if (!bucket) {
+                return false;
+            } else if (bucket != TOMBSTONE && bucket.key == key) {
+                break;
+            }
+            hashed = next_hash(this, hashed);
+        }
+
+        if (bucket.next) {
+            bucket.next.prev = bucket.prev;
+        } else {
+            this.last_insert = bucket.prev;
+        }
+        if (bucket.prev) {
+            bucket.prev.next = bucket.next;
+        } else {
+            this.first_insert = bucket.next;
+        }
+        this.buckets[hashed] = TOMBSTONE;
+        this.load -= 1;
+        return true;
+    }
+
+    function has(key) {
+        let hashed = do_hash(this, key);
+
+        while (true) {
+            let bucket = this.buckets[hashed];
+            if (!bucket) {
+                return false;
+            } else if (bucket != TOMBSTONE && bucket.key == key) {
+                return true;
+            }
+            hashed = next_hash(this, hashed);
+        }
+    }
+
+    function entries() {
+        return iter::iter(this);
+    }
+
+    function size() {
+        return this.load;
+    }
+
+    function keys() {
+        return iter::map(this, function ([k]) { return k; });
+    }
+
+    function values() {
+        return iter::map(this, function ([_, v]) { return v; });
+    }
+
+    function extend(entries) {
+        let self = this;
+        iter::foreach(entries, function ([k, v]) {
+            self.set(k, v);
+        });
+    }
 }
 
 struct Bucket { key, value, prev, next }
